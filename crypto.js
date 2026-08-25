@@ -57,7 +57,7 @@ export function decodeBase58(str) {
   }
 
   const bytes = [0];
-  for (let i = zeros; i < str.length; i++) {
+  for (let i = 0; i < str.length; i++) {
     const char = str[i];
     const value = BASE58_ALPHABET.indexOf(char);
     if (value === -1) {
@@ -190,7 +190,7 @@ export function deriveDidKey(publicKey) {
  * @returns {Uint8Array}
  */
 export function parseDidKey(did) {
-  if (!did.startsWith('did:key:z')) {
+  if (!did || typeof did !== 'string' || !did.startsWith('did:key:z')) {
     throw new Error('Invalid did:key format. Expected did:key:z...');
   }
   const multibase = did.slice(9); // remove 'did:key:z'
@@ -209,9 +209,63 @@ export function parseDidKey(did) {
  */
 export function sweepSingleLine(text) {
   if (!text) return '';
-  // Replace newlines and common invisible/control characters with single spaces
   let cleaned = text.replace(/[\r\n\t\x00-\x1F\x7F-\x9F\u200B-\u200F\u202A-\u202E\uFEFF]/g, ' ');
   return cleaned;
+}
+
+/**
+ * Secret shape guard:
+ * Detects whether message text contains sensitive material such as private keys, seed phrases, or raw key signatures.
+ * @param {string} text
+ * @returns {{ sensitive: boolean, reason?: string, description?: string }}
+ */
+export function detectSensitiveContent(text) {
+  if (!text || typeof text !== 'string') {
+    return { sensitive: false };
+  }
+
+  // 1. PEM private key header
+  const pemRegex = /BEGIN (?:[A-Z0-9_-]+ )?PRIVATE KEY/i;
+  if (pemRegex.test(text)) {
+    return {
+      sensitive: true,
+      reason: 'PEM private key block detected',
+      description: 'This message contains a private key header. Remove the private key text before sending.'
+    };
+  }
+
+  // 2. 64 or more consecutive hexadecimal characters (raw seed or secret key)
+  const hexRegex = /[0-9a-fA-F]{64,}/;
+  if (hexRegex.test(text)) {
+    return {
+      sensitive: true,
+      reason: 'Raw secret key or seed hex detected',
+      description: 'This message contains a 64 character or longer hex string matching a secret key or seed. Remove the raw key before sending.'
+    };
+  }
+
+  // 3. 12 or 24 space-separated lowercase words (seed phrase shape)
+  const seed12Regex = /\b(?:[a-z]{2,16}\s+){11}[a-z]{2,16}\b/i;
+  const seed24Regex = /\b(?:[a-z]{2,16}\s+){23}[a-z]{2,16}\b/i;
+  if (seed12Regex.test(text) || seed24Regex.test(text)) {
+    return {
+      sensitive: true,
+      reason: 'Seed phrase pattern detected',
+      description: 'This message matches the pattern of a 12 or 24 word seed phrase. Remove the recovery phrase before sending.'
+    };
+  }
+
+  // 4. Base64url string of 86 or more consecutive characters (raw signature or key outside allowed context)
+  const b64Regex = /[A-Za-z0-9_-]{86,}/;
+  if (b64Regex.test(text)) {
+    return {
+      sensitive: true,
+      reason: 'Long base64url key or signature detected',
+      description: 'This message contains an 86 character or longer base64url string. Remove the raw signature or key before sending.'
+    };
+  }
+
+  return { sensitive: false };
 }
 
 /**
@@ -242,11 +296,9 @@ export function restoreKeypair(inputStr, naclInstance) {
   const clean = inputStr.trim();
   let rawBytes;
 
-  // Try hex first if valid hex length
   if (/^[0-9a-fA-F]+$/.test(clean) && (clean.length === 64 || clean.length === 128)) {
     rawBytes = hexToBytes(clean);
   } else {
-    // Try base64 / base64url
     try {
       rawBytes = decodeBase64Url(clean);
     } catch {
@@ -290,4 +342,82 @@ export function signMessage(naclInstance, secretKey, room, nonce, text) {
   const sigBytes = naclInstance.sign.detached(payloadBytes, secretKey);
   const b64urlSig = encodeBase64Url(sigBytes);
   return b64urlSig;
+}
+
+/**
+ * Offline signature verifier:
+ * Validates an Ed25519 signature locally against a did:key, room, nonce, and message text.
+ * Pure local computation with zero network requests.
+ * @param {object} naclInstance
+ * @param {string} did
+ * @param {string} signature
+ * @param {string} room
+ * @param {number|string} nonce
+ * @param {string} text
+ * @returns {{ valid: boolean, error?: string }}
+ */
+export function verifyMessageSignature(naclInstance, did, signature, room, nonce, text) {
+  try {
+    if (!did || !signature || !room || nonce === undefined || nonce === null) {
+      return {
+        valid: false,
+        error: 'All fields (did:key, signature, room, nonce, and message text) are required.'
+      };
+    }
+
+    const cleanDid = did.trim();
+    const cleanSig = signature.trim();
+    const cleanRoom = (room || 'lobby').trim().toLowerCase();
+    const cleanNonce = String(nonce).trim();
+    const sweptText = sweepSingleLine(text || '');
+
+    // Extract 32-byte public key from did:key
+    let publicKey;
+    try {
+      publicKey = parseDidKey(cleanDid);
+    } catch (err) {
+      return {
+        valid: false,
+        error: 'The did:key identifier is malformed or invalid.'
+      };
+    }
+
+    // Decode 64-byte signature from base64url
+    let sigBytes;
+    try {
+      sigBytes = decodeBase64Url(cleanSig);
+      if (sigBytes.length !== 64) {
+        return {
+          valid: false,
+          error: 'The signature must be a 64 byte Ed25519 signature in unpadded base64url format.'
+        };
+      }
+    } catch (err) {
+      return {
+        valid: false,
+        error: 'The signature string is not valid base64url.'
+      };
+    }
+
+    // Form payload matching signing schema: room|nonce|sweptText
+    const payload = `${cleanRoom}|${cleanNonce}|${sweptText}`;
+    const encoder = new TextEncoder();
+    const payloadBytes = encoder.encode(payload);
+
+    const isValid = naclInstance.sign.detached.verify(payloadBytes, sigBytes, publicKey);
+
+    if (isValid) {
+      return { valid: true };
+    } else {
+      return {
+        valid: false,
+        error: 'The signature does not match this content or the did:key is malformed.'
+      };
+    }
+  } catch (err) {
+    return {
+      valid: false,
+      error: `Verification failed: ${err.message}`
+    };
+  }
 }

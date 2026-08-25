@@ -25,6 +25,7 @@
         <div class="nav-mode-selector" role="tablist">
           <button id="tab-wizard-mode" class="tab-btn active" type="button" role="tab" aria-selected="true">Guided Flow</button>
           <button id="tab-direct-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Direct Console</button>
+          <button id="tab-verifier-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Signature Verifier</button>
         </div>
         <div class="security-badge">Memory Only: Zero Storage</div>
         <div class="status-badge">
@@ -148,7 +149,7 @@
             <div class="field-group">
               <label class="field-label" for="wizard-lobby-msg">
                 <span>Introduction Message</span>
-                <span class="field-hint">Signed with your active Ed25519 key</span>
+                <span class="field-hint">Protected by secret shape guard</span>
               </label>
               <input id="wizard-lobby-msg" class="input-text" type="text" value="gm from technocore console" maxlength="200" spellcheck="false">
             </div>
@@ -388,7 +389,7 @@
             <div class="field-group">
               <label class="field-label" for="input-message">
                 <span>Message Text</span>
-                <span class="field-hint">Single line swept automatically</span>
+                <span class="field-hint">Protected by secret shape guard</span>
               </label>
               <textarea id="input-message" class="input-textarea" placeholder="Type message payload here..." rows="2"></textarea>
             </div>
@@ -450,6 +451,76 @@
       </div>
 
     </main>
+
+
+    <!-- SECTION 3: OFFLINE SIGNATURE VERIFIER -->
+    <section id="verifier-view" class="verifier-container hidden" aria-label="Offline Signature Verifier">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <h2 class="panel-title">Offline Signature Verifier</h2>
+            <span class="panel-subtitle">Pure Local Cryptographic Verification</span>
+          </div>
+          <div class="status-badge">
+            <span class="status-dot active"></span>
+            <span>Zero Network Calls</span>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <div class="verifier-intro-note">
+            A valid signature only proves whoever holds that key signed that exact text. It does not prove who they are. Verification runs entirely in your browser memory.
+          </div>
+
+          <!-- Quick parse input from room monitor -->
+          <div class="field-group">
+            <label class="field-label" for="verify-quick-input">
+              <span>Quick Paste Parser</span>
+              <span class="field-hint">Paste full message line or request URL to auto fill fields</span>
+            </label>
+            <div class="field-row">
+              <input id="verify-quick-input" class="input-text" type="text" placeholder="Paste &lt;z6Mkx...&gt; message line or /say-signed URL here" spellcheck="false">
+              <button id="btn-quick-parse" class="btn btn-secondary" type="button">Auto Parse</button>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" for="verify-did-input">Signer did:key</label>
+              <input id="verify-did-input" class="input-text" type="text" placeholder="did:key:z6Mk..." spellcheck="false">
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="verify-room-input">Room Name</label>
+              <input id="verify-room-input" class="input-text" type="text" value="lobby" maxlength="48" spellcheck="false">
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" for="verify-sig-input">Signature (Base64url 86 characters)</label>
+              <input id="verify-sig-input" class="input-text" type="text" placeholder="86 character signature string" spellcheck="false">
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="verify-nonce-input">Nonce</label>
+              <input id="verify-nonce-input" class="input-text" type="text" placeholder="Timestamp / Nonce integer" spellcheck="false">
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="verify-msg-input">Exact Message Text</label>
+            <textarea id="verify-msg-input" class="input-textarea" rows="2" placeholder="Exact payload text to verify..."></textarea>
+          </div>
+
+          <div class="btn-group">
+            <button id="btn-run-verify" class="btn btn-primary" type="button">Verify Signature Locally</button>
+            <button id="btn-clear-verify" class="btn btn-secondary" type="button">Clear Fields</button>
+          </div>
+
+          <div id="verify-result-box" class="result-callout" style="display: none;"></div>
+        </div>
+      </div>
+    </section>
+
 
     <!-- Footer with Trust Information & Links -->
     <footer class="app-footer">

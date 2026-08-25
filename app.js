@@ -1,7 +1,7 @@
 /**
  * Technocore Console Application Logic
  * Made by Asad Lee
- * Client-side control panel and guided contribution console for technocore.chat protocol
+ * Client-side control panel, secret shape guard, and offline verifier for technocore.chat protocol
  */
 
 import {
@@ -11,7 +11,9 @@ import {
   signMessage,
   sweepSingleLine,
   bytesToHex,
-  sha256Hex
+  sha256Hex,
+  detectSensitiveContent,
+  verifyMessageSignature
 } from './crypto.js';
 import { CryptoVisualizer } from './visualizer3d.js';
 
@@ -30,7 +32,7 @@ const state = {
   lastSeq: 0,
   messages: [],
   theme: 'dark',
-  activeView: 'wizard', // 'wizard' or 'direct'
+  activeView: 'wizard', // 'wizard', 'direct', or 'verifier'
 
   // Wizard tracking state
   wizard: {
@@ -103,8 +105,10 @@ function cacheElements() {
     // Navigation and theme
     tabWizardMode: document.getElementById('tab-wizard-mode'),
     tabDirectMode: document.getElementById('tab-direct-mode'),
+    tabVerifierMode: document.getElementById('tab-verifier-mode'),
     wizardView: document.getElementById('wizard-view'),
     directView: document.getElementById('direct-view'),
+    verifierView: document.getElementById('verifier-view'),
     themeToggle: document.getElementById('theme-toggle'),
 
     // Wizard Header
@@ -199,7 +203,19 @@ function cacheElements() {
     // Direct Publish
     btnPublishIdentity: document.getElementById('btn-publish-identity'),
     publishResult: document.getElementById('publish-result'),
-    publishPathPreview: document.getElementById('publish-path-preview')
+    publishPathPreview: document.getElementById('publish-path-preview'),
+
+    // Offline Signature Verifier Elements
+    verifyQuickInput: document.getElementById('verify-quick-input'),
+    btnQuickParse: document.getElementById('btn-quick-parse'),
+    verifyDidInput: document.getElementById('verify-did-input'),
+    verifyRoomInput: document.getElementById('verify-room-input'),
+    verifySigInput: document.getElementById('verify-sig-input'),
+    verifyNonceInput: document.getElementById('verify-nonce-input'),
+    verifyMsgInput: document.getElementById('verify-msg-input'),
+    btnRunVerify: document.getElementById('btn-run-verify'),
+    btnClearVerify: document.getElementById('btn-clear-verify'),
+    verifyResultBox: document.getElementById('verify-result-box')
   };
 }
 
@@ -241,25 +257,23 @@ function initVisualizer() {
 }
 
 /**
- * Switch Navigation View (Guided Wizard vs Direct Console)
+ * Switch Navigation View (Guided Wizard vs Direct Console vs Signature Verifier)
  */
 function setView(viewName) {
   state.activeView = viewName;
-  if (viewName === 'wizard') {
-    el.tabWizardMode.classList.add('active');
-    el.tabWizardMode.setAttribute('aria-selected', 'true');
-    el.tabDirectMode.classList.remove('active');
-    el.tabDirectMode.setAttribute('aria-selected', 'false');
-    el.wizardView.classList.remove('hidden');
-    el.directView.classList.add('hidden');
-  } else {
-    el.tabDirectMode.classList.add('active');
-    el.tabDirectMode.setAttribute('aria-selected', 'true');
-    el.tabWizardMode.classList.remove('active');
-    el.tabWizardMode.setAttribute('aria-selected', 'false');
-    el.directView.classList.remove('hidden');
-    el.wizardView.classList.add('hidden');
-  }
+  
+  el.tabWizardMode.classList.toggle('active', viewName === 'wizard');
+  el.tabWizardMode.setAttribute('aria-selected', String(viewName === 'wizard'));
+
+  el.tabDirectMode.classList.toggle('active', viewName === 'direct');
+  el.tabDirectMode.setAttribute('aria-selected', String(viewName === 'direct'));
+
+  el.tabVerifierMode.classList.toggle('active', viewName === 'verifier');
+  el.tabVerifierMode.setAttribute('aria-selected', String(viewName === 'verifier'));
+
+  el.wizardView.classList.toggle('hidden', viewName !== 'wizard');
+  el.directView.classList.toggle('hidden', viewName !== 'direct');
+  el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
 }
 
 /**
@@ -269,6 +283,7 @@ function bindEvents() {
   // Navigation tabs
   el.tabWizardMode.addEventListener('click', () => setView('wizard'));
   el.tabDirectMode.addEventListener('click', () => setView('direct'));
+  el.tabVerifierMode.addEventListener('click', () => setView('verifier'));
 
   // Theme toggle
   el.themeToggle.addEventListener('click', toggleTheme);
@@ -358,6 +373,11 @@ function bindEvents() {
   el.wizardBtnOpenX.addEventListener('click', handleOpenXComposer);
   el.wizardBtnDownloadJson.addEventListener('click', () => handleDownloadProof('json'));
   el.wizardBtnDownloadTxt.addEventListener('click', () => handleDownloadProof('txt'));
+
+  // Signature Verifier Bindings
+  el.btnQuickParse.addEventListener('click', handleQuickParse);
+  el.btnRunVerify.addEventListener('click', handleRunVerify);
+  el.btnClearVerify.addEventListener('click', handleClearVerify);
 }
 
 /**
@@ -553,6 +573,7 @@ async function updatePublishPreview() {
 
 /**
  * Send an Anonymous Message (Direct Console)
+ * Protected by secret shape guard
  */
 async function handleSendAnonymous() {
   const room = state.room || 'lobby';
@@ -564,6 +585,13 @@ async function handleSendAnonymous() {
     state.message = text;
     el.inputMessage.value = text;
     updateUrlPreview();
+  }
+
+  // Secret shape guard check
+  const guard = detectSensitiveContent(text);
+  if (guard.sensitive) {
+    showDispatchResult('error', guard.description || 'This message appears to contain sensitive material. Remove the sensitive content before sending.');
+    return;
   }
 
   const swept = sweepSingleLine(text);
@@ -593,6 +621,7 @@ async function handleSendAnonymous() {
 
 /**
  * Send a Signed Message (Direct Console)
+ * Protected by secret shape guard
  */
 async function handleSendSigned() {
   if (!state.keypair) {
@@ -608,6 +637,13 @@ async function handleSendSigned() {
     state.message = text;
     el.inputMessage.value = text;
     updateUrlPreview();
+  }
+
+  // Secret shape guard check
+  const guard = detectSensitiveContent(text);
+  if (guard.sensitive) {
+    showDispatchResult('error', guard.description || 'This message appears to contain sensitive material. Remove the sensitive content before sending.');
+    return;
   }
 
   const swept = sweepSingleLine(text);
@@ -832,7 +868,7 @@ function setSendingState(isSending) {
 function showDispatchResult(type, message) {
   el.dispatchResult.className = `result-callout ${type}`;
   el.dispatchResult.innerHTML = `
-    <div class="result-title">${type === 'success' ? 'Dispatch Status' : type === 'error' ? 'Dispatch Error' : 'System Notice'}</div>
+    <div class="result-title">${type === 'success' ? 'Dispatch Status' : type === 'error' ? 'Security Alert / Error' : 'System Notice'}</div>
     <div class="result-body">${escapeHtml(message)}</div>
   `;
   el.dispatchResult.style.display = 'flex';
@@ -983,12 +1019,26 @@ function handleWizardConfirmSaved() {
 
 /**
  * Wizard Step 3: Send Lobby Introduction
+ * Protected by secret shape guard
  */
 async function handleWizardSendLobby() {
   if (!state.keypair) return;
 
   const room = 'lobby';
   const text = (el.wizardLobbyMsg.value || '').trim() || 'gm from technocore console';
+
+  // Secret shape guard check
+  const guard = detectSensitiveContent(text);
+  if (guard.sensitive) {
+    el.wizardLobbyResult.className = 'result-callout error';
+    el.wizardLobbyResult.innerHTML = `
+      <div class="result-title">Security Guard Notice</div>
+      <div class="result-body">${escapeHtml(guard.description || 'This message appears to contain sensitive material. Remove the sensitive content before sending.')}</div>
+    `;
+    el.wizardLobbyResult.style.display = 'flex';
+    return;
+  }
+
   const swept = sweepSingleLine(text);
   const nonce = Math.max(Date.now(), (state.lastNonce || 0) + 1);
   state.lastNonce = nonce;
@@ -1074,12 +1124,26 @@ function handleWizardConfirmContrib() {
 
 /**
  * Wizard Step 5: Record in Technocore Room
+ * Protected by secret shape guard
  */
 async function handleWizardSendTechnocore() {
   if (!state.keypair || !state.wizard.contributionUrl) return;
 
   const room = 'technocore';
   const text = `Contribution: ${state.wizard.contributionUrl}`;
+
+  // Secret shape guard check
+  const guard = detectSensitiveContent(text);
+  if (guard.sensitive) {
+    el.wizardTechnocoreResult.className = 'result-callout error';
+    el.wizardTechnocoreResult.innerHTML = `
+      <div class="result-title">Security Guard Notice</div>
+      <div class="result-body">${escapeHtml(guard.description || 'This message appears to contain sensitive material. Remove the sensitive content before sending.')}</div>
+    `;
+    el.wizardTechnocoreResult.style.display = 'flex';
+    return;
+  }
+
   const swept = sweepSingleLine(text);
   const nonce = Math.max(Date.now(), (state.lastNonce || 0) + 1);
   state.lastNonce = nonce;
@@ -1252,4 +1316,85 @@ function focusStep(stepNum) {
   if (card) {
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+}
+
+/* ==========================================================================
+   OFFLINE SIGNATURE VERIFIER LOGIC
+   ========================================================================== */
+
+/**
+ * Quick parse pasted URL or message line into input fields
+ */
+function handleQuickParse() {
+  const raw = (el.verifyQuickInput.value || '').trim();
+  if (!raw) return;
+
+  // Case 1: URL format: /r/<room>/say-signed/<did>/<sig>/<nonce>/<text>
+  const urlMatch = raw.match(/\/r\/([^\/]+)\/say-signed\/(did:key:z[^\/]+)\/([^\/]+)\/([^\/]+)\/(.*)$/);
+  if (urlMatch) {
+    el.verifyRoomInput.value = decodeURIComponent(urlMatch[1]);
+    el.verifyDidInput.value = decodeURIComponent(urlMatch[2]);
+    el.verifySigInput.value = decodeURIComponent(urlMatch[3]);
+    el.verifyNonceInput.value = decodeURIComponent(urlMatch[4]);
+    el.verifyMsgInput.value = decodeURIComponent(urlMatch[5]);
+    el.verifyResultBox.style.display = 'none';
+    return;
+  }
+
+  // Case 2: Room line format: <did:key:z6Mk...> message text
+  const msgMatch = raw.match(/<(did:key:z[^\>]+)>\s*(.*)$/);
+  if (msgMatch) {
+    el.verifyDidInput.value = msgMatch[1];
+    el.verifyMsgInput.value = msgMatch[2];
+    el.verifyResultBox.style.display = 'none';
+    return;
+  }
+
+  // Case 3: Just did:key alone
+  if (raw.startsWith('did:key:z')) {
+    el.verifyDidInput.value = raw;
+    el.verifyResultBox.style.display = 'none';
+  }
+}
+
+/**
+ * Run offline signature verification
+ */
+function handleRunVerify() {
+  if (typeof nacl === 'undefined') {
+    renderVerifyResult(false, 'TweetNaCl crypto library is not loaded.');
+    return;
+  }
+
+  const did = (el.verifyDidInput.value || '').trim();
+  const sig = (el.verifySigInput.value || '').trim();
+  const room = (el.verifyRoomInput.value || 'lobby').trim();
+  const nonce = (el.verifyNonceInput.value || '').trim();
+  const msg = el.verifyMsgInput.value || '';
+
+  const res = verifyMessageSignature(nacl, did, sig, room, nonce, msg);
+  if (res.valid) {
+    renderVerifyResult(true, 'The signature is valid for this did:key, room, nonce, and message text.');
+  } else {
+    renderVerifyResult(false, res.error || 'The signature does not match this content or the did:key is malformed.');
+  }
+}
+
+function renderVerifyResult(isValid, message) {
+  el.verifyResultBox.className = `result-callout ${isValid ? 'success' : 'error'}`;
+  el.verifyResultBox.innerHTML = `
+    <div class="result-title">${isValid ? 'Signature Valid' : 'Signature Invalid'}</div>
+    <div class="result-body">${escapeHtml(message)}</div>
+  `;
+  el.verifyResultBox.style.display = 'flex';
+}
+
+function handleClearVerify() {
+  el.verifyQuickInput.value = '';
+  el.verifyDidInput.value = '';
+  el.verifyRoomInput.value = 'lobby';
+  el.verifySigInput.value = '';
+  el.verifyNonceInput.value = '';
+  el.verifyMsgInput.value = '';
+  el.verifyResultBox.style.display = 'none';
 }
