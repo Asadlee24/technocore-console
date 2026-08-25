@@ -15,24 +15,30 @@ export default async function handler(req, res) {
   }
 
   try {
-    let targetPath = '';
+    let targetUrl = '';
 
-    // Extract target path from query or URL
-    if (req.query && req.query.path) {
-      targetPath = Array.isArray(req.query.path) ? req.query.path.join('/') : req.query.path;
+    // Primary: Read explicit ?url= parameter
+    if (req.query && req.query.url) {
+      targetUrl = req.query.url;
+    } else if (req.query && req.query.path) {
+      const rawPath = Array.isArray(req.query.path) ? req.query.path.join('/') : req.query.path;
+      targetUrl = `https://technocore.chat/${rawPath.replace(/^\//, '')}`;
     } else {
-      // Fallback: extract path from req.url
-      const urlObj = new URL(req.url, 'http://localhost');
-      const pathname = urlObj.pathname.replace(/^\/api\/proxy\/?/, '');
-      targetPath = pathname;
+      // Fallback: Parse from req.url
+      const parsed = new URL(req.url, 'http://localhost');
+      const paramUrl = parsed.searchParams.get('url');
+      if (paramUrl) {
+        targetUrl = paramUrl;
+      } else {
+        const subpath = parsed.pathname.replace(/^\/api\/proxy\/?/, '');
+        targetUrl = `https://technocore.chat/${subpath}${parsed.search}`;
+      }
     }
 
-    // Clean leading slash
-    if (targetPath.startsWith('/')) {
-      targetPath = targetPath.slice(1);
+    // Security validation: Only allow requests to technocore.chat
+    if (!targetUrl.startsWith('https://technocore.chat/') && targetUrl !== 'https://technocore.chat') {
+      return res.status(400).json({ error: 'Target URL must start with https://technocore.chat/' });
     }
-
-    const targetUrl = `https://technocore.chat/${targetPath}`;
 
     const response = await fetch(targetUrl, {
       method: req.method,

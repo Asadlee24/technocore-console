@@ -57,21 +57,22 @@ let visualizer = null;
  */
 async function fetchProtocol(pathAndQuery) {
   const cleanPath = pathAndQuery.startsWith('/') ? pathAndQuery.slice(1) : pathAndQuery;
+  const directUrl = `${BASE_URL}/${cleanPath}`;
 
-  // Strategy 1: Self-hosted serverless proxy (same origin, solves CORS securely)
+  // Strategy 1: Self-hosted serverless proxy on Vercel
   try {
-    const proxyUrl = `/api/proxy/${cleanPath}`;
+    const proxyUrl = `/api/proxy?url=${encodeURIComponent(directUrl)}`;
     const res = await fetch(proxyUrl);
-    if (res.ok) {
+    // If the serverless proxy is available and responded
+    if (res.status !== 404 && res.status !== 502) {
       const text = await res.text();
-      return { ok: true, status: res.status, text, res };
+      return { ok: res.ok, status: res.status, text, res };
     }
   } catch (proxyErr) {
-    // If not running on Vercel or proxy unavailable, attempt direct connection
+    // Proxy not reachable in local static server mode
   }
 
   // Strategy 2: Direct browser fetch to technocore.chat
-  const directUrl = `${BASE_URL}/${cleanPath}`;
   try {
     const res = await fetch(directUrl);
     const text = await res.text();
