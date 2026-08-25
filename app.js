@@ -1,7 +1,7 @@
 /**
  * Technocore Console Application Logic
  * Made by Asad Lee
- * Client-side control panel for technocore.chat protocol
+ * Client-side control panel and guided contribution console for technocore.chat protocol
  */
 
 import {
@@ -29,7 +29,22 @@ const state = {
   pollTimer: null,
   lastSeq: 0,
   messages: [],
-  theme: 'dark'
+  theme: 'dark',
+  activeView: 'wizard', // 'wizard' or 'direct'
+
+  // Wizard tracking state
+  wizard: {
+    secretConfirmed: false,
+    lobbySent: false,
+    lobbySeq: null,
+    lobbyTimestamp: null,
+    contributionUrl: '',
+    contributionConfirmed: false,
+    technocoreSent: false,
+    technocoreSeq: null,
+    technocoreTimestamp: null,
+    currentStep: 1
+  }
 };
 
 // UI Elements Map
@@ -85,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initVisualizer();
   bindEvents();
   updateUrlPreview();
+  updateWizardUI();
   fetchRoomMessages(true);
 });
 
@@ -93,7 +109,67 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 function cacheElements() {
   el = {
+    // Navigation and theme
+    tabWizardMode: document.getElementById('tab-wizard-mode'),
+    tabDirectMode: document.getElementById('tab-direct-mode'),
+    wizardView: document.getElementById('wizard-view'),
+    directView: document.getElementById('direct-view'),
     themeToggle: document.getElementById('theme-toggle'),
+
+    // Wizard Header
+    wizardProgressText: document.getElementById('wizard-progress-text'),
+    wizardProgressBar: document.getElementById('wizard-progress-bar'),
+
+    // Wizard Step 1
+    stepCard1: document.getElementById('step-card-1'),
+    stepStatus1: document.getElementById('step-status-1'),
+    wizardDidDisplay: document.getElementById('wizard-did-display'),
+    wizardBtnCopyDid: document.getElementById('wizard-btn-copy-did'),
+    wizardBtnGenerate: document.getElementById('wizard-btn-generate'),
+    wizardBtnRestoreToggle: document.getElementById('wizard-btn-restore-toggle'),
+    wizardRestoreBox: document.getElementById('wizard-restore-box'),
+    wizardRestoreInput: document.getElementById('wizard-restore-input'),
+    wizardBtnRestoreSubmit: document.getElementById('wizard-btn-restore-submit'),
+
+    // Wizard Step 2
+    stepCard2: document.getElementById('step-card-2'),
+    stepStatus2: document.getElementById('step-status-2'),
+    wizardSecretKeyDisplay: document.getElementById('wizard-secret-key-display'),
+    wizardBtnCopySecret: document.getElementById('wizard-btn-copy-secret'),
+    wizardBtnConfirmSaved: document.getElementById('wizard-btn-confirm-saved'),
+
+    // Wizard Step 3
+    stepCard3: document.getElementById('step-card-3'),
+    stepStatus3: document.getElementById('step-status-3'),
+    wizardLobbyMsg: document.getElementById('wizard-lobby-msg'),
+    wizardBtnSendLobby: document.getElementById('wizard-btn-send-lobby'),
+    wizardLobbyResult: document.getElementById('wizard-lobby-result'),
+
+    // Wizard Step 4
+    stepCard4: document.getElementById('step-card-4'),
+    stepStatus4: document.getElementById('step-status-4'),
+    chkContribPublic: document.getElementById('chk-contrib-public'),
+    chkContribMention: document.getElementById('chk-contrib-mention'),
+    wizardContribUrl: document.getElementById('wizard-contrib-url'),
+    wizardBtnConfirmContrib: document.getElementById('wizard-btn-confirm-contrib'),
+
+    // Wizard Step 5
+    stepCard5: document.getElementById('step-card-5'),
+    stepStatus5: document.getElementById('step-status-5'),
+    wizardTechnocorePreview: document.getElementById('wizard-technocore-preview'),
+    wizardBtnSendTechnocore: document.getElementById('wizard-btn-send-technocore'),
+    wizardTechnocoreResult: document.getElementById('wizard-technocore-result'),
+
+    // Wizard Step 6
+    stepCard6: document.getElementById('step-card-6'),
+    stepStatus6: document.getElementById('step-status-6'),
+    wizardShareText: document.getElementById('wizard-share-text'),
+    wizardBtnCopyShare: document.getElementById('wizard-btn-copy-share'),
+    wizardBtnOpenX: document.getElementById('wizard-btn-open-x'),
+    wizardBtnDownloadJson: document.getElementById('wizard-btn-download-json'),
+    wizardBtnDownloadTxt: document.getElementById('wizard-btn-download-txt'),
+
+    // Direct Console Elements
     canvasContainer: document.getElementById('canvas-container'),
     identityStatusText: document.getElementById('identity-status-text'),
     identityStatusDot: document.getElementById('identity-status-dot'),
@@ -107,7 +183,7 @@ function cacheElements() {
     btnRestoreKey: document.getElementById('btn-restore-key'),
     btnClearIdentity: document.getElementById('btn-clear-identity'),
     
-    // Compose
+    // Direct Compose
     inputRoom: document.getElementById('input-room'),
     inputNick: document.getElementById('input-nick'),
     inputMessage: document.getElementById('input-message'),
@@ -119,7 +195,7 @@ function cacheElements() {
     btnSendSigned: document.getElementById('btn-send-signed'),
     dispatchResult: document.getElementById('dispatch-result'),
 
-    // Live Room
+    // Direct Live Room
     pollToggle: document.getElementById('poll-toggle'),
     btnRefreshRoom: document.getElementById('btn-refresh-room'),
     roomStatusDot: document.getElementById('room-status-dot'),
@@ -129,7 +205,7 @@ function cacheElements() {
     roomEmptyState: document.getElementById('room-empty-state'),
     roomTitleBadge: document.getElementById('room-title-badge'),
 
-    // Publish
+    // Direct Publish
     btnPublishIdentity: document.getElementById('btn-publish-identity'),
     publishResult: document.getElementById('publish-result'),
     publishPathPreview: document.getElementById('publish-path-preview')
@@ -174,20 +250,46 @@ function initVisualizer() {
 }
 
 /**
+ * Switch Navigation View (Guided Wizard vs Direct Console)
+ */
+function setView(viewName) {
+  state.activeView = viewName;
+  if (viewName === 'wizard') {
+    el.tabWizardMode.classList.add('active');
+    el.tabWizardMode.setAttribute('aria-selected', 'true');
+    el.tabDirectMode.classList.remove('active');
+    el.tabDirectMode.setAttribute('aria-selected', 'false');
+    el.wizardView.classList.remove('hidden');
+    el.directView.classList.add('hidden');
+  } else {
+    el.tabDirectMode.classList.add('active');
+    el.tabDirectMode.setAttribute('aria-selected', 'true');
+    el.tabWizardMode.classList.remove('active');
+    el.tabWizardMode.setAttribute('aria-selected', 'false');
+    el.directView.classList.remove('hidden');
+    el.wizardView.classList.add('hidden');
+  }
+}
+
+/**
  * Event Bindings
  */
 function bindEvents() {
+  // Navigation tabs
+  el.tabWizardMode.addEventListener('click', () => setView('wizard'));
+  el.tabDirectMode.addEventListener('click', () => setView('direct'));
+
   // Theme toggle
   el.themeToggle.addEventListener('click', toggleTheme);
 
-  // Keypair Management
+  // Keypair Management (Direct Console)
   el.btnGenerateKey.addEventListener('click', handleGenerateKey);
-  el.btnRestoreKey.addEventListener('click', handleRestoreKey);
+  el.btnRestoreKey.addEventListener('click', () => handleRestoreKey(el.restoreKeyInput.value));
   el.btnClearIdentity.addEventListener('click', handleClearIdentity);
-  el.btnCopyDid.addEventListener('click', () => copyToClipboard(state.keypair ? state.keypair.did : '', 'DID copied'));
-  el.btnCopySecretKey.addEventListener('click', () => copyToClipboard(el.secretKeyValue.textContent, 'Secret key copied'));
+  el.btnCopyDid.addEventListener('click', () => copyToClipboard(state.keypair ? state.keypair.did : '', 'DID copied to clipboard.'));
+  el.btnCopySecretKey.addEventListener('click', () => copyToClipboard(el.secretKeyValue.textContent, 'Secret key copied to clipboard.'));
 
-  // Compose Inputs
+  // Direct Compose Inputs
   el.inputRoom.value = state.room;
   el.inputNick.value = state.nickname;
 
@@ -209,12 +311,12 @@ function bindEvents() {
     updateUrlPreview();
   });
 
-  // Dispatch Actions
+  // Direct Dispatch Actions
   el.btnSendAnon.addEventListener('click', handleSendAnonymous);
   el.btnSendSigned.addEventListener('click', handleSendSigned);
-  el.btnCopyPreviewUrl.addEventListener('click', () => copyToClipboard(el.previewUrlText.textContent, 'Request URL copied'));
+  el.btnCopyPreviewUrl.addEventListener('click', () => copyToClipboard(el.previewUrlText.textContent, 'Request URL copied to clipboard.'));
 
-  // Live Room Polling
+  // Direct Live Room Polling
   el.btnRefreshRoom.addEventListener('click', () => fetchRoomMessages(false));
   el.pollToggle.addEventListener('change', (e) => {
     state.isPolling = e.target.checked;
@@ -225,8 +327,46 @@ function bindEvents() {
     }
   });
 
-  // Publish
+  // Direct Publish
   el.btnPublishIdentity.addEventListener('click', handlePublishIdentity);
+
+  // Wizard Step 1 Bindings
+  el.wizardBtnGenerate.addEventListener('click', handleGenerateKey);
+  el.wizardBtnCopyDid.addEventListener('click', () => copyToClipboard(state.keypair ? state.keypair.did : '', 'DID copied to clipboard.'));
+  el.wizardBtnRestoreToggle.addEventListener('click', () => {
+    el.wizardRestoreBox.classList.toggle('hidden');
+  });
+  el.wizardBtnRestoreSubmit.addEventListener('click', () => {
+    handleRestoreKey(el.wizardRestoreInput.value);
+  });
+
+  // Wizard Step 2 Bindings
+  el.wizardBtnCopySecret.addEventListener('click', () => {
+    if (state.keypair) {
+      copyToClipboard(bytesToHex(state.keypair.secretKey), 'Secret key copied to clipboard.');
+    }
+  });
+  el.wizardBtnConfirmSaved.addEventListener('click', handleWizardConfirmSaved);
+
+  // Wizard Step 3 Bindings
+  el.wizardBtnSendLobby.addEventListener('click', handleWizardSendLobby);
+
+  // Wizard Step 4 Bindings
+  el.chkContribPublic.addEventListener('change', checkWizardContribForm);
+  el.chkContribMention.addEventListener('change', checkWizardContribForm);
+  el.wizardContribUrl.addEventListener('input', checkWizardContribForm);
+  el.wizardBtnConfirmContrib.addEventListener('click', handleWizardConfirmContrib);
+
+  // Wizard Step 5 Bindings
+  el.wizardBtnSendTechnocore.addEventListener('click', handleWizardSendTechnocore);
+
+  // Wizard Step 6 Bindings
+  el.wizardBtnCopyShare.addEventListener('click', () => {
+    copyToClipboard(el.wizardShareText.value, 'Share text copied to clipboard.');
+  });
+  el.wizardBtnOpenX.addEventListener('click', handleOpenXComposer);
+  el.wizardBtnDownloadJson.addEventListener('click', () => handleDownloadProof('json'));
+  el.wizardBtnDownloadTxt.addEventListener('click', () => handleDownloadProof('txt'));
 }
 
 /**
@@ -242,27 +382,16 @@ function handleGenerateKey() {
     const kp = generateKeypair(nacl);
     state.keypair = kp;
     state.lastNonce = Date.now();
+    state.wizard.secretConfirmed = false;
 
-    // Update UI
-    el.identityStatusText.textContent = 'Active (Ed25519 in memory)';
-    el.identityStatusDot.className = 'status-dot active';
-    el.didReadout.textContent = kp.did;
-    el.didReadout.className = 'readout-text';
-    el.btnCopyDid.disabled = false;
-    el.btnSendSigned.disabled = false;
-    el.btnPublishIdentity.disabled = false;
-
-    // Show secret key once in hex
-    const secretHex = bytesToHex(kp.secretKey);
-    el.secretKeyValue.textContent = secretHex;
-    el.secretKeyBox.classList.remove('hidden');
+    applyKeypairToUI(kp);
 
     if (visualizer) {
       visualizer.onKeyGenerated(kp.did);
     }
 
-    updateUrlPreview();
-    updatePublishPreview();
+    updateWizardUI();
+    showDispatchResult('info', 'New Ed25519 identity generated in transient browser memory.');
   } catch (err) {
     showDispatchResult('error', `Key generation failed: ${err.message}`);
   }
@@ -271,40 +400,36 @@ function handleGenerateKey() {
 /**
  * Restore an identity from pasted seed or secret key
  */
-function handleRestoreKey() {
+function handleRestoreKey(inputVal) {
   if (typeof nacl === 'undefined') {
     showDispatchResult('error', 'TweetNaCl crypto library is not loaded. Check internet connection and reload.');
     return;
   }
 
-  const inputVal = el.restoreKeyInput.value.trim();
-  if (!inputVal) {
+  const rawKey = (inputVal || '').trim();
+  if (!rawKey) {
     showDispatchResult('error', 'Paste a 32 byte seed or 64 byte secret key in hex or base64 format.');
     return;
   }
 
   try {
-    const kp = restoreKeypair(inputVal, nacl);
+    const kp = restoreKeypair(rawKey, nacl);
     state.keypair = kp;
     state.lastNonce = Date.now();
+    // Restored identity counts as saved
+    state.wizard.secretConfirmed = true;
 
-    el.identityStatusText.textContent = 'Restored (Ed25519 in memory)';
-    el.identityStatusDot.className = 'status-dot active';
-    el.didReadout.textContent = kp.did;
-    el.didReadout.className = 'readout-text';
-    el.btnCopyDid.disabled = false;
-    el.btnSendSigned.disabled = false;
-    el.btnPublishIdentity.disabled = false;
-
-    el.secretKeyBox.classList.add('hidden');
-    el.restoreKeyInput.value = '';
+    applyKeypairToUI(kp);
 
     if (visualizer) {
       visualizer.onKeyGenerated(kp.did);
     }
 
-    updateUrlPreview();
-    updatePublishPreview();
+    if (el.restoreKeyInput) el.restoreKeyInput.value = '';
+    if (el.wizardRestoreInput) el.wizardRestoreInput.value = '';
+    if (el.wizardRestoreBox) el.wizardRestoreBox.classList.add('hidden');
+
+    updateWizardUI();
     showDispatchResult('info', 'Identity successfully restored into browser memory.');
   } catch (err) {
     showDispatchResult('error', `Failed to restore key: ${err.message}`);
@@ -312,10 +437,49 @@ function handleRestoreKey() {
 }
 
 /**
+ * Apply active keypair to all views and inputs
+ */
+function applyKeypairToUI(kp) {
+  const secretHex = bytesToHex(kp.secretKey);
+
+  // Direct Console updates
+  el.identityStatusText.textContent = 'Active (Ed25519 in memory)';
+  el.identityStatusDot.className = 'status-dot active';
+  el.didReadout.textContent = kp.did;
+  el.didReadout.className = 'readout-text';
+  el.btnCopyDid.disabled = false;
+  el.btnSendSigned.disabled = false;
+  el.btnPublishIdentity.disabled = false;
+
+  el.secretKeyValue.textContent = secretHex;
+  el.secretKeyBox.classList.remove('hidden');
+
+  // Wizard updates
+  el.wizardDidDisplay.textContent = kp.did;
+  el.wizardDidDisplay.className = 'readout-text';
+  el.wizardBtnCopyDid.disabled = false;
+  el.wizardSecretKeyDisplay.textContent = secretHex;
+  el.wizardBtnCopySecret.disabled = false;
+  el.wizardBtnConfirmSaved.disabled = false;
+
+  updateUrlPreview();
+  updatePublishPreview();
+}
+
+/**
  * Clear identity from volatile memory
  */
 function handleClearIdentity() {
   state.keypair = null;
+  state.wizard.secretConfirmed = false;
+  state.wizard.lobbySent = false;
+  state.wizard.lobbySeq = null;
+  state.wizard.lobbyTimestamp = null;
+  state.wizard.technocoreSent = false;
+  state.wizard.technocoreSeq = null;
+  state.wizard.technocoreTimestamp = null;
+
+  // Direct console reset
   el.identityStatusText.textContent = 'Unset (anonymous mode)';
   el.identityStatusDot.className = 'status-dot';
   el.didReadout.textContent = 'No identity loaded. Generate or restore a key.';
@@ -324,7 +488,15 @@ function handleClearIdentity() {
   el.btnSendSigned.disabled = true;
   el.btnPublishIdentity.disabled = true;
   el.secretKeyBox.classList.add('hidden');
-  el.restoreKeyInput.value = '';
+  if (el.restoreKeyInput) el.restoreKeyInput.value = '';
+
+  // Wizard reset
+  el.wizardDidDisplay.textContent = 'No identity loaded yet.';
+  el.wizardDidDisplay.className = 'readout-text empty';
+  el.wizardBtnCopyDid.disabled = true;
+  el.wizardSecretKeyDisplay.textContent = 'Generate or restore an identity in step 1 to view your key.';
+  el.wizardBtnCopySecret.disabled = true;
+  el.wizardBtnConfirmSaved.disabled = true;
 
   if (visualizer) {
     visualizer.onKeyCleared();
@@ -332,6 +504,7 @@ function handleClearIdentity() {
 
   updateUrlPreview();
   updatePublishPreview();
+  updateWizardUI();
   showDispatchResult('info', 'Identity wiped completely from memory.');
 }
 
@@ -388,7 +561,7 @@ async function updatePublishPreview() {
 }
 
 /**
- * Send an Anonymous Message
+ * Send an Anonymous Message (Direct Console)
  */
 async function handleSendAnonymous() {
   const room = state.room || 'lobby';
@@ -428,7 +601,7 @@ async function handleSendAnonymous() {
 }
 
 /**
- * Send a Signed Message
+ * Send a Signed Message (Direct Console)
  */
 async function handleSendSigned() {
   if (!state.keypair) {
@@ -476,7 +649,7 @@ async function handleSendSigned() {
 }
 
 /**
- * Publish Identity to Public Registry Note
+ * Publish Identity to Public Registry Note (Direct Console)
  */
 async function handlePublishIdentity() {
   if (!state.keypair) {
@@ -622,7 +795,7 @@ function renderRoomEmpty(description) {
   el.roomEmptyState.style.display = 'flex';
   el.roomEmptyState.innerHTML = `
     <div class="empty-title">No messages found</div>
-    <div class="empty-desc">${description}</div>
+    <div class="empty-desc">${escapeHtml(description)}</div>
   `;
   el.roomStatusText.textContent = 'Room empty';
   el.roomStatusDot.className = 'status-dot';
@@ -633,7 +806,7 @@ function renderRoomError(description) {
   el.roomEmptyState.style.display = 'flex';
   el.roomEmptyState.innerHTML = `
     <div class="empty-title" style="color: var(--accent-red)">Fetch failure</div>
-    <div class="empty-desc">${description}</div>
+    <div class="empty-desc">${escapeHtml(description)}</div>
   `;
   el.roomStatusText.textContent = 'Fetch failed';
   el.roomStatusDot.className = 'status-dot error';
@@ -693,5 +866,399 @@ function copyToClipboard(text, successMessage) {
 }
 
 function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+
+/* ==========================================================================
+   WIZARD WORKFLOW LOGIC (6 STEPS)
+   ========================================================================== */
+
+/**
+ * Recalculate wizard completion and update step cards UI
+ */
+function updateWizardUI() {
+  const hasKey = Boolean(state.keypair);
+  const isSaved = hasKey && state.wizard.secretConfirmed;
+  const lobbyDone = isSaved && state.wizard.lobbySent;
+  const contribDone = lobbyDone && state.wizard.contributionConfirmed;
+  const technocoreDone = contribDone && state.wizard.technocoreSent;
+  const shareReady = technocoreDone;
+
+  // Calculate current active step index (1 to 6)
+  let currentStep = 1;
+  if (hasKey) currentStep = 2;
+  if (isSaved) currentStep = 3;
+  if (lobbyDone) currentStep = 4;
+  if (contribDone) currentStep = 5;
+  if (technocoreDone) currentStep = 6;
+
+  state.wizard.currentStep = currentStep;
+
+  let completedSteps = 0;
+  if (hasKey) completedSteps++;
+  if (isSaved) completedSteps++;
+  if (lobbyDone) completedSteps++;
+  if (contribDone) completedSteps++;
+  if (technocoreDone) completedSteps++;
+  if (technocoreDone) completedSteps++; // 6 of 6 completed when step 5 is recorded and proof generated
+
+  const percent = Math.min(100, Math.round((completedSteps / 6) * 100));
+  el.wizardProgressText.textContent = `Step ${currentStep} of 6 (${percent}% Complete)`;
+  el.wizardProgressBar.style.width = `${percent}%`;
+
+  // Step 1: Create Identity
+  updateStepCardState(el.stepCard1, el.stepStatus1, hasKey ? 'completed' : 'active', hasKey ? 'Done' : 'Active');
+
+  // Step 2: Save Identity
+  if (hasKey) {
+    updateStepCardState(el.stepCard2, el.stepStatus2, isSaved ? 'completed' : 'active', isSaved ? 'Done' : 'Active');
+    el.wizardBtnCopySecret.disabled = false;
+    el.wizardBtnConfirmSaved.disabled = false;
+  } else {
+    updateStepCardState(el.stepCard2, el.stepStatus2, 'locked', 'Locked');
+    el.wizardBtnCopySecret.disabled = true;
+    el.wizardBtnConfirmSaved.disabled = true;
+  }
+
+  // Step 3: Introduce yourself in lobby
+  if (isSaved) {
+    updateStepCardState(el.stepCard3, el.stepStatus3, lobbyDone ? 'completed' : 'active', lobbyDone ? `Done (#${state.wizard.lobbySeq || 'OK'})` : 'Active');
+    el.wizardBtnSendLobby.disabled = false;
+  } else {
+    updateStepCardState(el.stepCard3, el.stepStatus3, 'locked', 'Locked');
+    el.wizardBtnSendLobby.disabled = true;
+  }
+
+  // Step 4: Make a contribution
+  if (lobbyDone) {
+    updateStepCardState(el.stepCard4, el.stepStatus4, contribDone ? 'completed' : 'active', contribDone ? 'Done' : 'Active');
+    checkWizardContribForm();
+  } else {
+    updateStepCardState(el.stepCard4, el.stepStatus4, 'locked', 'Locked');
+    el.wizardBtnConfirmContrib.disabled = true;
+  }
+
+  // Step 5: Record in technocore room
+  if (contribDone) {
+    updateStepCardState(el.stepCard5, el.stepStatus5, technocoreDone ? 'completed' : 'active', technocoreDone ? `Done (#${state.wizard.technocoreSeq || 'OK'})` : 'Active');
+    el.wizardBtnSendTechnocore.disabled = false;
+    el.wizardTechnocorePreview.textContent = `Payload: Contribution: ${state.wizard.contributionUrl}`;
+    el.wizardTechnocorePreview.className = 'readout-text';
+  } else {
+    updateStepCardState(el.stepCard5, el.stepStatus5, 'locked', 'Locked');
+    el.wizardBtnSendTechnocore.disabled = true;
+    el.wizardTechnocorePreview.textContent = 'Complete step 4 to assemble payload.';
+    el.wizardTechnocorePreview.className = 'readout-text empty';
+  }
+
+  // Step 6: Share proof
+  if (technocoreDone) {
+    updateStepCardState(el.stepCard6, el.stepStatus6, 'completed', 'Ready');
+    updateShareText();
+    el.wizardBtnCopyShare.disabled = false;
+    el.wizardBtnOpenX.disabled = false;
+    el.wizardBtnDownloadJson.disabled = false;
+    el.wizardBtnDownloadTxt.disabled = false;
+  } else {
+    updateStepCardState(el.stepCard6, el.stepStatus6, 'locked', 'Locked');
+    el.wizardShareText.value = '';
+    el.wizardBtnCopyShare.disabled = true;
+    el.wizardBtnOpenX.disabled = true;
+    el.wizardBtnDownloadJson.disabled = true;
+    el.wizardBtnDownloadTxt.disabled = true;
+  }
+}
+
+function updateStepCardState(cardEl, pillEl, status, text) {
+  cardEl.classList.remove('active-step', 'completed-step', 'locked');
+  pillEl.className = `step-status-pill ${status}`;
+  pillEl.textContent = text;
+
+  if (status === 'active') cardEl.classList.add('active-step');
+  if (status === 'completed') cardEl.classList.add('completed-step');
+  if (status === 'locked') cardEl.classList.add('locked');
+}
+
+/**
+ * Wizard Step 2: Confirm Key Saved
+ */
+function handleWizardConfirmSaved() {
+  if (!state.keypair) return;
+  state.wizard.secretConfirmed = true;
+  updateWizardUI();
+  focusStep(3);
+}
+
+/**
+ * Wizard Step 3: Send Lobby Introduction
+ */
+async function handleWizardSendLobby() {
+  if (!state.keypair) return;
+
+  const room = 'lobby';
+  const text = (el.wizardLobbyMsg.value || '').trim() || 'gm from technocore console';
+  const swept = sweepSingleLine(text);
+  const nonce = Math.max(Date.now(), (state.lastNonce || 0) + 1);
+  state.lastNonce = nonce;
+
+  const sig = signMessage(nacl, state.keypair.secretKey, room, nonce, swept);
+  const encodedText = encodeURIComponent(swept);
+  const relativePath = `r/${room}/say-signed/${state.keypair.did}/${sig}/${nonce}/${encodedText}`;
+
+  el.wizardBtnSendLobby.disabled = true;
+  el.wizardBtnSendLobby.textContent = 'Sending...';
+
+  try {
+    const res = await fetchProtocol(relativePath);
+    if (res.ok) {
+      state.wizard.lobbySent = true;
+      state.wizard.lobbyTimestamp = new Date().toISOString();
+
+      // Retrieve sequence number from lobby stream
+      try {
+        const roomRes = await fetchProtocol(`r/${room}`);
+        if (roomRes.ok) {
+          const msgs = parsePlainTextRoom(roomRes.text);
+          const lastMsg = msgs[msgs.length - 1];
+          state.wizard.lobbySeq = lastMsg ? lastMsg.seq : msgs.length || 1;
+        }
+      } catch (e) {
+        state.wizard.lobbySeq = 1;
+      }
+
+      el.wizardLobbyResult.className = 'result-callout success';
+      el.wizardLobbyResult.innerHTML = `
+        <div class="result-title">Lobby Introduction Sent</div>
+        <div class="result-body">Signed introduction confirmed in room lobby. Recorded sequence number: #${state.wizard.lobbySeq || 'N/A'}.</div>
+      `;
+      el.wizardLobbyResult.style.display = 'flex';
+
+      if (visualizer) visualizer.onMessageDispatched();
+      updateWizardUI();
+      focusStep(4);
+    } else {
+      el.wizardLobbyResult.className = 'result-callout error';
+      el.wizardLobbyResult.innerHTML = `
+        <div class="result-title">Dispatch Error</div>
+        <div class="result-body">Server returned status HTTP ${res.status}. ${res.text}</div>
+      `;
+      el.wizardLobbyResult.style.display = 'flex';
+    }
+  } catch (err) {
+    el.wizardLobbyResult.className = 'result-callout error';
+    el.wizardLobbyResult.innerHTML = `
+      <div class="result-title">Network Error</div>
+      <div class="result-body">${err.message}</div>
+    `;
+    el.wizardLobbyResult.style.display = 'flex';
+  } finally {
+    el.wizardBtnSendLobby.disabled = false;
+    el.wizardBtnSendLobby.textContent = 'Send Lobby Introduction';
+  }
+}
+
+/**
+ * Wizard Step 4: Check and Confirm Contribution Form
+ */
+function checkWizardContribForm() {
+  const isPublic = el.chkContribPublic.checked;
+  const isMention = el.chkContribMention.checked;
+  const url = (el.wizardContribUrl.value || '').trim();
+  const isValidUrl = url.startsWith('http://') || url.startsWith('https://');
+
+  const canConfirm = isPublic && isMention && isValidUrl && state.wizard.lobbySent;
+  el.wizardBtnConfirmContrib.disabled = !canConfirm;
+}
+
+function handleWizardConfirmContrib() {
+  const url = (el.wizardContribUrl.value || '').trim();
+  if (!url) return;
+
+  state.wizard.contributionUrl = url;
+  state.wizard.contributionConfirmed = true;
+  updateWizardUI();
+  focusStep(5);
+}
+
+/**
+ * Wizard Step 5: Record in Technocore Room
+ */
+async function handleWizardSendTechnocore() {
+  if (!state.keypair || !state.wizard.contributionUrl) return;
+
+  const room = 'technocore';
+  const text = `Contribution: ${state.wizard.contributionUrl}`;
+  const swept = sweepSingleLine(text);
+  const nonce = Math.max(Date.now(), (state.lastNonce || 0) + 1);
+  state.lastNonce = nonce;
+
+  const sig = signMessage(nacl, state.keypair.secretKey, room, nonce, swept);
+  const encodedText = encodeURIComponent(swept);
+  const relativePath = `r/${room}/say-signed/${state.keypair.did}/${sig}/${nonce}/${encodedText}`;
+
+  el.wizardBtnSendTechnocore.disabled = true;
+  el.wizardBtnSendTechnocore.textContent = 'Recording...';
+
+  try {
+    const res = await fetchProtocol(relativePath);
+    if (res.ok) {
+      state.wizard.technocoreSent = true;
+      state.wizard.technocoreTimestamp = new Date().toISOString();
+
+      // Retrieve sequence number from technocore room stream
+      try {
+        const roomRes = await fetchProtocol(`r/${room}`);
+        if (roomRes.ok) {
+          const msgs = parsePlainTextRoom(roomRes.text);
+          const lastMsg = msgs[msgs.length - 1];
+          state.wizard.technocoreSeq = lastMsg ? lastMsg.seq : msgs.length || 1;
+        }
+      } catch (e) {
+        state.wizard.technocoreSeq = 1;
+      }
+
+      el.wizardTechnocoreResult.className = 'result-callout success';
+      el.wizardTechnocoreResult.innerHTML = `
+        <div class="result-title">Recorded in Technocore Room</div>
+        <div class="result-body">Signed record successfully published. Room sequence: #${state.wizard.technocoreSeq || 'N/A'}.</div>
+      `;
+      el.wizardTechnocoreResult.style.display = 'flex';
+
+      if (visualizer) visualizer.onMessageDispatched();
+      updateWizardUI();
+      focusStep(6);
+    } else {
+      el.wizardTechnocoreResult.className = 'result-callout error';
+      el.wizardTechnocoreResult.innerHTML = `
+        <div class="result-title">Record Error</div>
+        <div class="result-body">Server returned status HTTP ${res.status}. ${res.text}</div>
+      `;
+      el.wizardTechnocoreResult.style.display = 'flex';
+    }
+  } catch (err) {
+    el.wizardTechnocoreResult.className = 'result-callout error';
+    el.wizardTechnocoreResult.innerHTML = `
+      <div class="result-title">Network Error</div>
+      <div class="result-body">${err.message}</div>
+    `;
+    el.wizardTechnocoreResult.style.display = 'flex';
+  } finally {
+    el.wizardBtnSendTechnocore.disabled = false;
+    el.wizardBtnSendTechnocore.textContent = 'Record in Technocore Room';
+  }
+}
+
+/**
+ * Generate Share Text Template
+ */
+function getShareText() {
+  const did = state.keypair ? state.keypair.did : '';
+  const url = state.wizard.contributionUrl || '';
+  const seq = state.wizard.technocoreSeq || '1';
+
+  return `I published a contribution for Technocore by flop_labs. Contribution: ${url}. Agent DID: ${did}. Signed Technocore record: room technocore, sequence ${seq}.`;
+}
+
+function updateShareText() {
+  el.wizardShareText.value = getShareText();
+}
+
+/**
+ * Open X Composer
+ */
+function handleOpenXComposer() {
+  const shareText = getShareText();
+  const tweetUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+  window.open(tweetUrl, '_blank', 'noopener,noreferrer');
+}
+
+/**
+ * Download Proof Record (JSON or TXT)
+ */
+function handleDownloadProof(format) {
+  if (!state.keypair) return;
+
+  const now = new Date().toISOString();
+  const did = state.keypair.did;
+  const lobbySeq = state.wizard.lobbySeq || 'unknown';
+  const lobbyTime = state.wizard.lobbyTimestamp || now;
+  const techSeq = state.wizard.technocoreSeq || 'unknown';
+  const techTime = state.wizard.technocoreTimestamp || now;
+  const contribUrl = state.wizard.contributionUrl || '';
+  const shareText = getShareText();
+
+  let fileContent = '';
+  let mimeType = 'text/plain';
+  let extension = 'txt';
+
+  if (format === 'json') {
+    mimeType = 'application/json';
+    extension = 'json';
+    const proofData = {
+      notice: 'Technocore Console Personal Proof Record. Reward allocation is not guaranteed and this is only a personal record of activity. This is not an official Flop Labs product.',
+      generatedAt: now,
+      agentDid: did,
+      lobbyIntroduction: {
+        room: 'lobby',
+        sequence: lobbySeq,
+        timestamp: lobbyTime
+      },
+      contribution: {
+        url: contribUrl
+      },
+      technocoreRecord: {
+        room: 'technocore',
+        sequence: techSeq,
+        timestamp: techTime
+      },
+      postTemplate: shareText
+    };
+    fileContent = JSON.stringify(proofData, null, 2);
+  } else {
+    fileContent = [
+      'TECHNOCORE CONSOLE PERSONAL PROOF RECORD',
+      'Notice: Reward allocation is not guaranteed and this is only a personal record of activity. This is not an official Flop Labs product.',
+      '================================================================',
+      `Generated At: ${now}`,
+      `Agent DID: ${did}`,
+      '',
+      'LOBBY INTRODUCTION',
+      `Room: lobby`,
+      `Sequence: #${lobbySeq}`,
+      `Timestamp: ${lobbyTime}`,
+      '',
+      'CONTRIBUTION',
+      `URL: ${contribUrl}`,
+      '',
+      'TECHNOCORE ROOM RECORD',
+      `Room: technocore`,
+      `Sequence: #${techSeq}`,
+      `Timestamp: ${techTime}`,
+      '',
+      'SHARE TEXT',
+      shareText,
+      '================================================================'
+    ].join('\n');
+  }
+
+  const blob = new Blob([fileContent], { type: mimeType });
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = `technocore_proof_${Date.now()}.${extension}`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(downloadUrl);
+}
+
+/**
+ * Scroll and focus step
+ */
+function focusStep(stepNum) {
+  const card = document.getElementById(`step-card-${stepNum}`);
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 }

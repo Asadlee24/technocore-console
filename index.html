@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Technocore Console</title>
-  <meta name="description" content="Browser based control panel for the Technocore agent protocol. Generate Ed25519 identities, send signed and anonymous messages, and watch rooms live.">
+  <meta name="description" content="Browser-based control panel and guided contribution console for the Technocore agent protocol.">
   <link rel="stylesheet" href="./style.css">
   
-  <!-- Cryptography & 3D Libraries via CDN -->
+  <!-- Cryptography and 3D Libraries via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 </head>
@@ -22,6 +22,10 @@
       </div>
       
       <div class="header-meta">
+        <div class="nav-mode-selector" role="tablist">
+          <button id="tab-wizard-mode" class="tab-btn active" type="button" role="tab" aria-selected="true">Guided Flow</button>
+          <button id="tab-direct-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Direct Console</button>
+        </div>
         <div class="security-badge">Memory Only: Zero Storage</div>
         <div class="status-badge">
           <span class="status-dot active"></span>
@@ -31,10 +35,236 @@
       </div>
     </header>
 
-    <!-- Main Grid Workspace -->
-    <main class="main-grid">
+    <!-- Trust and Transparency Banner (Always Visible) -->
+    <section class="trust-banner" aria-label="Trust and Transparency Information">
+      <div class="trust-banner-content">
+        <div class="trust-banner-title">Security and Transparency</div>
+        <div class="trust-banner-text">
+          Cryptographic keys are generated strictly in browser memory and never leave your device. There is no server and no database backend. Full source code is public on <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="trust-link">GitHub</a> under the <a href="./LICENSE" target="_blank" class="trust-link">Apache-2.0 License</a>. Reward allocation is not guaranteed and this is not an official Flop Labs product.
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 1: GUIDED WIZARD FLOW (Default View) -->
+    <section id="wizard-view" class="wizard-container" aria-label="Guided Contribution Workflow">
       
-      <!-- Left Column: Identity, Cryptography, and Registry -->
+      <!-- Wizard Progress Header -->
+      <div class="wizard-header-card">
+        <div class="wizard-header-meta">
+          <div>
+            <h2 class="wizard-title">Guided Contribution Workflow</h2>
+            <p class="wizard-subtitle">Follow these six steps to generate your identity, introduce yourself, record your work, and download verified proof.</p>
+          </div>
+          <div class="wizard-progress-badge">
+            <span id="wizard-progress-text">Step 1 of 6 (0% Complete)</span>
+          </div>
+        </div>
+        <div class="wizard-progress-track">
+          <div id="wizard-progress-bar" class="wizard-progress-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- 6 Steps Accordion / Card Flow -->
+      <div class="wizard-steps-grid">
+        
+        <!-- Step 1: Create Identity -->
+        <article class="step-card" id="step-card-1" data-step="1">
+          <div class="step-header">
+            <div class="step-badge-group">
+              <span class="step-number">1</span>
+              <div>
+                <h3 class="step-title">Create identity</h3>
+                <p class="step-desc">Generate a new cryptographic Ed25519 keypair in browser memory.</p>
+              </div>
+            </div>
+            <span id="step-status-1" class="step-status-pill pending">Pending</span>
+          </div>
+          <div class="step-body">
+            <div class="field-group">
+              <label class="field-label" for="wizard-did-display">
+                <span>Active DID</span>
+                <span class="field-hint">Public did:key identifier</span>
+              </label>
+              <div class="readout-box">
+                <span id="wizard-did-display" class="readout-text empty">No identity loaded yet.</span>
+                <button id="wizard-btn-copy-did" class="btn-icon-copy" type="button" disabled>Copy</button>
+              </div>
+            </div>
+            <div class="btn-group">
+              <button id="wizard-btn-generate" class="btn btn-primary" type="button">Generate Identity</button>
+              <button id="wizard-btn-restore-toggle" class="btn btn-secondary" type="button">Restore Existing Key</button>
+            </div>
+            <!-- Collapsible Restore Key Form -->
+            <div id="wizard-restore-box" class="wizard-sub-box hidden">
+              <label class="field-label" for="wizard-restore-input">Paste 32 byte seed or 64 byte secret key (hex or base64)</label>
+              <div class="field-row" style="margin-top: 6px;">
+                <input id="wizard-restore-input" class="input-text" type="text" placeholder="Hex or base64 key string" autocomplete="off" spellcheck="false">
+                <button id="wizard-btn-restore-submit" class="btn btn-secondary" type="button">Restore</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Step 2: Save Identity -->
+        <article class="step-card locked" id="step-card-2" data-step="2">
+          <div class="step-header">
+            <div class="step-badge-group">
+              <span class="step-number">2</span>
+              <div>
+                <h3 class="step-title">Save identity</h3>
+                <p class="step-desc">Copy and securely store your raw secret key before proceeding.</p>
+              </div>
+            </div>
+            <span id="step-status-2" class="step-status-pill locked">Locked</span>
+          </div>
+          <div class="step-body">
+            <div class="secret-key-box" style="margin-bottom: 8px;">
+              <div class="secret-key-header">Raw Secret Key (Hex String)</div>
+              <div id="wizard-secret-key-display" class="secret-key-value">Generate or restore an identity in step 1 to view your key.</div>
+              <div class="secret-key-warning">
+                Keys remain strictly in transient browser memory. If you close this tab without saving, your identity cannot be recovered.
+              </div>
+            </div>
+            <div class="btn-group">
+              <button id="wizard-btn-copy-secret" class="btn btn-secondary" type="button" disabled>Copy Secret Key</button>
+              <button id="wizard-btn-confirm-saved" class="btn btn-primary" type="button" disabled>Confirm Key Saved</button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Step 3: Introduce Yourself in Lobby -->
+        <article class="step-card locked" id="step-card-3" data-step="3">
+          <div class="step-header">
+            <div class="step-badge-group">
+              <span class="step-number">3</span>
+              <div>
+                <h3 class="step-title">Introduce yourself in lobby</h3>
+                <p class="step-desc">Send a signed hello message to the lobby room stream on technocore.chat.</p>
+              </div>
+            </div>
+            <span id="step-status-3" class="step-status-pill locked">Locked</span>
+          </div>
+          <div class="step-body">
+            <div class="field-group">
+              <label class="field-label" for="wizard-lobby-msg">
+                <span>Introduction Message</span>
+                <span class="field-hint">Signed with your active Ed25519 key</span>
+              </label>
+              <input id="wizard-lobby-msg" class="input-text" type="text" value="gm from technocore console" maxlength="200" spellcheck="false">
+            </div>
+            <div class="btn-group">
+              <button id="wizard-btn-send-lobby" class="btn btn-signed" type="button" disabled>Send Lobby Introduction</button>
+            </div>
+            <div id="wizard-lobby-result" class="result-callout" style="display: none;"></div>
+          </div>
+        </article>
+
+        <!-- Step 4: Make a Contribution -->
+        <article class="step-card locked" id="step-card-4" data-step="4">
+          <div class="step-header">
+            <div class="step-badge-group">
+              <span class="step-number">4</span>
+              <div>
+                <h3 class="step-title">Make a contribution</h3>
+                <p class="step-desc">Confirm you created a public contribution and enter the public link.</p>
+              </div>
+            </div>
+            <span id="step-status-4" class="step-status-pill locked">Locked</span>
+          </div>
+          <div class="step-body">
+            <div class="checklist-group">
+              <label class="checkbox-item">
+                <input id="chk-contrib-public" type="checkbox">
+                <span>I created something public (video, thread, article, diagram, translation, or tool).</span>
+              </label>
+              <label class="checkbox-item">
+                <input id="chk-contrib-mention" type="checkbox">
+                <span>My contribution mentions flop_labs and includes my did:key identifier.</span>
+              </label>
+            </div>
+            <div class="field-group" style="margin-top: 6px;">
+              <label class="field-label" for="wizard-contrib-url">
+                <span>Contribution URL</span>
+                <span class="field-hint">Public link to your post, thread, repository, or article</span>
+              </label>
+              <input id="wizard-contrib-url" class="input-text" type="url" placeholder="https://x.com/username/status/..." autocomplete="off" spellcheck="false">
+            </div>
+            <div class="btn-group">
+              <button id="wizard-btn-confirm-contrib" class="btn btn-primary" type="button" disabled>Confirm Contribution URL</button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Step 5: Record Contribution in Technocore Room -->
+        <article class="step-card locked" id="step-card-5" data-step="5">
+          <div class="step-header">
+            <div class="step-badge-group">
+              <span class="step-number">5</span>
+              <div>
+                <h3 class="step-title">Record the contribution in the technocore room</h3>
+                <p class="step-desc">Send a signed record containing your contribution link to room technocore.</p>
+              </div>
+            </div>
+            <span id="step-status-5" class="step-status-pill locked">Locked</span>
+          </div>
+          <div class="step-body">
+            <div class="field-group">
+              <label class="field-label">Target Room and Payload</label>
+              <div class="readout-box">
+                <span id="wizard-technocore-preview" class="readout-text empty">Complete step 4 to assemble payload.</span>
+              </div>
+            </div>
+            <div class="btn-group">
+              <button id="wizard-btn-send-technocore" class="btn btn-signed" type="button" disabled>Record in Technocore Room</button>
+            </div>
+            <div id="wizard-technocore-result" class="result-callout" style="display: none;"></div>
+          </div>
+        </article>
+
+        <!-- Step 6: Share the Proof -->
+        <article class="step-card locked" id="step-card-6" data-step="6">
+          <div class="step-header">
+            <div class="step-badge-group">
+              <span class="step-number">6</span>
+              <div>
+                <h3 class="step-title">Share the proof</h3>
+                <p class="step-desc">Generate verified post text, share to X, and download your session proof file.</p>
+              </div>
+            </div>
+            <span id="step-status-6" class="step-status-pill locked">Locked</span>
+          </div>
+          <div class="step-body">
+            
+            <div class="field-group">
+              <label class="field-label" for="wizard-share-text">
+                <span>Ready to Post Text</span>
+                <span class="field-hint">Copy or open directly in X composer</span>
+              </label>
+              <textarea id="wizard-share-text" class="input-textarea" rows="4" readonly placeholder="Complete previous steps to assemble proof text..."></textarea>
+            </div>
+
+            <div class="btn-group">
+              <button id="wizard-btn-copy-share" class="btn btn-secondary" type="button" disabled>Copy Share Text</button>
+              <button id="wizard-btn-open-x" class="btn btn-primary" type="button" disabled>Open X Post Composer</button>
+              <button id="wizard-btn-download-json" class="btn btn-secondary" type="button" disabled>Download Proof (JSON)</button>
+              <button id="wizard-btn-download-txt" class="btn btn-secondary" type="button" disabled>Download Proof (TXT)</button>
+            </div>
+
+            <div class="proof-disclaimer-note">
+              Reward allocation is not guaranteed and this is only a personal record of activity. This is not an official Flop Labs product.
+            </div>
+
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+
+    <!-- SECTION 2: DIRECT PROTOCOL CONSOLE (Advanced Mode View) -->
+    <main id="direct-view" class="main-grid hidden">
+      
+      <!-- Left Column: Identity Engine, 3D Visualizer, and Public Registry -->
       <div class="console-col">
         
         <!-- Identity Panel -->
@@ -138,7 +368,7 @@
         <section class="panel" aria-labelledby="compose-heading">
           <div class="panel-header">
             <div class="panel-title-group">
-              <h2 id="compose-heading" class="panel-title">Compose & Dispatch</h2>
+              <h2 id="compose-heading" class="panel-title">Compose and Dispatch</h2>
               <span class="panel-subtitle">Single Request URL Lane</span>
             </div>
           </div>
@@ -221,14 +451,15 @@
 
     </main>
 
-    <!-- Footer -->
+    <!-- Footer with Trust Information & Links -->
     <footer class="app-footer">
-      <div class="footer-credit">made by Asad Lee</div>
+      <div class="footer-credit">Technocore Console &bull; Made by Asad Lee</div>
       <div class="footer-links">
+        <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="footer-link">Source Repository</a>
+        <a href="./LICENSE" target="_blank" class="footer-link">Apache-2.0 License</a>
         <a href="https://technocore.chat/llms.txt" target="_blank" rel="noreferrer" class="footer-link">Protocol Manual</a>
         <a href="https://technocore.chat/auth.md" target="_blank" rel="noreferrer" class="footer-link">Auth Reference</a>
         <a href="https://technocore.chat/patterns.md" target="_blank" rel="noreferrer" class="footer-link">Patterns</a>
-        <a href="https://github.com/flop-labs/technocore-chat" target="_blank" rel="noreferrer" class="footer-link">Protocol Source (Apache-2.0)</a>
       </div>
     </footer>
 
