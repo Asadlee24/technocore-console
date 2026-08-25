@@ -1,0 +1,293 @@
+/**
+ * Cryptographic helpers for Technocore Protocol
+ * Uses tweetnacl for Ed25519 operations and Web Crypto API for SHA-256
+ */
+
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+/**
+ * Base58btc encoder
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+export function encodeBase58(bytes) {
+  if (!bytes || bytes.length === 0) return '';
+  
+  let zeros = 0;
+  while (zeros < bytes.length && bytes[zeros] === 0) {
+    zeros++;
+  }
+
+  const digits = [0];
+  for (let i = zeros; i < bytes.length; i++) {
+    let carry = bytes[i];
+    for (let j = 0; j < digits.length; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = (carry / 58) | 0;
+    }
+  }
+
+  let str = '';
+  for (let i = 0; i < zeros; i++) {
+    str += '1';
+  }
+  for (let i = digits.length - 1; i >= 0; i--) {
+    str += BASE58_ALPHABET[digits[i]];
+  }
+
+  return str;
+}
+
+/**
+ * Base58btc decoder
+ * @param {string} str
+ * @returns {Uint8Array}
+ */
+export function decodeBase58(str) {
+  if (!str || str.length === 0) return new Uint8Array(0);
+
+  let zeros = 0;
+  while (zeros < str.length && str[zeros] === '1') {
+    zeros++;
+  }
+
+  const bytes = [0];
+  for (let i = zeros; i < str.length; i++) {
+    const char = str[i];
+    const value = BASE58_ALPHABET.indexOf(char);
+    if (value === -1) {
+      throw new Error(`Invalid Base58 character: ${char}`);
+    }
+
+    let carry = value;
+    for (let j = 0; j < bytes.length; j++) {
+      carry += bytes[j] * 58;
+      bytes[j] = carry & 0xff;
+      carry = carry >> 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry = carry >> 8;
+    }
+  }
+
+  const result = new Uint8Array(zeros + bytes.length);
+  for (let i = 0; i < zeros; i++) {
+    result[i] = 0;
+  }
+  for (let i = 0; i < bytes.length; i++) {
+    result[zeros + i] = bytes[bytes.length - 1 - i];
+  }
+
+  return result;
+}
+
+/**
+ * Base64url encoder without padding
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+export function encodeBase64Url(bytes) {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64 = btoa(binary);
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Base64url decoder
+ * @param {string} str
+ * @returns {Uint8Array}
+ */
+export function decodeBase64Url(str) {
+  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (base64.length % 4 !== 0) {
+    base64 += '=';
+  }
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * Convert bytes to hex string
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+export function bytesToHex(bytes) {
+  return Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * Convert hex string to bytes
+ * @param {string} hex
+ * @returns {Uint8Array}
+ */
+export function hexToBytes(hex) {
+  const cleanHex = hex.trim().replace(/^0x/i, '');
+  if (cleanHex.length % 2 !== 0) {
+    throw new Error('Hex string must have an even number of characters');
+  }
+  const bytes = new Uint8Array(cleanHex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = parseInt(cleanHex.substr(i * 2, 2), 16);
+    if (isNaN(byte)) {
+      throw new Error(`Invalid hex byte at index ${i * 2}`);
+    }
+    bytes[i] = byte;
+  }
+  return bytes;
+}
+
+/**
+ * Compute SHA-256 hash of a string and return hex
+ * @param {string} text
+ * @returns {Promise<string>}
+ */
+export async function sha256Hex(text) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return bytesToHex(new Uint8Array(hashBuffer));
+}
+
+/**
+ * Compute the did:key representation from an Ed25519 public key (32 bytes)
+ * Multicodec prefix: 0xed 0x01
+ * Base58btc multibase prefix: 'z'
+ * @param {Uint8Array} publicKey
+ * @returns {string}
+ */
+export function deriveDidKey(publicKey) {
+  if (publicKey.length !== 32) {
+    throw new Error('Ed25519 public key must be exactly 32 bytes');
+  }
+  const prefixed = new Uint8Array(34);
+  prefixed[0] = 0xed;
+  prefixed[1] = 0x01;
+  prefixed.set(publicKey, 2);
+
+  const base58Str = encodeBase58(prefixed);
+  return `did:key:z${base58Str}`;
+}
+
+/**
+ * Parse a did:key to extract the raw 32-byte Ed25519 public key
+ * @param {string} did
+ * @returns {Uint8Array}
+ */
+export function parseDidKey(did) {
+  if (!did.startsWith('did:key:z')) {
+    throw new Error('Invalid did:key format. Expected did:key:z...');
+  }
+  const multibase = did.slice(9); // remove 'did:key:z'
+  const decoded = decodeBase58(multibase);
+  if (decoded.length !== 34 || decoded[0] !== 0xed || decoded[1] !== 0x01) {
+    throw new Error('Invalid multicodec header. Expected Ed25519 (0xed 0x01)');
+  }
+  return decoded.slice(2);
+}
+
+/**
+ * Sweep single-line text according to Technocore protocol spec:
+ * Replace C0/C1 control characters, format characters, zero-width joiners, bidi overrides, newlines with spaces.
+ * @param {string} text
+ * @returns {string}
+ */
+export function sweepSingleLine(text) {
+  if (!text) return '';
+  // Replace newlines and common invisible/control characters with single spaces
+  let cleaned = text.replace(/[\r\n\t\x00-\x1F\x7F-\x9F\u200B-\u200F\u202A-\u202E\uFEFF]/g, ' ');
+  return cleaned;
+}
+
+/**
+ * Generate a new random Ed25519 keypair
+ * Uses tweetnacl.sign.keyPair()
+ * @param {object} naclInstance
+ * @returns {{ secretKey: Uint8Array, publicKey: Uint8Array, seed: Uint8Array, did: string }}
+ */
+export function generateKeypair(naclInstance) {
+  const kp = naclInstance.sign.keyPair();
+  const seed = kp.secretKey.slice(0, 32);
+  const did = deriveDidKey(kp.publicKey);
+  return {
+    secretKey: kp.secretKey, // 64 bytes
+    publicKey: kp.publicKey, // 32 bytes
+    seed: seed,             // 32 bytes
+    did: did
+  };
+}
+
+/**
+ * Restore keypair from a 32-byte seed or 64-byte secret key (hex or base64)
+ * @param {string} inputStr
+ * @param {object} naclInstance
+ * @returns {{ secretKey: Uint8Array, publicKey: Uint8Array, seed: Uint8Array, did: string }}
+ */
+export function restoreKeypair(inputStr, naclInstance) {
+  const clean = inputStr.trim();
+  let rawBytes;
+
+  // Try hex first if valid hex length
+  if (/^[0-9a-fA-F]+$/.test(clean) && (clean.length === 64 || clean.length === 128)) {
+    rawBytes = hexToBytes(clean);
+  } else {
+    // Try base64 / base64url
+    try {
+      rawBytes = decodeBase64Url(clean);
+    } catch {
+      throw new Error('Key must be a 32-byte seed or 64-byte secret key in hex or base64 format');
+    }
+  }
+
+  let kp;
+  if (rawBytes.length === 32) {
+    kp = naclInstance.sign.keyPair.fromSeed(rawBytes);
+  } else if (rawBytes.length === 64) {
+    kp = naclInstance.sign.keyPair.fromSecretKey(rawBytes);
+  } else {
+    throw new Error(`Invalid key length: ${rawBytes.length} bytes. Expected 32-byte seed or 64-byte secret key`);
+  }
+
+  const seed = kp.secretKey.slice(0, 32);
+  const did = deriveDidKey(kp.publicKey);
+  return {
+    secretKey: kp.secretKey,
+    publicKey: kp.publicKey,
+    seed: seed,
+    did: did
+  };
+}
+
+/**
+ * Sign a protocol message: room|nonce|text
+ * @param {object} naclInstance
+ * @param {Uint8Array} secretKey (64 bytes)
+ * @param {string} room
+ * @param {number|string} nonce
+ * @param {string} text
+ * @returns {string} 86-character base64url signature
+ */
+export function signMessage(naclInstance, secretKey, room, nonce, text) {
+  const sweptText = sweepSingleLine(text);
+  const payload = `${room}|${nonce}|${sweptText}`;
+  const encoder = new TextEncoder();
+  const payloadBytes = encoder.encode(payload);
+  const sigBytes = naclInstance.sign.detached(payloadBytes, secretKey);
+  const b64urlSig = encodeBase64Url(sigBytes);
+  return b64urlSig;
+}
