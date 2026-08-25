@@ -2,8 +2,8 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/proxy/:match*",
-      "destination": "/api/proxy?path=:match*"
+      "source": "/api/proxy/(.*)",
+      "destination": "/api/proxy?path=$1"
     }
   ]
 }

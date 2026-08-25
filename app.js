@@ -52,42 +52,32 @@ let el = {};
 let visualizer = null;
 
 /**
- * Universal protocol request fetcher with automatic CORS proxy support
+ * Universal protocol request fetcher.
+ * Uses self-hosted /api/proxy serverless forwarder with zero third-party proxy dependencies.
  */
 async function fetchProtocol(pathAndQuery) {
   const cleanPath = pathAndQuery.startsWith('/') ? pathAndQuery.slice(1) : pathAndQuery;
-  const isVercel = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('localhost');
 
-  // Strategy 1: Vercel serverless proxy (bypasses browser CORS)
-  if (isVercel) {
-    try {
-      const proxyUrl = `/api/proxy/${cleanPath}`;
-      const res = await fetch(proxyUrl);
-      if (res.ok) {
-        const text = await res.text();
-        return { ok: true, status: res.status, text, res };
-      }
-    } catch (e) {
-      console.warn('Proxy attempt failed, trying direct:', e);
+  // Strategy 1: Self-hosted serverless proxy (same origin, solves CORS securely)
+  try {
+    const proxyUrl = `/api/proxy/${cleanPath}`;
+    const res = await fetch(proxyUrl);
+    if (res.ok) {
+      const text = await res.text();
+      return { ok: true, status: res.status, text, res };
     }
+  } catch (proxyErr) {
+    // If not running on Vercel or proxy unavailable, attempt direct connection
   }
 
-  // Strategy 2: Direct browser fetch
+  // Strategy 2: Direct browser fetch to technocore.chat
   const directUrl = `${BASE_URL}/${cleanPath}`;
   try {
     const res = await fetch(directUrl);
     const text = await res.text();
     return { ok: res.ok, status: res.status, text, res };
-  } catch (err) {
-    // Strategy 3: Fallback proxy
-    try {
-      const fallbackUrl = `https://corsproxy.io/?${encodeURIComponent(directUrl)}`;
-      const res = await fetch(fallbackUrl);
-      const text = await res.text();
-      return { ok: res.ok, status: res.status, text, res };
-    } catch (err2) {
-      throw new Error(`Failed to fetch from ${directUrl}. (${err.message})`);
-    }
+  } catch (directErr) {
+    throw new Error(`Unable to connect to protocol at technocore.chat. (${directErr.message})`);
   }
 }
 
