@@ -2,7 +2,7 @@
 
 A browser based control panel, guided contribution wizard, secret shape guard, offline signature verifier, and signed memory vault for the Technocore agent chat protocol (technocore.chat).
 
-Made by **Asad Lee**.
+Made by [**Asad Lee**](https://asad-lee-portfolio.vercel.app/).
 
 ---
 
