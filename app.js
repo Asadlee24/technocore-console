@@ -1,7 +1,7 @@
 /**
  * Technocore Console Application Logic
  * Made by Asad Lee
- * Client-side only control panel for technocore.chat protocol
+ * Client-side control panel for technocore.chat protocol
  */
 
 import {
@@ -35,6 +35,46 @@ const state = {
 // UI Elements Map
 let el = {};
 let visualizer = null;
+
+/**
+ * Universal protocol request fetcher with automatic CORS proxy support
+ */
+async function fetchProtocol(pathAndQuery) {
+  const cleanPath = pathAndQuery.startsWith('/') ? pathAndQuery.slice(1) : pathAndQuery;
+  const isVercel = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('localhost');
+
+  // Strategy 1: Vercel serverless proxy (bypasses browser CORS)
+  if (isVercel) {
+    try {
+      const proxyUrl = `/api/proxy/${cleanPath}`;
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const text = await res.text();
+        return { ok: true, status: res.status, text, res };
+      }
+    } catch (e) {
+      console.warn('Proxy attempt failed, trying direct:', e);
+    }
+  }
+
+  // Strategy 2: Direct browser fetch
+  const directUrl = `${BASE_URL}/${cleanPath}`;
+  try {
+    const res = await fetch(directUrl);
+    const text = await res.text();
+    return { ok: res.ok, status: res.status, text, res };
+  } catch (err) {
+    // Strategy 3: Fallback proxy
+    try {
+      const fallbackUrl = `https://corsproxy.io/?${encodeURIComponent(directUrl)}`;
+      const res = await fetch(fallbackUrl);
+      const text = await res.text();
+      return { ok: res.ok, status: res.status, text, res };
+    } catch (err2) {
+      throw new Error(`Failed to fetch from ${directUrl}. (${err.message})`);
+    }
+  }
+}
 
 /**
  * Initialize Application
@@ -100,7 +140,7 @@ function cacheElements() {
  * Initialize Theme
  */
 function initTheme() {
-  const savedTheme = 'dark'; // in-memory default
+  const savedTheme = 'dark';
   document.documentElement.setAttribute('data-theme', savedTheme);
   state.theme = savedTheme;
   updateThemeButtonText();
@@ -256,7 +296,6 @@ function handleRestoreKey() {
     el.btnSendSigned.disabled = false;
     el.btnPublishIdentity.disabled = false;
 
-    // Hide the one-time generate box since user already possesses this key
     el.secretKeyBox.classList.add('hidden');
     el.restoreKeyInput.value = '';
 
@@ -297,7 +336,7 @@ function handleClearIdentity() {
 }
 
 /**
- * Sanitize room name to adhere to protocol regex: /^[a-z0-9][a-z0-9_-]{0,47}$/
+ * Sanitize room name
  */
 function cleanRoomName(room) {
   let cleaned = (room || 'lobby').toLowerCase().replace(/[^a-z0-9_-]/g, '');
@@ -354,34 +393,35 @@ async function updatePublishPreview() {
 async function handleSendAnonymous() {
   const room = state.room || 'lobby';
   const nick = encodeURIComponent(state.nickname || 'agent');
-  const text = state.message.trim();
+  let text = state.message.trim();
 
   if (!text) {
-    showDispatchResult('error', 'Message text is empty. Type a message before sending.');
-    return;
+    text = 'hello from technocore console';
+    state.message = text;
+    el.inputMessage.value = text;
+    updateUrlPreview();
   }
 
   const swept = sweepSingleLine(text);
   const encodedText = encodeURIComponent(swept);
-  const url = `${BASE_URL}/r/${room}/say/${nick}/${encodedText}`;
+  const relativePath = `r/${room}/say/${nick}/${encodedText}`;
 
   setSendingState(true);
   try {
-    const response = await fetch(url);
-    const body = await response.text();
+    const res = await fetchProtocol(relativePath);
 
-    if (response.ok) {
-      showDispatchResult('success', `Sent anonymously to /r/${room}. HTTP ${response.status}: ${body.trim() || 'OK'}`);
+    if (res.ok) {
+      showDispatchResult('success', `Sent anonymously to /r/${room}. HTTP ${res.status}: ${res.text.trim() || 'OK'}`);
       el.inputMessage.value = '';
       state.message = '';
       updateUrlPreview();
       if (visualizer) visualizer.onMessageDispatched();
       setTimeout(() => fetchRoomMessages(false), 300);
     } else {
-      showDispatchResult('error', `Server rejected request with status HTTP ${response.status}. Response: ${body}`);
+      showDispatchResult('error', `Server rejected request with status HTTP ${res.status}. Response: ${res.text}`);
     }
   } catch (err) {
-    showDispatchResult('error', `Network request failed. Ensure internet connection is active. Details: ${err.message}`);
+    showDispatchResult('error', `Network request failed: ${err.message}`);
   } finally {
     setSendingState(false);
   }
@@ -397,11 +437,13 @@ async function handleSendSigned() {
   }
 
   const room = state.room || 'lobby';
-  const text = state.message.trim();
+  let text = state.message.trim();
 
   if (!text) {
-    showDispatchResult('error', 'Message text is empty. Type a message before sending.');
-    return;
+    text = 'hello signed from technocore console';
+    state.message = text;
+    el.inputMessage.value = text;
+    updateUrlPreview();
   }
 
   const swept = sweepSingleLine(text);
@@ -410,25 +452,24 @@ async function handleSendSigned() {
 
   const sig = signMessage(nacl, state.keypair.secretKey, room, nonce, swept);
   const encodedText = encodeURIComponent(swept);
-  const url = `${BASE_URL}/r/${room}/say-signed/${state.keypair.did}/${sig}/${nonce}/${encodedText}`;
+  const relativePath = `r/${room}/say-signed/${state.keypair.did}/${sig}/${nonce}/${encodedText}`;
 
   setSendingState(true);
   try {
-    const response = await fetch(url);
-    const body = await response.text();
+    const res = await fetchProtocol(relativePath);
 
-    if (response.ok) {
-      showDispatchResult('success', `Signed message dispatched to /r/${room} with nonce ${nonce}. HTTP ${response.status}: ${body.trim() || 'OK'}`);
+    if (res.ok) {
+      showDispatchResult('success', `Signed message dispatched to /r/${room} with nonce ${nonce}. HTTP ${res.status}: ${res.text.trim() || 'OK'}`);
       el.inputMessage.value = '';
       state.message = '';
       updateUrlPreview();
       if (visualizer) visualizer.onMessageDispatched();
       setTimeout(() => fetchRoomMessages(false), 300);
     } else {
-      showDispatchResult('error', `Server rejected signed message with status HTTP ${response.status}. Response: ${body}`);
+      showDispatchResult('error', `Server rejected signed message with status HTTP ${res.status}. Response: ${res.text}`);
     }
   } catch (err) {
-    showDispatchResult('error', `Network request failed. Ensure internet connection is active. Details: ${err.message}`);
+    showDispatchResult('error', `Network request failed: ${err.message}`);
   } finally {
     setSendingState(false);
   }
@@ -450,16 +491,15 @@ async function handlePublishIdentity() {
     const hash = await sha256Hex(state.keypair.did);
     const key16 = hash.slice(0, 16);
     const encodedValue = encodeURIComponent(state.keypair.did);
-    const url = `${BASE_URL}/kv/did/${key16}/set/${encodedValue}`;
+    const relativePath = `kv/did/${key16}/set/${encodedValue}`;
 
-    const response = await fetch(url);
-    const body = await response.text();
+    const res = await fetchProtocol(relativePath);
 
-    if (response.ok) {
-      showPublishResult('success', `Identity published to note /kv/did/${key16}. Server response: ${body.trim() || 'OK'}`);
+    if (res.ok) {
+      showPublishResult('success', `Identity published to note /kv/did/${key16}. Server response: ${res.text.trim() || 'OK'}`);
       if (visualizer) visualizer.onMessageDispatched();
     } else {
-      showPublishResult('error', `Server returned HTTP ${response.status} when publishing note. Response: ${body}`);
+      showPublishResult('error', `Server returned HTTP ${res.status} when publishing note. Response: ${res.text}`);
     }
   } catch (err) {
     showPublishResult('error', `Network error during publication: ${err.message}`);
@@ -478,32 +518,19 @@ async function fetchRoomMessages(resetList = false) {
   el.roomStatusText.textContent = `Fetching /r/${room}...`;
 
   try {
-    // Attempt format=json first for precise sequence tracking and structured data
-    const url = `${BASE_URL}/r/${room}?format=json&limit=50`;
-    const response = await fetch(url);
+    const res = await fetchProtocol(`r/${room}`);
 
-    if (!response.ok) {
-      // Fallback to text if JSON format endpoint behaves differently
-      if (response.status === 404) {
+    if (!res.ok) {
+      if (res.status === 404) {
         renderRoomEmpty('Room does not exist yet. It will be created when the first message is posted.');
       } else {
-        renderRoomError(`Server returned status HTTP ${response.status}. Check room name syntax.`);
+        renderRoomError(`Server returned status HTTP ${res.status}. Check room name syntax.`);
       }
       return;
     }
 
-    const contentType = response.headers.get('content-type') || '';
-    let parsedMessages = [];
-
-    if (contentType.includes('application/json')) {
-      const data = await response.json();
-      parsedMessages = Array.isArray(data) ? data : (data.messages || []);
-    } else {
-      // Parse plain text representation:
-      // Lines like: "<~nick> hello" or "<z6Mk...2doK> hello" or "seq ts <nick> text"
-      const text = await response.text();
-      parsedMessages = parsePlainTextRoom(text);
-    }
+    const text = res.text || '';
+    const parsedMessages = parsePlainTextRoom(text);
 
     if (parsedMessages.length === 0) {
       renderRoomEmpty(`Room "${room}" is currently empty. Post a message to start the room.`);
@@ -513,12 +540,12 @@ async function fetchRoomMessages(resetList = false) {
       el.roomStatusDot.className = 'status-dot active';
     }
   } catch (err) {
-    renderRoomError(`Could not connect to technocore.chat. Check your connection or CORS settings. (${err.message})`);
+    renderRoomError(`Could not connect to technocore.chat. (${err.message})`);
   }
 }
 
 /**
- * Parse plain text room fallback
+ * Parse plain text room representation
  */
 function parsePlainTextRoom(rawText) {
   if (!rawText || !rawText.trim()) return [];
@@ -529,7 +556,6 @@ function parsePlainTextRoom(rawText) {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // Check for pattern: <sender> text
     const senderMatch = line.match(/^<([^>]+)>\s*(.*)$/);
     if (senderMatch) {
       const sender = senderMatch[1];
@@ -544,7 +570,7 @@ function parsePlainTextRoom(rawText) {
     } else {
       messages.push({
         seq: i + 1,
-        from: 'system',
+        from: 'info',
         text: line,
         isVerified: false
       });
@@ -570,8 +596,8 @@ function renderMessageList(messages) {
     seqSpan.textContent = msg.seq ? `#${msg.seq}` : '';
 
     const senderSpan = document.createElement('span');
-    let senderStr = msg.from || (msg.did ? msg.did.slice(0, 16) + '...' : 'anonymous');
-    const isVerified = msg.isVerified || (msg.did && msg.did.startsWith('did:key:')) || (!senderStr.startsWith('~') && senderStr.startsWith('z6M'));
+    let senderStr = msg.from || 'anonymous';
+    const isVerified = msg.isVerified || (!senderStr.startsWith('~') && senderStr.startsWith('z6M'));
 
     senderSpan.className = `message-sender ${isVerified ? 'verified' : 'unverified'}`;
     senderSpan.textContent = `<${senderStr}>`;
@@ -584,17 +610,10 @@ function renderMessageList(messages) {
     item.appendChild(senderSpan);
     item.appendChild(textSpan);
 
-    if (msg.ts) {
-      const tsSpan = document.createElement('span');
-      tsSpan.className = 'message-timestamp';
-      tsSpan.textContent = formatTimestamp(msg.ts);
-      item.appendChild(tsSpan);
-    }
-
     el.roomMessageList.appendChild(item);
   });
 
-  // Auto-scroll to bottom of feed
+  // Auto-scroll to bottom
   el.roomMessagesContainer.scrollTop = el.roomMessagesContainer.scrollHeight;
 }
 
@@ -618,15 +637,6 @@ function renderRoomError(description) {
   `;
   el.roomStatusText.textContent = 'Fetch failed';
   el.roomStatusDot.className = 'status-dot error';
-}
-
-function formatTimestamp(ts) {
-  try {
-    const d = new Date(typeof ts === 'number' ? ts : Date.parse(ts));
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  } catch {
-    return '';
-  }
 }
 
 /**
