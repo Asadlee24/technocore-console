@@ -1712,13 +1712,24 @@ async function handleVaultRestoreByDid() {
     const restored = [];
 
     for (const keyLine of lines) {
-      const noteKey = keyLine.trim();
+      const cleanLine = keyLine.trim();
+      if (!cleanLine) continue;
+      // Extract key name in case line is /kv/namespace/key or just key
+      const parts = cleanLine.split('/').filter(Boolean);
+      const noteKey = parts[parts.length - 1];
       if (!noteKey) continue;
+
       try {
         const noteResult = await fetchProtocol(`/kv/${ns}/${noteKey}`);
         if (!noteResult.ok || !noteResult.text.trim()) { failed++; continue; }
+        const rawText = noteResult.text.trim();
+        const firstBrace = rawText.indexOf('{');
+        if (firstBrace === -1) { failed++; continue; }
+
         let memObj;
-        try { memObj = JSON.parse(noteResult.text.trim()); } catch { failed++; continue; }
+        try {
+          memObj = JSON.parse(rawText.slice(firstBrace).trim());
+        } catch { failed++; continue; }
         if (!memObj.id || !memObj.signature || !memObj.did) { failed++; continue; }
 
         // Verify signature if nacl is available
