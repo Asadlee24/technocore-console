@@ -11,7 +11,9 @@ import {
   detectSensitiveContent,
   generateKeypair,
   signMessage,
-  verifyMessageSignature
+  verifyMessageSignature,
+  signMemory,
+  verifyMemorySignature
 } from './crypto.js';
 
 console.log('Testing Base58btc...');
@@ -84,7 +86,7 @@ const mockNacl = {
 };
 mockNacl.sign.detached.verify = (payloadBytes, sigBytes, publicKey) => {
   const str = new TextDecoder().decode(payloadBytes);
-  return str === 'lobby|123|hello' && sigBytes.length === 64 && publicKey.length === 32;
+  return (str === 'lobby|123|hello' || str === 'mem-1|2026-08-25T00:00:00Z|my memory text') && sigBytes.length === 64 && publicKey.length === 32;
 };
 
 const kp = generateKeypair(mockNacl);
@@ -99,4 +101,15 @@ console.log('Altered text verified (should be false):', alteredCheck.valid === f
 const malformedDidCheck = verifyMessageSignature(mockNacl, 'invalid-did', sig, 'lobby', 123, 'hello');
 console.log('Malformed DID verified (should be false):', malformedDidCheck.valid === false);
 
+console.log('Testing Memory Vault (signMemory & verifyMemorySignature)...');
+const memSig = signMemory(mockNacl, kp.secretKey, 'mem-1', '2026-08-25T00:00:00Z', 'my memory text');
+console.log('Memory signature is 86 chars:', memSig.length === 86);
+
+const memCheckValid = verifyMemorySignature(mockNacl, kp.did, memSig, 'mem-1', '2026-08-25T00:00:00Z', 'my memory text');
+console.log('Memory signature valid check (should be true):', memCheckValid.valid === true);
+
+const memCheckAltered = verifyMemorySignature(mockNacl, kp.did, memSig, 'mem-1', '2026-08-25T00:00:00Z', 'altered text');
+console.log('Memory signature altered check (should be false):', memCheckAltered.valid === false);
+
 console.log('ALL CRYPTO UNIT CHECKS PASSED!');
+

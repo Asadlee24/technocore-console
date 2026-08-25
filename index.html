@@ -26,6 +26,7 @@
           <button id="tab-wizard-mode" class="tab-btn active" type="button" role="tab" aria-selected="true">Guided Flow</button>
           <button id="tab-direct-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Direct Console</button>
           <button id="tab-verifier-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Signature Verifier</button>
+          <button id="tab-vault-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Memory Vault</button>
         </div>
         <div class="security-badge">Memory Only: Zero Storage</div>
         <div class="status-badge">
@@ -518,6 +519,158 @@
 
           <div id="verify-result-box" class="result-callout" style="display: none;"></div>
         </div>
+      </div>
+    </section>
+
+
+    <!-- SECTION 4: MEMORY VAULT -->
+    <section id="vault-view" class="vault-container hidden" aria-label="Technocore Memory Vault">
+
+      <!-- Vault Header Card -->
+      <div class="vault-header-card">
+        <div class="vault-header-meta">
+          <div>
+            <h2 class="vault-title">Memory Vault</h2>
+            <p class="vault-subtitle">A signed memory layer for AI agents built on top of the Technocore protocol. Save structured memories, sign each one with your Ed25519 did:key, and rebuild a timeline from what can be retrieved. Memories stored here may be evicted over time since Technocore itself is not a permanent archive.</p>
+          </div>
+          <!-- Session Summary Strip -->
+          <div id="vault-session-summary" class="vault-session-summary">
+            <div class="vault-stat">
+              <span class="vault-stat-val" id="vault-stat-total">0</span>
+              <span class="vault-stat-label">Memories</span>
+            </div>
+            <div class="vault-stat">
+              <span class="vault-stat-val" id="vault-stat-verified">0</span>
+              <span class="vault-stat-label">Verified</span>
+            </div>
+            <div class="vault-stat vault-stat-wide">
+              <span class="vault-stat-val" id="vault-stat-last">None</span>
+              <span class="vault-stat-label">Last saved</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vault-grid">
+
+        <!-- Left Column: Save Memory + Import/Restore -->
+        <div class="vault-col">
+
+          <!-- Save Memory Panel -->
+          <section class="panel" aria-labelledby="vault-save-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="vault-save-heading" class="panel-title">Save Memory</h2>
+                <span class="panel-subtitle">Sign and store to /kv/memory</span>
+              </div>
+              <div class="status-badge">
+                <span id="vault-identity-dot" class="status-dot"></span>
+                <span id="vault-identity-label">No identity loaded</span>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="field-group">
+                <label class="field-label" for="vault-category-select">Category</label>
+                <select id="vault-category-select" class="input-select">
+                  <option value="identity">Identity</option>
+                  <option value="experience">Experience</option>
+                  <option value="task">Task</option>
+                  <option value="preference">Preference</option>
+                  <option value="knowledge">Knowledge</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="vault-memory-text">
+                  <span>Memory Text</span>
+                  <span class="field-hint">Protected by secret shape guard</span>
+                </label>
+                <textarea id="vault-memory-text" class="input-textarea" rows="3" placeholder="Describe the memory, event, preference, or piece of knowledge to record..."></textarea>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Note Path Preview</label>
+                <div class="readout-box">
+                  <span id="vault-note-path-preview" class="readout-text empty">Load an identity to see the target note path.</span>
+                </div>
+              </div>
+              <button id="btn-vault-save" class="btn btn-signed" type="button" disabled>Sign and Save Memory</button>
+              <div id="vault-save-result" class="result-callout" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- Import and Restore Panel -->
+          <section class="panel" aria-labelledby="vault-restore-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="vault-restore-heading" class="panel-title">Restore Timeline</h2>
+                <span class="panel-subtitle">Rebuild from did:key or exported file</span>
+              </div>
+            </div>
+            <div class="panel-body">
+              <p class="field-hint" style="margin-bottom: 10px;">Enter a did:key to look up any memory notes stored under that identity. Because Technocore notes can be evicted, the timeline shows only what is currently retrievable.</p>
+              <div class="field-group">
+                <label class="field-label" for="vault-restore-did-input">DID to restore (optional)</label>
+                <div class="field-row">
+                  <input id="vault-restore-did-input" class="input-text" type="text" placeholder="did:key:z6Mk... or leave blank to use active identity" spellcheck="false">
+                  <button id="btn-vault-restore-did" class="btn btn-secondary" type="button">Restore by DID</button>
+                </div>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="vault-import-file">Import from exported file</label>
+                <div class="field-row">
+                  <input id="vault-import-file" class="input-text" type="file" accept=".json" style="cursor: pointer;">
+                  <button id="btn-vault-import" class="btn btn-secondary" type="button">Load File</button>
+                </div>
+              </div>
+              <div id="vault-restore-result" class="result-callout" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- References and Sources Panel -->
+          <section class="panel" aria-labelledby="vault-refs-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="vault-refs-heading" class="panel-title">Sources and References</h2>
+              </div>
+            </div>
+            <div class="panel-body">
+              <ul class="vault-refs-list">
+                <li><a href="https://cryptohayes.substack.com/p/the-book-of-genesis" target="_blank" rel="noreferrer" class="trust-link">Flop Labs: The Book of Genesis (Arthur Hayes)</a></li>
+                <li><a href="https://technocore.chat/humans" target="_blank" rel="noreferrer" class="trust-link">technocore.chat/humans</a></li>
+                <li><a href="https://technocore.chat/auth.md" target="_blank" rel="noreferrer" class="trust-link">technocore.chat/auth.md</a></li>
+                <li><a href="https://technocore.chat/llms.txt" target="_blank" rel="noreferrer" class="trust-link">technocore.chat/llms.txt (Protocol Reference)</a></li>
+                <li><a href="https://technocore.chat/patterns.md" target="_blank" rel="noreferrer" class="trust-link">technocore.chat/patterns.md (Patterns)</a></li>
+                <li><a href="https://github.com/flop-labs/technocore-chat" target="_blank" rel="noreferrer" class="trust-link">github.com/flop-labs/technocore-chat</a></li>
+                <li><a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="trust-link">github.com/Asadlee24/technocore-console (this project)</a></li>
+              </ul>
+              <div class="vault-built-by">Built by Asad Lee. Reward allocation is not guaranteed and this is only a personal record of activity. This is not an official Flop Labs product.</div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Right Column: Timeline -->
+        <div class="vault-col">
+
+          <section class="panel" aria-labelledby="vault-timeline-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="vault-timeline-heading" class="panel-title">Memory Timeline</h2>
+                <span class="panel-subtitle">Current session, chronological</span>
+              </div>
+              <button id="btn-vault-export" class="btn btn-secondary" type="button" disabled style="padding: 4px 10px; font-size: 0.725rem;">Export All (JSON)</button>
+            </div>
+            <div class="panel-body" style="padding: 0;">
+              <div id="vault-timeline-list" class="vault-timeline-list">
+                <div class="empty-state">
+                  <div class="empty-title">No memories saved yet.</div>
+                  <div class="empty-desc">Save a memory using the form on the left. Each memory is signed with your active did:key before being stored.</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
       </div>
     </section>
 

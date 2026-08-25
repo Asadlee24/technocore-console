@@ -356,6 +356,72 @@ export function signMessage(naclInstance, secretKey, room, nonce, text) {
  * @param {string} text
  * @returns {{ valid: boolean, error?: string }}
  */
+/**
+ * Sign a memory record: memoryId|created|text
+ * Payload format matches the note signature convention used for memory KV notes.
+ * @param {object} naclInstance
+ * @param {Uint8Array} secretKey (64 bytes)
+ * @param {string} memoryId
+ * @param {string|number} created - ISO timestamp or ms timestamp string
+ * @param {string} text - memory body text
+ * @returns {string} 86-character base64url signature
+ */
+export function signMemory(naclInstance, secretKey, memoryId, created, text) {
+  const sweptText = sweepSingleLine(text);
+  const payload = `${memoryId}|${created}|${sweptText}`;
+  const encoder = new TextEncoder();
+  const payloadBytes = encoder.encode(payload);
+  const sigBytes = naclInstance.sign.detached(payloadBytes, secretKey);
+  return encodeBase64Url(sigBytes);
+}
+
+/**
+ * Verify a memory signature locally.
+ * @param {object} naclInstance
+ * @param {string} did
+ * @param {string} signature (base64url 86 chars)
+ * @param {string} memoryId
+ * @param {string|number} created
+ * @param {string} text
+ * @returns {{ valid: boolean, error?: string }}
+ */
+export function verifyMemorySignature(naclInstance, did, signature, memoryId, created, text) {
+  try {
+    if (!did || !signature || !memoryId || created === undefined || created === null) {
+      return { valid: false, error: 'All fields (did:key, signature, memory id, created, and text) are required.' };
+    }
+
+    let publicKey;
+    try {
+      publicKey = parseDidKey(did.trim());
+    } catch {
+      return { valid: false, error: 'The did:key identifier is malformed or invalid.' };
+    }
+
+    let sigBytes;
+    try {
+      sigBytes = decodeBase64Url(signature.trim());
+      if (sigBytes.length !== 64) {
+        return { valid: false, error: 'The signature must be a 64 byte Ed25519 signature in unpadded base64url format.' };
+      }
+    } catch {
+      return { valid: false, error: 'The signature string is not valid base64url.' };
+    }
+
+    const sweptText = sweepSingleLine(text || '');
+    const payload = `${memoryId}|${created}|${sweptText}`;
+    const encoder = new TextEncoder();
+    const payloadBytes = encoder.encode(payload);
+
+    const isValid = naclInstance.sign.detached.verify(payloadBytes, sigBytes, publicKey);
+    return isValid
+      ? { valid: true }
+      : { valid: false, error: 'The signature does not match this memory record.' };
+  } catch (err) {
+    return { valid: false, error: `Verification failed: ${err.message}` };
+  }
+}
+
 export function verifyMessageSignature(naclInstance, did, signature, room, nonce, text) {
   try {
     if (!did || !signature || !room || nonce === undefined || nonce === null) {

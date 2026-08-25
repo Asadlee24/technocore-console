@@ -13,7 +13,9 @@ import {
   bytesToHex,
   sha256Hex,
   detectSensitiveContent,
-  verifyMessageSignature
+  verifyMessageSignature,
+  signMemory,
+  verifyMemorySignature
 } from './crypto.js';
 import { CryptoVisualizer } from './visualizer3d.js';
 
@@ -32,7 +34,7 @@ const state = {
   lastSeq: 0,
   messages: [],
   theme: 'dark',
-  activeView: 'wizard', // 'wizard', 'direct', or 'verifier'
+  activeView: 'wizard', // 'wizard', 'direct', 'verifier', or 'vault'
 
   // Wizard tracking state
   wizard: {
@@ -46,6 +48,12 @@ const state = {
     technocoreSeq: null,
     technocoreTimestamp: null,
     currentStep: 1
+  },
+
+  // Memory Vault state (in-memory only, never persisted)
+  vault: {
+    memories: [], // Array of memory objects
+    verifiedCount: 0
   }
 };
 
@@ -215,7 +223,28 @@ function cacheElements() {
     verifyMsgInput: document.getElementById('verify-msg-input'),
     btnRunVerify: document.getElementById('btn-run-verify'),
     btnClearVerify: document.getElementById('btn-clear-verify'),
-    verifyResultBox: document.getElementById('verify-result-box')
+    verifyResultBox: document.getElementById('verify-result-box'),
+
+    // Memory Vault Elements
+    tabVaultMode: document.getElementById('tab-vault-mode'),
+    vaultView: document.getElementById('vault-view'),
+    vaultStatTotal: document.getElementById('vault-stat-total'),
+    vaultStatVerified: document.getElementById('vault-stat-verified'),
+    vaultStatLast: document.getElementById('vault-stat-last'),
+    vaultIdentityDot: document.getElementById('vault-identity-dot'),
+    vaultIdentityLabel: document.getElementById('vault-identity-label'),
+    vaultCategorySelect: document.getElementById('vault-category-select'),
+    vaultMemoryText: document.getElementById('vault-memory-text'),
+    vaultNotePathPreview: document.getElementById('vault-note-path-preview'),
+    btnVaultSave: document.getElementById('btn-vault-save'),
+    vaultSaveResult: document.getElementById('vault-save-result'),
+    vaultTimelineList: document.getElementById('vault-timeline-list'),
+    btnVaultExport: document.getElementById('btn-vault-export'),
+    vaultRestoreDidInput: document.getElementById('vault-restore-did-input'),
+    btnVaultRestoreDid: document.getElementById('btn-vault-restore-did'),
+    vaultImportFile: document.getElementById('vault-import-file'),
+    btnVaultImport: document.getElementById('btn-vault-import'),
+    vaultRestoreResult: document.getElementById('vault-restore-result')
   };
 }
 
@@ -261,7 +290,7 @@ function initVisualizer() {
  */
 function setView(viewName) {
   state.activeView = viewName;
-  
+
   el.tabWizardMode.classList.toggle('active', viewName === 'wizard');
   el.tabWizardMode.setAttribute('aria-selected', String(viewName === 'wizard'));
 
@@ -271,9 +300,13 @@ function setView(viewName) {
   el.tabVerifierMode.classList.toggle('active', viewName === 'verifier');
   el.tabVerifierMode.setAttribute('aria-selected', String(viewName === 'verifier'));
 
+  el.tabVaultMode.classList.toggle('active', viewName === 'vault');
+  el.tabVaultMode.setAttribute('aria-selected', String(viewName === 'vault'));
+
   el.wizardView.classList.toggle('hidden', viewName !== 'wizard');
   el.directView.classList.toggle('hidden', viewName !== 'direct');
   el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
+  el.vaultView.classList.toggle('hidden', viewName !== 'vault');
 }
 
 /**
@@ -284,6 +317,7 @@ function bindEvents() {
   el.tabWizardMode.addEventListener('click', () => setView('wizard'));
   el.tabDirectMode.addEventListener('click', () => setView('direct'));
   el.tabVerifierMode.addEventListener('click', () => setView('verifier'));
+  el.tabVaultMode.addEventListener('click', () => setView('vault'));
 
   // Theme toggle
   el.themeToggle.addEventListener('click', toggleTheme);
@@ -378,6 +412,12 @@ function bindEvents() {
   el.btnQuickParse.addEventListener('click', handleQuickParse);
   el.btnRunVerify.addEventListener('click', handleRunVerify);
   el.btnClearVerify.addEventListener('click', handleClearVerify);
+
+  // Memory Vault Bindings
+  el.btnVaultSave.addEventListener('click', handleVaultSave);
+  el.btnVaultExport.addEventListener('click', handleVaultExport);
+  el.btnVaultRestoreDid.addEventListener('click', handleVaultRestoreByDid);
+  el.btnVaultImport.addEventListener('click', handleVaultImportFile);
 }
 
 /**
@@ -472,6 +512,12 @@ function applyKeypairToUI(kp) {
   el.wizardSecretKeyDisplay.textContent = secretHex;
   el.wizardBtnCopySecret.disabled = false;
   el.wizardBtnConfirmSaved.disabled = false;
+
+  // Memory Vault updates
+  el.vaultIdentityDot.className = 'status-dot active';
+  el.vaultIdentityLabel.textContent = kp.did.slice(0, 26) + '...';
+  el.btnVaultSave.disabled = false;
+  updateVaultNotePath();
 
   updateUrlPreview();
   updatePublishPreview();
@@ -1397,4 +1443,385 @@ function handleClearVerify() {
   el.verifyNonceInput.value = '';
   el.verifyMsgInput.value = '';
   el.verifyResultBox.style.display = 'none';
+}
+
+// =============================================================================
+// MEMORY VAULT
+// =============================================================================
+
+/**
+ * Compute the KV note path for a memory under a given DID.
+ * Convention from patterns.md: fingerprint = first 16 hex chars of SHA-256 of the did:key string.
+ * Memory namespace: memory-<shard2><key14>
+ * Memory key: <first 16 hex chars of SHA-256 of memoryId>
+ */
+async function computeMemoryPath(did, memoryId) {
+  const didFp = await sha256Hex(did);
+  const shard = didFp.slice(0, 2);
+  const key = didFp.slice(2, 16);
+  const memFp = await sha256Hex(memoryId);
+  const memKey = memFp.slice(0, 16);
+  return { ns: `memory-${shard}${key}`, key: memKey, full: `/kv/memory-${shard}${key}/${memKey}` };
+}
+
+/**
+ * Update the note path preview in the Save Memory panel.
+ */
+async function updateVaultNotePath() {
+  if (!state.keypair || !el.vaultNotePathPreview) return;
+  try {
+    const tempId = 'preview';
+    const { full } = await computeMemoryPath(state.keypair.did, tempId);
+    const didFp = await sha256Hex(state.keypair.did);
+    const shard = didFp.slice(0, 2);
+    const remainder = didFp.slice(2, 16);
+    el.vaultNotePathPreview.textContent = `/kv/memory-${shard}${remainder}/<memory-fingerprint>`;
+    el.vaultNotePathPreview.className = 'readout-text';
+  } catch {
+    el.vaultNotePathPreview.textContent = 'Unable to compute path.';
+  }
+}
+
+/**
+ * Update session summary strip.
+ */
+function updateVaultSummary() {
+  const memories = state.vault.memories;
+  el.vaultStatTotal.textContent = String(memories.length);
+  el.vaultStatVerified.textContent = String(memories.filter(m => m._verifyState === 'valid').length);
+  if (memories.length > 0) {
+    const last = memories[memories.length - 1];
+    const d = new Date(last.created);
+    el.vaultStatLast.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else {
+    el.vaultStatLast.textContent = 'None';
+  }
+  el.btnVaultExport.disabled = memories.length === 0;
+}
+
+/**
+ * Render the timeline list from state.vault.memories.
+ */
+function renderVaultTimeline() {
+  const memories = state.vault.memories;
+  if (memories.length === 0) {
+    el.vaultTimelineList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-title">No memories saved yet.</div>
+        <div class="empty-desc">Save a memory using the form on the left. Each memory is signed with your active did:key before being stored.</div>
+      </div>`;
+    return;
+  }
+
+  // Group by day
+  const groups = {};
+  for (const mem of memories) {
+    const day = new Date(mem.created).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+    if (!groups[day]) groups[day] = [];
+    groups[day].push(mem);
+  }
+
+  let html = '';
+  for (const [day, mems] of Object.entries(groups)) {
+    html += `<div class="vault-day-divider">${escapeHtml(day)}</div>`;
+    for (const mem of mems) {
+      const ts = new Date(mem.created).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const preview = mem.text.length > 200 ? mem.text.slice(0, 200) + '...' : mem.text;
+      const badgeClass = mem._verifyState === 'valid' ? 'valid' : mem._verifyState === 'invalid' ? 'invalid' : 'pending';
+      const badgeText = mem._verifyState === 'valid' ? 'Verified' : mem._verifyState === 'invalid' ? 'Invalid' : 'Unverified';
+      html += `
+        <div class="vault-memory-card" data-id="${escapeHtml(mem.id)}">
+          <div class="vault-memory-meta">
+            <span class="vault-category-pill">${escapeHtml(mem.category)}</span>
+            <span class="vault-memory-timestamp">${escapeHtml(ts)}</span>
+          </div>
+          <div class="vault-memory-body">${escapeHtml(preview)}</div>
+          <div class="vault-memory-note-path">${escapeHtml(mem._notePath || '')}</div>
+          <div class="vault-memory-actions">
+            <span class="vault-verify-badge ${badgeClass}">${badgeText}</span>
+            <button class="btn btn-secondary" type="button" onclick="window._vaultVerify('${escapeHtml(mem.id)}')" style="padding: 2px 8px; font-size: 0.7rem;">Verify Locally</button>
+          </div>
+        </div>`;
+    }
+  }
+
+  el.vaultTimelineList.innerHTML = html;
+}
+
+// Expose vault verify for inline onclick
+window._vaultVerify = function(memId) {
+  if (typeof nacl === 'undefined') return;
+  const mem = state.vault.memories.find(m => m.id === memId);
+  if (!mem) return;
+  const result = verifyMemorySignature(nacl, mem.did, mem.signature, mem.id, mem.created, mem.text);
+  mem._verifyState = result.valid ? 'valid' : 'invalid';
+  state.vault.verifiedCount = state.vault.memories.filter(m => m._verifyState === 'valid').length;
+  renderVaultTimeline();
+  updateVaultSummary();
+};
+
+/**
+ * Save a new memory: sign it, store to KV, add to timeline.
+ */
+async function handleVaultSave() {
+  if (!state.keypair) {
+    showVaultSaveResult('error', 'No identity loaded. Generate or restore a did:key identity first.');
+    return;
+  }
+  if (typeof nacl === 'undefined') {
+    showVaultSaveResult('error', 'TweetNaCl crypto library is not loaded. Check internet connection and reload.');
+    return;
+  }
+
+  const text = (el.vaultMemoryText.value || '').trim();
+  if (!text) {
+    showVaultSaveResult('error', 'Memory text is empty. Enter the memory content before saving.');
+    return;
+  }
+  if (text.length > 500) {
+    showVaultSaveResult('error', `Memory text is ${text.length} characters. Maximum is 500 characters.`);
+    return;
+  }
+
+  // Secret shape guard
+  const guard = detectSensitiveContent(text);
+  if (guard.sensitive) {
+    showVaultSaveResult('error', `Memory blocked: ${guard.description}`);
+    return;
+  }
+
+  const category = el.vaultCategorySelect.value || 'knowledge';
+  const memoryId = `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const created = new Date().toISOString();
+  const did = state.keypair.did;
+
+  // Sign the memory
+  const signature = signMemory(nacl, state.keypair.secretKey, memoryId, created, text);
+
+  // Compute note path
+  const { ns, key: noteKey, full: notePath } = await computeMemoryPath(did, memoryId);
+
+  // Build the compact note value (max 8192 chars for KV notes)
+  const memObj = { id: memoryId, category, text, created, did, signature };
+  const noteValue = JSON.stringify(memObj);
+
+  if (noteValue.length > 8000) {
+    showVaultSaveResult('error', 'Memory content is too large after encoding. Shorten the text and try again.');
+    return;
+  }
+
+  showVaultSaveResult('info', 'Signing and storing memory...');
+  el.btnVaultSave.disabled = true;
+
+  try {
+    const encodedValue = encodeURIComponent(noteValue);
+    const result = await fetchProtocol(`/kv/${ns}/${noteKey}/set/${encodedValue}`);
+
+    // Add to in-memory timeline regardless of write success (we have local copy)
+    memObj._notePath = notePath;
+    memObj._verifyState = 'valid'; // Just signed, locally guaranteed valid
+    state.vault.memories.push(memObj);
+    state.vault.verifiedCount = state.vault.memories.filter(m => m._verifyState === 'valid').length;
+
+    if (result.ok) {
+      showVaultSaveResult('success', `Memory saved. Note path: ${notePath}`);
+    } else {
+      showVaultSaveResult('error', `Memory stored locally in this session but the network write failed (status ${result.status}). Note path would have been: ${notePath}`);
+    }
+
+    el.vaultMemoryText.value = '';
+    renderVaultTimeline();
+    updateVaultSummary();
+  } catch (err) {
+    // Still add locally so user doesn't lose data
+    memObj._notePath = notePath;
+    memObj._verifyState = 'valid';
+    state.vault.memories.push(memObj);
+    renderVaultTimeline();
+    updateVaultSummary();
+    showVaultSaveResult('error', `Memory stored locally in this session but the network write could not be completed: ${err.message}. Note path: ${notePath}`);
+  } finally {
+    el.btnVaultSave.disabled = !state.keypair;
+  }
+}
+
+/**
+ * Export all session memories as a JSON file.
+ */
+function handleVaultExport() {
+  const memories = state.vault.memories;
+  if (memories.length === 0) return;
+
+  const exportObj = {
+    exported: new Date().toISOString(),
+    tool: 'Technocore Console by Asad Lee',
+    source: 'https://github.com/Asadlee24/technocore-console',
+    note: 'Reward allocation is not guaranteed and this is only a personal record of activity. This is not an official Flop Labs product. Memories stored via Technocore may be evicted over time since Technocore is not a permanent archive.',
+    memories: memories.map(m => ({ id: m.id, category: m.category, text: m.text, created: m.created, did: m.did, signature: m.signature, notePath: m._notePath }))
+  };
+
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `technocore-memories-${Date.now()}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/**
+ * Restore timeline by fetching memory notes for a given DID.
+ */
+async function handleVaultRestoreByDid() {
+  const rawDid = (el.vaultRestoreDidInput.value || '').trim() || (state.keypair ? state.keypair.did : '');
+  if (!rawDid) {
+    showVaultRestoreResult('error', 'Enter a did:key identifier or load an active identity first.');
+    return;
+  }
+  if (!rawDid.startsWith('did:key:z')) {
+    showVaultRestoreResult('error', 'The value entered does not look like a valid did:key identifier.');
+    return;
+  }
+
+  showVaultRestoreResult('info', 'Looking up memory notes for this identity. This may take a moment...');
+  el.btnVaultRestoreDid.disabled = true;
+
+  try {
+    const didFp = await sha256Hex(rawDid);
+    const shard = didFp.slice(0, 2);
+    const remainder = didFp.slice(2, 16);
+    const ns = `memory-${shard}${remainder}`;
+
+    // List keys in the namespace
+    const listResult = await fetchProtocol(`/kv/${ns}`);
+    if (!listResult.ok) {
+      showVaultRestoreResult('error', `No memory notes found for this identity under /kv/${ns}. The notes may have been evicted or none were saved.`);
+      el.btnVaultRestoreDid.disabled = false;
+      return;
+    }
+
+    const lines = listResult.text.trim().split('\n').filter(Boolean);
+    if (lines.length === 0 || (lines.length === 1 && lines[0].trim() === '')) {
+      showVaultRestoreResult('info', `No memory notes found under /kv/${ns}. Technocore notes can be evicted over time so some or all may no longer exist.`);
+      el.btnVaultRestoreDid.disabled = false;
+      return;
+    }
+
+    let found = 0;
+    let failed = 0;
+    const restored = [];
+
+    for (const keyLine of lines) {
+      const noteKey = keyLine.trim();
+      if (!noteKey) continue;
+      try {
+        const noteResult = await fetchProtocol(`/kv/${ns}/${noteKey}`);
+        if (!noteResult.ok || !noteResult.text.trim()) { failed++; continue; }
+        let memObj;
+        try { memObj = JSON.parse(noteResult.text.trim()); } catch { failed++; continue; }
+        if (!memObj.id || !memObj.signature || !memObj.did) { failed++; continue; }
+
+        // Verify signature if nacl is available
+        if (typeof nacl !== 'undefined') {
+          const vResult = verifyMemorySignature(nacl, memObj.did, memObj.signature, memObj.id, memObj.created, memObj.text);
+          memObj._verifyState = vResult.valid ? 'valid' : 'invalid';
+        } else {
+          memObj._verifyState = 'pending';
+        }
+        memObj._notePath = `/kv/${ns}/${noteKey}`;
+        restored.push(memObj);
+        found++;
+      } catch { failed++; }
+    }
+
+    // Merge restored memories into session (skip duplicates by id)
+    const existingIds = new Set(state.vault.memories.map(m => m.id));
+    let added = 0;
+    for (const mem of restored) {
+      if (!existingIds.has(mem.id)) {
+        state.vault.memories.push(mem);
+        added++;
+      }
+    }
+    state.vault.memories.sort((a, b) => new Date(a.created) - new Date(b.created));
+    state.vault.verifiedCount = state.vault.memories.filter(m => m._verifyState === 'valid').length;
+
+    renderVaultTimeline();
+    updateVaultSummary();
+
+    const failNote = failed > 0 ? ` ${failed} note(s) could not be retrieved and may have been evicted.` : '';
+    const validCount = restored.filter(m => m._verifyState === 'valid').length;
+    showVaultRestoreResult('success', `Restored ${found} memory note(s) (${validCount} signature-verified, ${added} new to this session).${failNote} Total keys found in namespace: ${lines.length}.`);
+  } catch (err) {
+    showVaultRestoreResult('error', `Restore failed: ${err.message}`);
+  } finally {
+    el.btnVaultRestoreDid.disabled = false;
+  }
+}
+
+/**
+ * Import memories from an exported JSON file.
+ */
+function handleVaultImportFile() {
+  const file = el.vaultImportFile.files && el.vaultImportFile.files[0];
+  if (!file) {
+    showVaultRestoreResult('error', 'No file selected. Choose a previously exported Technocore memories JSON file.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = JSON.parse(evt.target.result);
+      if (!data.memories || !Array.isArray(data.memories)) {
+        showVaultRestoreResult('error', 'The file does not appear to be a valid Technocore memories export. Expected a JSON object with a "memories" array.');
+        return;
+      }
+
+      let added = 0;
+      let verified = 0;
+      let invalid = 0;
+      const existingIds = new Set(state.vault.memories.map(m => m.id));
+
+      for (const mem of data.memories) {
+        if (!mem.id || !mem.text || !mem.did || !mem.signature || !mem.created) continue;
+        if (existingIds.has(mem.id)) continue;
+
+        if (typeof nacl !== 'undefined') {
+          const vResult = verifyMemorySignature(nacl, mem.did, mem.signature, mem.id, mem.created, mem.text);
+          mem._verifyState = vResult.valid ? 'valid' : 'invalid';
+          if (vResult.valid) verified++; else invalid++;
+        } else {
+          mem._verifyState = 'pending';
+        }
+        mem._notePath = mem.notePath || '';
+        state.vault.memories.push(mem);
+        existingIds.add(mem.id);
+        added++;
+      }
+
+      state.vault.memories.sort((a, b) => new Date(a.created) - new Date(b.created));
+      state.vault.verifiedCount = state.vault.memories.filter(m => m._verifyState === 'valid').length;
+
+      renderVaultTimeline();
+      updateVaultSummary();
+
+      const invalidNote = invalid > 0 ? ` ${invalid} memory signature(s) did not verify and are marked invalid.` : '';
+      showVaultRestoreResult('success', `Loaded ${added} memory record(s) from file (${verified} signature-verified).${invalidNote}`);
+    } catch (err) {
+      showVaultRestoreResult('error', `Failed to read file: ${err.message}`);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showVaultSaveResult(type, message) {
+  el.vaultSaveResult.className = `result-callout ${type}`;
+  el.vaultSaveResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
+  el.vaultSaveResult.style.display = 'flex';
+}
+
+function showVaultRestoreResult(type, message) {
+  el.vaultRestoreResult.className = `result-callout ${type}`;
+  el.vaultRestoreResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
+  el.vaultRestoreResult.style.display = 'flex';
 }
