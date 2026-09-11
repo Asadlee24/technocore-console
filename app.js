@@ -804,8 +804,9 @@ async function updatePublishPreview() {
     return;
   }
   try {
-    const { fullPath } = await deriveRegistryPath(state.keypair.did);
-    el.publishPathPreview.textContent = `${BASE_URL}${fullPath}/set/${encodeURIComponent(state.keypair.did)}`;
+    const { fullPath, canonicalPath } = await deriveRegistryPath(state.keypair.did);
+    const targetPath = fullPath || canonicalPath;
+    el.publishPathPreview.textContent = `${BASE_URL}${targetPath}/set/${encodeURIComponent(state.keypair.did)}`;
   } catch (err) {
     el.publishPathPreview.textContent = 'Unable to compute canonical registry path.';
   }
@@ -914,9 +915,10 @@ async function handlePublishIdentity() {
     el.btnPublishIdentity.disabled = true;
     el.btnPublishIdentity.textContent = 'Publishing...';
 
-    const { fullPath, shard, key } = await deriveRegistryPath(state.keypair.did);
+    const { fullPath, canonicalPath, shard, key } = await deriveRegistryPath(state.keypair.did);
+    const targetPath = fullPath || canonicalPath;
     const encodedValue = encodeURIComponent(state.keypair.did);
-    const relativePath = `${fullPath.slice(1)}/set/${encodedValue}`;
+    const relativePath = `${targetPath.replace(/^\//, '')}/set/${encodedValue}`;
 
     const res = await fetchProtocol(relativePath);
 
@@ -1025,6 +1027,7 @@ function parsePlainTextRoom(rawText) {
 function renderMessageList(messages) {
   el.roomEmptyState.style.display = 'none';
   el.roomMessageList.style.display = 'flex';
+  el.roomMessageList.style.flexDirection = 'column';
   el.roomMessageList.innerHTML = '';
 
   messages.forEach((msg) => {

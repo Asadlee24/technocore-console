@@ -1012,20 +1012,28 @@ html, body {
   border: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
+}
+
+.room-message-list {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
 .message-item {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 7px 10px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 12px;
   border-radius: var(--radius-xs);
   background: var(--surface-panel);
   border: 1px solid var(--border-subtle);
-  font-size: 0.8rem;
-  line-height: 1.45;
+  font-size: 0.82rem;
+  line-height: 1.5;
   transition: var(--transition-fast);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .message-item:hover {
@@ -1034,19 +1042,23 @@ html, body {
 
 .message-seq {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
-  min-width: 28px;
+  min-width: 32px;
+  flex-shrink: 0;
+  padding-top: 1px;
 }
 
 .message-sender {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 600;
-  max-width: 180px;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 0;
+  padding-top: 1px;
 }
 
 .message-sender.verified {
@@ -1061,6 +1073,9 @@ html, body {
   flex: 1;
   color: var(--text-primary);
   word-break: break-word;
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
 }
 
 .empty-state {

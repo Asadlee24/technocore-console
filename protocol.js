@@ -112,6 +112,7 @@ export async function deriveRegistryPath(didKey) {
     fingerprint,
     shard,
     key,
+    fullPath: `/kv/did-${shard}/${key}`,
     canonicalPath: `/kv/did-${shard}/${key}`,
     canonicalRelativePath: `kv/did-${shard}/${key}`,
     legacyPath: `/kv/did/${fingerprint}`,
