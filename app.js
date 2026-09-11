@@ -48,7 +48,7 @@ import {
 } from './transport.js';
 
 import { receiptEngine } from './receipt.js';
-import { SONNET_CONFIG, getPinnedReferee, setPinnedReferee } from './contest-config.js';
+import { SONNET_CONFIG, getPinnedReferee, setPinnedReferee, isRefereePinned, extractAndPinRefereeFromRules } from './contest-config.js';
 
 import {
   loadFrozenLexicon,
@@ -124,6 +124,7 @@ const state = {
     gameId: '',
     teamRequestPending: false,
     teamRequestAccepted: false,
+    lastTeamReqId: null,
     allocatedPoemRoom: null, // strictly null until referee receipt
     roomGeneration: null,    // strictly null until referee receipt
 
@@ -131,26 +132,32 @@ const state = {
     rosterMembers: [],
     rosterAccepted: false,
     rosterFrozen: false,
+    lastRosterReqId: null,
 
     // Authoritative poem state (from referee receipts only)
     currentVersion: null,     // strictly null until referee receipt
     previousStateHash: null,  // strictly null until referee receipt
     lastContributor: null,
+    lastWordReqId: null,
+    acceptedWordVersions: new Map(), // key -> { version, word }
     words: [],               // strictly words accepted by referee
     poemSha256: null,        // computed only when poem is 14 lines x 10 syllables
 
     // Authoritative submission & ballot state
     submissionPending: false,
     submissionAccepted: false,
+    lastSubmitReqId: null,
     submittedEntryId: null,
     xPostIds: [],
 
     ballotPending: false,
     ballotAccepted: false,
+    lastBallotReqId: null,
 
     prizeAuthorized: false,
     claimPending: false,
     claimAccepted: false,
+    lastClaimReqId: null,
 
     lexiconLoaded: false
   }
@@ -327,6 +334,7 @@ function cacheElements() {
     sonnetStatSyllables: document.getElementById('sonnet-stat-syllables'),
     sonnetInfoContestId: document.getElementById('sonnet-info-contest-id'),
     sonnetInfoDictHash: document.getElementById('sonnet-info-dict-hash'),
+    sonnetInfoRefereeDid: document.getElementById('sonnet-info-referee-did'),
     sonnetEligibilityBadge: document.getElementById('sonnet-eligibility-badge'),
     sonnetActiveDidReadout: document.getElementById('sonnet-active-did-readout'),
     sonnetBtnCopyDid: document.getElementById('sonnet-btn-copy-did'),
@@ -372,6 +380,7 @@ function cacheElements() {
     sonnetSubmitPayloadPreview: document.getElementById('sonnet-submit-payload-preview'),
     sonnetBtnSendSubmission: document.getElementById('sonnet-btn-send-submission'),
     sonnetSubmitResult: document.getElementById('sonnet-submit-result'),
+    sonnetSubmittedEntryId: document.getElementById('sonnet-submitted-entry-id'),
     sonnetBallotEntryId: document.getElementById('sonnet-ballot-entry-id'),
     sonnetBallotReqId: document.getElementById('sonnet-ballot-req-id'),
     sonnetBallotPayloadPreview: document.getElementById('sonnet-ballot-payload-preview'),
@@ -1830,7 +1839,13 @@ async function initSonnet() {
     console.warn('CMUdict load notice:', err.message);
   }
 
-  // Poll registration and discovery rooms for referee updates
+  // Ensure receiptEngine has TweetNaCl instance for local Ed25519 verification
+  if (typeof nacl !== 'undefined') {
+    receiptEngine.setNacl(nacl);
+  }
+
+  // Poll rules, registration and discovery rooms for referee updates
+  pollSonnetRoom(SONNET_CONFIG.rooms.rules);
   pollSonnetRoom(SONNET_CONFIG.rooms.registration);
   pollSonnetRoom(SONNET_CONFIG.rooms.discovery);
 }
@@ -1843,6 +1858,14 @@ function pollSonnetRoom(roomName) {
 
   const poller = new RoomPoller(roomName, {
     onMessages: (messages) => {
+      // If messages from rules room arrive, attempt to extract and pin official referee DID
+      if (roomName === SONNET_CONFIG.rooms.rules) {
+        const pinned = extractAndPinRefereeFromRules(messages, nacl);
+        if (pinned) {
+          receiptEngine.setPinnedReferee(pinned);
+          updateSonnetStateUI();
+        }
+      }
       for (const msg of messages) {
         processIncomingSonnetMessage(msg);
       }
@@ -1862,17 +1885,29 @@ function processIncomingSonnetMessage(msg) {
     renderSonnetReceipts();
     updateSonnetStateUI();
     updateSonnetPreviews();
+  } else if (receipt && receipt.rejected) {
+    renderSonnetReceipts();
   }
 }
 
 /**
  * Apply authoritative referee receipt to volatile Sonnet state
+ * STRICT INVARIANT: Receipts must be strictly scoped to this user/session.
+ * Never allow another participant's public receipt to mutate local state.
  */
 function applyRefereeReceiptToSonnetState(receipt) {
-  if (receipt.isStale) return;
+  if (!receipt || receipt.isStale || receipt.rejected) return;
 
-  // 1. Role Registration Acceptance
-  if (receipt.role && (receipt.requestId === state.sonnet.lastRegistrationReqId || receipt.actionStatus === 'ACCEPTED')) {
+  const myDid = state.keypair ? state.keypair.did : null;
+
+  // 1. Role Registration Acceptance (Strictly scoped to our active registration request and DID)
+  const isMyRegistration = Boolean(
+    state.sonnet.lastRegistrationReqId &&
+    receipt.requestId === state.sonnet.lastRegistrationReqId &&
+    (!receipt.authenticatedDid || !myDid || receipt.authenticatedDid === myDid)
+  );
+
+  if (isMyRegistration && receipt.role && receipt.actionStatus === 'ACCEPTED') {
     state.sonnet.registrationAccepted = true;
     state.sonnet.role = receipt.role;
     state.sonnet.roleLocked = true;
@@ -1884,13 +1919,18 @@ function applyRefereeReceiptToSonnetState(receipt) {
     el.sonnetEligibilityBadge.className = 'step-status-pill completed';
     el.sonnetStatRole.textContent = receipt.role.toUpperCase();
     el.sonnetProofRole.textContent = receipt.role.toUpperCase();
-    el.sonnetProofEvidence.textContent = `Authoritative referee receipt verified (Seq: ${receipt.sequence || 'confirmed'})`;
+    el.sonnetProofEvidence.textContent = `Authoritative referee receipt verified (Seq: ${receipt.sequence !== null ? receipt.sequence : 'confirmed'})`;
     el.sonnetProofSeq.textContent = receipt.sequence !== null ? String(receipt.sequence) : 'Confirmed';
-    el.sonnetProofSigState.textContent = 'Cryptographically Verified';
+    el.sonnetProofSigState.textContent = receipt.receiptSignatureStatus || 'SERVER AUTHENTICATED';
   }
 
-  // 2. Team Room & Generation Allocation
-  if (receipt.gameId) {
+  // 2. Team Room & Generation Allocation (Strictly scoped to our outgoing team request)
+  const isMyTeamReq = Boolean(
+    state.sonnet.lastTeamReqId &&
+    receipt.requestId === state.sonnet.lastTeamReqId
+  );
+
+  if (isMyTeamReq && receipt.actionStatus === 'ACCEPTED' && receipt.gameId) {
     state.sonnet.gameId = receipt.gameId;
     el.sonnetStatGame.textContent = receipt.gameId;
 
@@ -1919,41 +1959,105 @@ function applyRefereeReceiptToSonnetState(receipt) {
       state.sonnet.previousStateHash = receipt.stateHash;
       el.sonnetReadoutPrevHash.textContent = receipt.stateHash;
     }
+  }
 
-    // 3. Roster acceptance
-    if (receipt.type === 'sonnet.receipt.roster.v1' || (receipt.actionStatus === 'ACCEPTED' && receipt.requestId && receipt.requestId.startsWith('roster-'))) {
-      state.sonnet.rosterAccepted = true;
-      el.sonnetRosterFreezeBadge.textContent = 'Roster Signed & Verified';
-      el.sonnetRosterFreezeBadge.className = 'step-status-pill completed';
+  // 3. Roster acceptance (Strictly scoped to our roster request and current gameId)
+  const isMyRosterReq = Boolean(
+    state.sonnet.lastRosterReqId &&
+    receipt.requestId === state.sonnet.lastRosterReqId &&
+    (!state.sonnet.gameId || receipt.gameId === state.sonnet.gameId)
+  );
+
+  if (isMyRosterReq && receipt.actionStatus === 'ACCEPTED') {
+    state.sonnet.rosterAccepted = true;
+    el.sonnetRosterFreezeBadge.textContent = 'Roster Signed & Verified';
+    el.sonnetRosterFreezeBadge.className = 'step-status-pill completed';
+  }
+
+  // 4. Accepted Word (Scoped to our assigned gameId and valid state transition)
+  const matchesCurrentGame = Boolean(
+    state.sonnet.gameId &&
+    receipt.gameId === state.sonnet.gameId
+  );
+
+  if (matchesCurrentGame && receipt.actionStatus === 'ACCEPTED' && receipt.word) {
+    const wordKey = receipt.version !== null ? `ver-${receipt.version}` : `seq-${receipt.sequence || receipt.requestId}`;
+    if (!state.sonnet.acceptedWordVersions.has(wordKey)) {
+      state.sonnet.acceptedWordVersions.set(wordKey, {
+        word: receipt.word,
+        version: receipt.version,
+        sequence: receipt.sequence,
+        contributor: receipt.authenticatedDid
+      });
+
+      // Reconstruct word array sorted by version/sequence (preserves legitimate duplicate words)
+      const sortedEntries = Array.from(state.sonnet.acceptedWordVersions.values()).sort((a, b) => {
+        if (a.version !== null && b.version !== null) return a.version - b.version;
+        if (a.sequence !== null && b.sequence !== null) return a.sequence - b.sequence;
+        return 0;
+      });
+      state.sonnet.words = sortedEntries.map(e => e.word);
+      renderSonnetPoemLines();
     }
 
-    // 4. Accepted Word
-    if (receipt.word) {
-      if (!state.sonnet.words.includes(receipt.word)) {
-        state.sonnet.words.push(receipt.word);
-        renderSonnetPoemLines();
-      }
-      state.sonnet.rosterFrozen = true;
-      el.sonnetRosterFreezeBadge.textContent = 'Frozen (First Word Accepted)';
-      el.sonnetRosterFreezeBadge.className = 'step-status-pill completed';
-      if (receipt.authenticatedDid) {
-        state.sonnet.lastContributor = receipt.authenticatedDid;
-        el.sonnetReadoutLastAuthor.textContent = receipt.authenticatedDid.slice(0, 16) + '...';
-      }
+    if (receipt.version !== null) {
+      state.sonnet.currentVersion = receipt.version;
+      el.sonnetReadoutVer.textContent = String(receipt.version);
+      el.sonnetStatVersion.textContent = String(receipt.version);
+    }
+    if (receipt.stateHash) {
+      state.sonnet.previousStateHash = receipt.stateHash;
+      el.sonnetReadoutPrevHash.textContent = receipt.stateHash;
+    }
+    if (receipt.roomGeneration !== null) {
+      state.sonnet.roomGeneration = receipt.roomGeneration;
+      el.sonnetReadoutGen.textContent = String(receipt.roomGeneration);
     }
 
-    // 5. Submission acceptance
-    if (receipt.entryId || receipt.requestId && receipt.requestId.startsWith('sub-')) {
-      state.sonnet.submissionAccepted = true;
-      state.sonnet.submissionPending = false;
-      state.sonnet.submittedEntryId = receipt.entryId || 'entry-submitted';
+    state.sonnet.rosterFrozen = true;
+    el.sonnetRosterFreezeBadge.textContent = 'Frozen (First Word Accepted)';
+    el.sonnetRosterFreezeBadge.className = 'step-status-pill completed';
+    if (receipt.authenticatedDid) {
+      state.sonnet.lastContributor = receipt.authenticatedDid;
+      el.sonnetReadoutLastAuthor.textContent = receipt.authenticatedDid.slice(0, 16) + '...';
     }
   }
 
-  // 6. Ballot acceptance
-  if (receipt.requestId && receipt.requestId.startsWith('ballot-') && receipt.actionStatus === 'ACCEPTED') {
+  // 5. Submission acceptance (Strictly scoped to our submission request)
+  const isMySubmitReq = Boolean(
+    state.sonnet.lastSubmitReqId &&
+    receipt.requestId === state.sonnet.lastSubmitReqId &&
+    matchesCurrentGame
+  );
+
+  if (isMySubmitReq && receipt.actionStatus === 'ACCEPTED') {
+    state.sonnet.submissionAccepted = true;
+    state.sonnet.submissionPending = false;
+    // INVARIANT: Never fabricate entry ID. Null until referee supplies it.
+    state.sonnet.submittedEntryId = receipt.entryId || null;
+  }
+
+  // 6. Ballot acceptance (Strictly scoped to our ballot request)
+  const isMyBallotReq = Boolean(
+    state.sonnet.lastBallotReqId &&
+    receipt.requestId === state.sonnet.lastBallotReqId
+  );
+
+  if (isMyBallotReq && receipt.actionStatus === 'ACCEPTED') {
     state.sonnet.ballotAccepted = true;
     state.sonnet.ballotPending = false;
+  }
+
+  // 7. Claim acceptance (Strictly scoped to our claim request)
+  const isMyClaimReq = Boolean(
+    state.sonnet.lastClaimReqId &&
+    receipt.requestId === state.sonnet.lastClaimReqId &&
+    matchesCurrentGame
+  );
+
+  if (isMyClaimReq && receipt.actionStatus === 'ACCEPTED') {
+    state.sonnet.claimAccepted = true;
+    state.sonnet.claimPending = false;
   }
 }
 
@@ -2168,6 +2272,30 @@ function updateSonnetStateUI() {
     el.sonnetEligibilityBadge.className = 'step-status-pill locked';
   }
 
+  // Referee Pin Status Display
+  const pinnedReferee = getPinnedReferee();
+  if (el.sonnetInfoRefereeDid) {
+    if (pinnedReferee) {
+      el.sonnetInfoRefereeDid.textContent = `${pinnedReferee.slice(0, 16)}...${pinnedReferee.slice(-6)}`;
+      el.sonnetInfoRefereeDid.title = pinnedReferee;
+      el.sonnetInfoRefereeDid.className = 'badge-text badge-accepted';
+    } else {
+      el.sonnetInfoRefereeDid.textContent = 'Waiting for official referee pin';
+      el.sonnetInfoRefereeDid.className = 'badge-text badge-pending';
+    }
+  }
+
+  // Submission Entry ID Display
+  if (el.sonnetSubmittedEntryId) {
+    if (state.sonnet.submittedEntryId) {
+      el.sonnetSubmittedEntryId.textContent = state.sonnet.submittedEntryId;
+      el.sonnetSubmittedEntryId.className = 'readout-text';
+    } else {
+      el.sonnetSubmittedEntryId.textContent = 'Waiting for referee entry ID';
+      el.sonnetSubmittedEntryId.className = 'readout-text empty';
+    }
+  }
+
   // Turn eligibility indicator
   if (el.sonnetReadoutTurnEligibility) {
     if (!hasAuthoritativeWordState) {
@@ -2241,16 +2369,16 @@ function updateSonnetPreviews() {
     }
   }
 
-  // 3. Roster Preview (Never invent poem_room or room_generation)
+  // 3. Roster Preview (Never invent poem_room, room_generation, or game_id)
   const rawMembers = el.sonnetRosterMembersInput ? el.sonnetRosterMembersInput.value.split('\n').map(s => s.trim()).filter(Boolean) : [];
-  if (!state.sonnet.allocatedPoemRoom || state.sonnet.roomGeneration === null) {
-    el.sonnetRosterPayloadPreview.textContent = '[Waiting for referee receipt allocating poem room and room generation]';
+  if (!state.sonnet.allocatedPoemRoom || state.sonnet.roomGeneration === null || !state.sonnet.gameId) {
+    el.sonnetRosterPayloadPreview.textContent = '[Waiting for referee receipt allocating game ID, poem room, and room generation]';
   } else if (rawMembers.length < 4 || rawMembers.length > 8) {
     el.sonnetRosterPayloadPreview.textContent = '[Enter 4–8 writer DIDs to preview roster payload]';
   } else {
     try {
       el.sonnetRosterPayloadPreview.textContent = buildSonnetRosterPayload(
-        state.sonnet.gameId || 'game',
+        state.sonnet.gameId,
         state.sonnet.allocatedPoemRoom,
         state.sonnet.roomGeneration,
         rawMembers,
@@ -2287,10 +2415,12 @@ function updateSonnetPreviews() {
 
   // 5. Submission Preview (Never invent poem_sha256 or final_version)
   const xPosts = el.sonnetXPostIds ? el.sonnetXPostIds.value.split(',').map(s => s.trim()).filter(Boolean) : [];
-  if (!state.sonnet.allocatedPoemRoom || state.sonnet.roomGeneration === null) {
-    el.sonnetSubmitPayloadPreview.textContent = '[Waiting for referee: team room unassigned]';
+  if (!state.sonnet.allocatedPoemRoom || state.sonnet.roomGeneration === null || !state.sonnet.gameId) {
+    el.sonnetSubmitPayloadPreview.textContent = '[Waiting for referee: team room and game ID unassigned]';
   } else if (!state.sonnet.poemSha256) {
     el.sonnetSubmitPayloadPreview.textContent = '[Poem not yet frozen: 14 lines x 10 syllables required for canonical SHA-256]';
+  } else if (state.sonnet.currentVersion === null) {
+    el.sonnetSubmitPayloadPreview.textContent = '[Waiting for referee: final version unassigned]';
   } else if (xPosts.length === 0) {
     el.sonnetSubmitPayloadPreview.textContent = '[Enter at least 1 X post ID to preview submission payload]';
   } else {
@@ -2300,7 +2430,7 @@ function updateSonnetPreviews() {
         state.sonnet.gameId,
         state.sonnet.allocatedPoemRoom,
         state.sonnet.roomGeneration,
-        state.sonnet.currentVersion || 140,
+        state.sonnet.currentVersion,
         state.sonnet.poemSha256,
         xPosts,
         `sub-${state.sonnet.requestIdCounter}`
@@ -2435,8 +2565,7 @@ async function handleSonnetSendTeamRequest() {
 
     if (res.ok) {
       state.sonnet.teamRequestPending = true;
-      state.sonnet.gameId = gameId;
-      el.sonnetStatGame.textContent = gameId;
+      state.sonnet.lastTeamReqId = reqId;
       el.sonnetAllocatedRoomDisplay.textContent = 'Dispatched. Waiting for referee allocation receipt...';
       el.sonnetAllocatedRoomDisplay.className = 'readout-text empty';
 
@@ -2494,6 +2623,7 @@ async function handleSonnetSignRoster() {
     });
 
     if (res.ok) {
+      state.sonnet.lastRosterReqId = reqId;
       showSonnetRosterResult('info', `Roster consent dispatched to /r/${targetRoom}. Awaiting referee verification of all member signatures.`);
       pollSonnetRoom(targetRoom);
     } else {
@@ -2634,6 +2764,7 @@ async function handleSonnetSendWordProposal() {
     });
 
     if (res.ok) {
+      state.sonnet.lastWordReqId = reqId;
       showSonnetWordResult('info', `Word proposal "${word}" dispatched to /r/${poemRoom}. Transport success. Awaiting authoritative referee acceptance receipt.`);
       el.sonnetWordInput.value = '';
       pollSonnetRoom(poemRoom);
@@ -2712,6 +2843,7 @@ async function handleSonnetSendSubmission() {
 
     if (res.ok) {
       state.sonnet.submissionPending = true;
+      state.sonnet.lastSubmitReqId = reqId;
       showSonnetSubmitResult('info', `Submission dispatched to /r/${targetRoom}. Awaiting referee verification receipt.`);
       pollSonnetRoom(targetRoom);
     } else {
@@ -2775,6 +2907,7 @@ async function handleSonnetSendBallot() {
 
     if (res.ok) {
       state.sonnet.ballotPending = true;
+      state.sonnet.lastBallotReqId = reqId;
       showSonnetBallotResult('info', `Ballot dispatched to /r/${targetRoom}. Awaiting referee receipt.`);
       pollSonnetRoom(targetRoom);
     } else {
@@ -2802,7 +2935,11 @@ async function handleSonnetSendClaim() {
   }
 
   const contestId = state.sonnet.contestId || SONNET_CONFIG.defaultContestId;
-  const gameId = state.sonnet.gameId || 'alpha';
+  if (!state.sonnet.gameId) {
+    showSonnetClaimResult('error', 'Cannot claim: No referee-assigned game ID.');
+    return;
+  }
+  const gameId = state.sonnet.gameId;
   const payoutAddress = el.sonnetClaimDestination.value.trim();
   const reqId = `claim-${Date.now()}`;
 
@@ -2822,6 +2959,7 @@ async function handleSonnetSendClaim() {
     const res = await dispatchSignedMessage(nacl, state.keypair, targetRoom, payload);
     if (res.ok) {
       state.sonnet.claimPending = true;
+      state.sonnet.lastClaimReqId = reqId;
       showSonnetClaimResult('info', `Prize claim dispatched to /r/${targetRoom}. Awaiting referee payout receipt.`);
       pollSonnetRoom(targetRoom);
     } else {

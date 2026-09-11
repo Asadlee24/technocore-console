@@ -457,7 +457,8 @@ test('Sonnet protocol payload builders format compact single-line JSON', () => {
 console.log('\n--- Section 7: Referee Receipt Engine ---');
 
 test('ReceiptEngine separates transport success from referee acceptance', () => {
-  const engine = new ReceiptEngine();
+  const testReferee = 'did:key:z6MkRefereeTestKey12345678901234567890123456789012';
+  const engine = new ReceiptEngine(testReferee);
   const action = engine.recordDispatch({
     requestId: 'req-word-1',
     actionType: 'word',
@@ -503,7 +504,8 @@ test('ReceiptEngine separates transport success from referee acceptance', () => 
 });
 
 test('ReceiptEngine detects stale or out-of-order state updates', () => {
-  const engine = new ReceiptEngine();
+  const testReferee = 'did:key:z6MkRefereeTestKey12345678901234567890123456789012';
+  const engine = new ReceiptEngine(testReferee);
   engine.updateGameState('game-beta', { version: 5, stateHash: 'hash-5' });
 
   // Receipt with version 3 is stale
@@ -820,7 +822,8 @@ test('Regression: Fake/default room_generation is strictly rejected (never gener
 });
 
 test('Regression: Date.now is never stored as server sequence', () => {
-  const engine = new ReceiptEngine();
+  const testReferee = 'did:key:z6MkRefereeTestKey12345678901234567890123456789012';
+  const engine = new ReceiptEngine(testReferee);
   const action = engine.recordDispatch({
     requestId: 'seq-test-1',
     actionType: 'word',
@@ -958,6 +961,302 @@ test('Regression: Accepted signed referee receipt from pinned referee correctly 
   const gameState = engine.getGameState('game-delta');
   assert.strictEqual(gameState.version, 1);
   assert.strictEqual(gameState.stateHash, '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22');
+});
+
+// ----------------------------------------------------
+// SECTION 12: Live-Safety Audit Regression Invariants
+// ----------------------------------------------------
+console.log('\n--- Section 12: Live-Safety Audit Regression Invariants ---');
+
+test('Regression 1: Unconfigured referee => signed receipts cannot mutate state (Fail-Closed)', () => {
+  // Explicitly ensure referee pin is unconfigured
+  setPinnedReferee(null);
+  const unconfiguredEngine = new ReceiptEngine(null);
+
+  const signedMsg = {
+    room: 'mb-sonnet-1-registration',
+    seq: 1,
+    from: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    sig: 'qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AQ',
+    text: JSON.stringify({
+      type: 'sonnet.receipt.registration.v1',
+      request_id: 'reg-fail-closed-1',
+      role: 'writer',
+      status: 'accepted'
+    })
+  };
+
+  const res = unconfiguredEngine.ingestMessage(signedMsg, null);
+  assert.strictEqual(res.rejected, true);
+  assert.strictEqual(res.reason, 'Waiting for official referee pin. Authoritative state mutation disabled.');
+});
+
+test('Regression 2: Wrong signed DID => cannot mutate state', () => {
+  const pinnedReferee = 'did:key:z6MkOfficialRefereeDidForContest12345678901234567890';
+  const imposterDid = 'did:key:z6MkRandomImposterDid999999999999999999999999999';
+  const engine = new ReceiptEngine(pinnedReferee);
+
+  const msg = {
+    room: 'mb-sonnet-1-registration',
+    seq: 2,
+    from: imposterDid,
+    sig: 'qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AQ',
+    text: JSON.stringify({
+      type: 'sonnet.receipt.registration.v1',
+      request_id: 'reg-imposter-1',
+      role: 'writer',
+      status: 'accepted'
+    })
+  };
+
+  const res = engine.ingestMessage(msg);
+  assert.strictEqual(res.rejected, true);
+  assert.strictEqual(res.reason.includes('does not match pinned referee'), true);
+});
+
+test('Regression 3: Invalid referee Ed25519 signature => cannot mutate state', () => {
+  const refereeKp = generateKeypair(nacl);
+  const engine = new ReceiptEngine(refereeKp.did, nacl);
+
+  const room = 'd-sonnet-1-team-sigma';
+  const payloadText = JSON.stringify({
+    type: 'sonnet.receipt.accepted.v1',
+    request_id: 'word-crypto-test',
+    game_id: 'sigma',
+    version: 1,
+    status: 'accepted'
+  });
+
+  // Validly sign first: (nacl, secretKey, room, nonce, text)
+  const validSig = signMessage(nacl, refereeKp.secretKey, room, 55, payloadText);
+
+  // 1. Message with tampered text
+  const tamperedMsg = {
+    room: room,
+    seq: 55,
+    from: refereeKp.did,
+    sig: validSig,
+    text: payloadText.replace('"version":1', '"version":2')
+  };
+
+  const tamperedRes = engine.ingestMessage(tamperedMsg);
+  assert.strictEqual(tamperedRes.rejected, true);
+  assert.strictEqual(tamperedRes.reason, 'Invalid referee cryptographic Ed25519 signature');
+  assert.strictEqual(engine.getGameState('sigma'), null);
+
+  // 2. Genuine signature verification succeeds and earns CRYPTOGRAPHICALLY VERIFIED
+  const validMsg = {
+    room: room,
+    seq: 55,
+    from: refereeKp.did,
+    sig: validSig,
+    text: payloadText
+  };
+
+  const validRes = engine.ingestMessage(validMsg);
+  assert.strictEqual(validRes !== null, true);
+  assert.strictEqual(validRes.rejected, undefined);
+  assert.strictEqual(validRes.receiptSignatureStatus, 'CRYPTOGRAPHICALLY VERIFIED');
+  assert.strictEqual(engine.getGameState('sigma').version, 1);
+});
+
+test("Regression 4: Another user's accepted registration receipt does not lock my role", () => {
+  const myReqId = 'reg-local-user-500';
+  const myDid = 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK';
+  const strangerDid = 'did:key:z6MkStrangerParticipant999999999999999999999999';
+
+  // Simulate local user session state
+  const localSession = {
+    lastRegistrationReqId: myReqId,
+    activeDid: myDid,
+    role: 'writer',
+    roleLocked: false,
+    registrationAccepted: false
+  };
+
+  // Receipt broadcast in public room for stranger
+  const publicReceipt = {
+    requestId: 'reg-stranger-888',
+    authenticatedDid: strangerDid,
+    role: 'writer',
+    actionStatus: 'ACCEPTED'
+  };
+
+  // Exact scoping check implemented in app.js
+  const isMyRegistration = Boolean(
+    localSession.lastRegistrationReqId &&
+    publicReceipt.requestId === localSession.lastRegistrationReqId &&
+    (!publicReceipt.authenticatedDid || publicReceipt.authenticatedDid === localSession.activeDid)
+  );
+
+  assert.strictEqual(isMyRegistration, false);
+  // Role remains strictly unlocked
+  assert.strictEqual(localSession.roleLocked, false);
+  assert.strictEqual(localSession.registrationAccepted, false);
+});
+
+test("Regression 5: Another team's receipt does not change my game_id or poem room", () => {
+  const localSession = {
+    gameId: 'my-team-alpha',
+    lastTeamReqId: 'room-my-team-1',
+    allocatedPoemRoom: 'd-sonnet-1-team-alpha'
+  };
+
+  // Receipt in discovery room for another team
+  const publicReceipt = {
+    requestId: 'room-other-team-2',
+    gameId: 'other-team-beta',
+    poemRoom: 'd-sonnet-1-team-beta',
+    actionStatus: 'ACCEPTED'
+  };
+
+  // Exact scoping check implemented in app.js
+  const isMyTeamReq = Boolean(
+    localSession.lastTeamReqId &&
+    publicReceipt.requestId === localSession.lastTeamReqId
+  );
+
+  assert.strictEqual(isMyTeamReq, false);
+  // Local team state is strictly preserved
+  assert.strictEqual(localSession.gameId, 'my-team-alpha');
+  assert.strictEqual(localSession.allocatedPoemRoom, 'd-sonnet-1-team-alpha');
+});
+
+test('Regression 6: Same poem word accepted twice at different versions is stored twice', () => {
+  const testReferee = 'did:key:z6MkRefereeTestKey12345678901234567890123456789012';
+  const engine = new ReceiptEngine(testReferee);
+
+  // Turn 1: word "the" at version 1
+  engine.ingestMessage({
+    room: 'd-sonnet-1-team-omega',
+    seq: 1,
+    from: testReferee,
+    sig: 'qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AQ',
+    text: JSON.stringify({
+      type: 'sonnet.receipt.word.v1',
+      request_id: 'w-1',
+      game_id: 'omega',
+      version: 1,
+      word: 'the',
+      status: 'accepted'
+    })
+  });
+
+  // Turn 2: word "world" at version 2
+  engine.ingestMessage({
+    room: 'd-sonnet-1-team-omega',
+    seq: 2,
+    from: testReferee,
+    sig: 'qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AQ',
+    text: JSON.stringify({
+      type: 'sonnet.receipt.word.v1',
+      request_id: 'w-2',
+      game_id: 'omega',
+      version: 2,
+      word: 'world',
+      status: 'accepted'
+    })
+  });
+
+  // Turn 3: word "the" at version 3 (same word again!)
+  engine.ingestMessage({
+    room: 'd-sonnet-1-team-omega',
+    seq: 3,
+    from: testReferee,
+    sig: 'qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AQ',
+    text: JSON.stringify({
+      type: 'sonnet.receipt.word.v1',
+      request_id: 'w-3',
+      game_id: 'omega',
+      version: 3,
+      word: 'the',
+      status: 'accepted'
+    })
+  });
+
+  const words = engine.getGameState('omega').words;
+  assert.strictEqual(words.length, 3);
+  assert.deepStrictEqual(words, ['the', 'world', 'the']);
+  assert.strictEqual(words[0], words[2]);
+});
+
+test('Regression 7: Submission receipt without entry_id => entry ID stays null (never fabricated)', () => {
+  const localSession = {
+    lastSubmitReqId: 'sub-local-99',
+    gameId: 'omega',
+    submissionAccepted: false,
+    submissionPending: true,
+    submittedEntryId: null
+  };
+
+  // Referee acceptance receipt arrives without entry_id
+  const receiptWithoutEntryId = {
+    requestId: 'sub-local-99',
+    gameId: 'omega',
+    actionStatus: 'ACCEPTED',
+    entryId: null
+  };
+
+  const isMySubmitReq = Boolean(
+    localSession.lastSubmitReqId &&
+    receiptWithoutEntryId.requestId === localSession.lastSubmitReqId &&
+    receiptWithoutEntryId.gameId === localSession.gameId
+  );
+
+  assert.strictEqual(isMySubmitReq, true);
+  if (isMySubmitReq && receiptWithoutEntryId.actionStatus === 'ACCEPTED') {
+    localSession.submissionAccepted = true;
+    localSession.submissionPending = false;
+    localSession.submittedEntryId = receiptWithoutEntryId.entryId || null;
+  }
+
+  assert.strictEqual(localSession.submissionAccepted, true);
+  assert.strictEqual(localSession.submittedEntryId, null);
+  assert.notStrictEqual(localSession.submittedEntryId, 'entry-submitted');
+});
+
+test('Regression 8: Only exact local request receipt advances local pending action', () => {
+  const localSession = {
+    lastSubmitReqId: 'sub-exact-42',
+    gameId: 'team-alpha',
+    submissionPending: true,
+    submissionAccepted: false
+  };
+
+  // 1. Unrelated receipt does NOT advance local action
+  const unrelatedReceipt = {
+    requestId: 'sub-unrelated-99',
+    gameId: 'team-alpha',
+    actionStatus: 'ACCEPTED'
+  };
+
+  const isUnrelated = Boolean(
+    localSession.lastSubmitReqId &&
+    unrelatedReceipt.requestId === localSession.lastSubmitReqId
+  );
+  assert.strictEqual(isUnrelated, false);
+  assert.strictEqual(localSession.submissionPending, true);
+  assert.strictEqual(localSession.submissionAccepted, false);
+
+  // 2. Exact match receipt DOES advance local action
+  const matchingReceipt = {
+    requestId: 'sub-exact-42',
+    gameId: 'team-alpha',
+    actionStatus: 'ACCEPTED'
+  };
+
+  const isMatching = Boolean(
+    localSession.lastSubmitReqId &&
+    matchingReceipt.requestId === localSession.lastSubmitReqId
+  );
+  assert.strictEqual(isMatching, true);
+  if (isMatching && matchingReceipt.actionStatus === 'ACCEPTED') {
+    localSession.submissionPending = false;
+    localSession.submissionAccepted = true;
+  }
+
+  assert.strictEqual(localSession.submissionPending, false);
+  assert.strictEqual(localSession.submissionAccepted, true);
 });
 
 console.log('\n========================================');

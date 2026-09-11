@@ -59,6 +59,11 @@ export const SONNET_CONFIG = {
 let currentPinnedReferee = null;
 
 export function setPinnedReferee(did) {
+  if (!did) {
+    currentPinnedReferee = null;
+    SONNET_CONFIG.pinnedRefereeDid = null;
+    return true;
+  }
   if (did && typeof did === 'string' && did.startsWith('did:key:z6Mk')) {
     currentPinnedReferee = did;
     SONNET_CONFIG.pinnedRefereeDid = did;
@@ -69,6 +74,50 @@ export function setPinnedReferee(did) {
 
 export function getPinnedReferee() {
   return currentPinnedReferee || SONNET_CONFIG.pinnedRefereeDid || null;
+}
+
+import { verifyMessageSignature } from './crypto.js';
+
+export function isRefereePinned() {
+  return Boolean(getPinnedReferee());
+}
+
+/**
+ * Safely parse and pin official referee DID from the contest rules/launch message
+ * @param {Array<object>} rulesRoomMessages - Messages polled from d-sonnet-1-rules
+ * @param {object} [naclInstance=null] - Optional TweetNaCl instance for local verification
+ * @returns {string|null} pinned DID if found, or null
+ */
+export function extractAndPinRefereeFromRules(rulesRoomMessages = [], naclInstance = null) {
+  if (!Array.isArray(rulesRoomMessages)) return null;
+  for (const msg of rulesRoomMessages) {
+    if (!msg || !msg.from || !msg.from.startsWith('did:key:z6Mk')) continue;
+    try {
+      const parsed = typeof msg.text === 'string' ? JSON.parse(msg.text) : msg.text;
+      if (
+        parsed &&
+        (parsed.type === 'sonnet.rules.v1' ||
+         parsed.type === 'sonnet.launch.v1' ||
+         parsed.contest_id === 'sonnet-1' ||
+         (typeof parsed.contest === 'object' && parsed.contest.contestId === 'sonnet-1'))
+      ) {
+        // If message is signed and nacl is available, verify signature
+        if (msg.sig && naclInstance && msg.room && (msg.seq !== undefined || msg.nonce !== undefined)) {
+          const nonceVal = msg.seq !== undefined ? msg.seq : msg.nonce;
+          const rawText = typeof msg.text === 'string' ? msg.text : JSON.stringify(parsed);
+          const check = verifyMessageSignature(naclInstance, msg.from, msg.sig, msg.room, nonceVal, rawText);
+          if (!check || !check.valid) {
+            continue; // Skip invalid announcement
+          }
+        }
+        setPinnedReferee(msg.from);
+        return msg.from;
+      }
+    } catch {
+      // Not JSON or non-rules announcement
+    }
+  }
+  return null;
 }
 
 /**

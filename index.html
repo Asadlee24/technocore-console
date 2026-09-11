@@ -766,6 +766,10 @@
                   <span class="sonnet-info-label">Frozen Dictionary:</span>
                   <span class="sonnet-info-val mono-xs" id="sonnet-info-dict-hash">SHA-256 Verified (81917843...)</span>
                 </div>
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Pinned Referee:</span>
+                  <span class="sonnet-info-val mono-xs text-warning" id="sonnet-info-referee-did">Waiting for official referee pin</span>
+                </div>
               </div>
             </div>
           </section>
@@ -1018,6 +1022,13 @@
               <div class="field-group">
                 <label class="field-label" for="sonnet-x-post-ids">X Post IDs (comma-separated if threaded)</label>
                 <input id="sonnet-x-post-ids" class="input-text" type="text" placeholder="e.g. 1823901283012938102" spellcheck="false">
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Referee Entry ID</label>
+                <div class="readout-box">
+                  <span id="sonnet-submitted-entry-id" class="readout-text empty">Waiting for referee entry ID</span>
+                </div>
               </div>
 
               <div class="field-group">

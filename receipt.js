@@ -6,14 +6,20 @@
  */
 
 import { getPinnedReferee as getConfigPinnedReferee } from './contest-config.js';
+import { verifyMessageSignature } from './crypto.js';
 
 export class ReceiptEngine {
-  constructor(pinnedRefereeDid = null) {
+  constructor(pinnedRefereeDid = null, naclInstance = null) {
     this._pinnedRefereeDid = pinnedRefereeDid;
+    this._nacl = naclInstance;
     // Map of requestId -> SessionActionRecord
     this._actions = new Map();
     // Latest accepted state per contest/game: { version, stateHash, roomGeneration, lastContributor, words, entryId }
     this._gameStates = new Map();
+  }
+
+  setNacl(naclInstance) {
+    this._nacl = naclInstance;
   }
 
   setPinnedReferee(did) {
@@ -21,7 +27,7 @@ export class ReceiptEngine {
   }
 
   getPinnedReferee() {
-    return this._pinnedRefereeDid;
+    return this._pinnedRefereeDid || (typeof getConfigPinnedReferee === 'function' ? getConfigPinnedReferee() : null);
   }
 
   /**
@@ -48,18 +54,21 @@ export class ReceiptEngine {
       payload: action.payload || null,
       httpStatus: action.httpStatus || 200,
       sequence: serverSeq,
-      transportSuccess: isTransportSuccess,
       transportTimestamp: new Date().toISOString(),
+      transportSuccess: isTransportSuccess,
       transportError: action.transportError || null,
 
       // Authoritative referee acceptance fields (initialized false)
       refereeAccepted: false,
       refereeReceipt: null,
       refereeError: null,
-      status: isTransportSuccess ? 'SENT' : 'REJECTED'
+      status: isTransportSuccess ? 'SENT' : 'FAILED',
+      stateHash: action.stateHash || null
     };
 
-    this._actions.set(action.requestId, record);
+    if (action.requestId) {
+      this._actions.set(action.requestId, record);
+    }
     return record;
   }
 
@@ -71,24 +80,25 @@ export class ReceiptEngine {
   }
 
   /**
-   * Ingest a message from a room and verify if it is an authoritative referee receipt.
+   * Ingest an incoming room message and detect if it is an authoritative referee receipt.
+   * STRICT FAIL-CLOSED INVARIANT:
+   * If referee DID is not pinned, receipts CANNOT mutate state.
+   * If signature is invalid, receipts CANNOT mutate state.
    *
-   * Invariants:
-   * 1. Must be signed (msg.sig present).
-   * 2. If a pinned referee DID is configured, msg.from MUST match the pinned referee.
-   *    Unpinned senders cannot mutate state.
-   * 3. Must parse as valid JSON referencing a request_id or game_id.
-   *
-   * @param {object} msg - message object from Technocore format=json
+   * @param {object} msg - Raw message object from room polling or socket
    * @param {string} [overridePinnedReferee]
-   * @returns {object|null} parsed receipt if matched and processed, or null if unrelated
+   * @returns {object|null} parsed receipt record or rejection description
    */
   ingestMessage(msg, overridePinnedReferee = null) {
-    if (!msg || typeof msg.text !== 'string') return null;
+    if (!msg || typeof msg !== 'object') return null;
 
     let payload = null;
     try {
-      payload = JSON.parse(msg.text);
+      if (typeof msg.text === 'string') {
+        payload = JSON.parse(msg.text);
+      } else if (typeof msg.text === 'object') {
+        payload = msg.text;
+      }
     } catch {
       return null;
     }
@@ -102,23 +112,31 @@ export class ReceiptEngine {
     // Must reference either a known request or game
     if (!requestId && !gameId) return null;
 
-    // Check referee authentication & pinning
+    // INVARIANT 1: Strict Fail-Closed Check on Pinned Referee DID
     const pinnedReferee = overridePinnedReferee || this._pinnedRefereeDid || (typeof getConfigPinnedReferee === 'function' ? getConfigPinnedReferee() : null);
-    const refereeDid = msg.from;
-    const hasSig = Boolean(msg.sig);
-    const isPinnedReferee = !pinnedReferee || (refereeDid && refereeDid === pinnedReferee);
-
-    // If a pinned referee is set, strictly reject receipts from any other sender
-    if (pinnedReferee && !isPinnedReferee) {
+    if (!pinnedReferee) {
       return {
         rejected: true,
-        reason: `Signer ${refereeDid} does not match pinned referee ${pinnedReferee}`,
+        reason: 'Waiting for official referee pin. Authoritative state mutation disabled.',
         requestId,
         gameId
       };
     }
 
-    // Must have a cryptographic signature
+    const refereeDid = msg.from;
+    const hasSig = Boolean(msg.sig);
+
+    // INVARIANT 2: Strictly verify signer matches pinned referee
+    if (!refereeDid || refereeDid !== pinnedReferee) {
+      return {
+        rejected: true,
+        reason: `Signer ${refereeDid || 'unknown'} does not match pinned referee ${pinnedReferee}`,
+        requestId,
+        gameId
+      };
+    }
+
+    // INVARIANT 3: Must have a cryptographic signature
     if (!hasSig) {
       return {
         rejected: true,
@@ -126,6 +144,25 @@ export class ReceiptEngine {
         requestId,
         gameId
       };
+    }
+
+    // INVARIANT 4: Offline Cryptographic Ed25519 Signature Verification
+    const naclInstance = this._nacl || (typeof nacl !== 'undefined' ? nacl : null);
+    let receiptSignatureStatus = 'SERVER AUTHENTICATED';
+
+    if (naclInstance && msg.sig && refereeDid && msg.room && (msg.seq !== undefined || msg.nonce !== undefined)) {
+      const nonceVal = msg.seq !== undefined ? msg.seq : msg.nonce;
+      const rawText = typeof msg.text === 'string' ? msg.text : JSON.stringify(payload);
+      const check = verifyMessageSignature(naclInstance, refereeDid, msg.sig, msg.room, nonceVal, rawText);
+      if (!check || !check.valid) {
+        return {
+          rejected: true,
+          reason: 'Invalid referee cryptographic Ed25519 signature',
+          requestId,
+          gameId
+        };
+      }
+      receiptSignatureStatus = 'CRYPTOGRAPHICALLY VERIFIED';
     }
 
     let action = requestId ? this._actions.get(requestId) : null;
@@ -177,8 +214,8 @@ export class ReceiptEngine {
       timestamp: msg.ts || new Date().toISOString(),
       httpStatus: action ? action.httpStatus : 200,
       refereeDid,
-      receiptSignatureStatus: 'VALID',
-      isPinnedReferee: Boolean(isPinnedReferee),
+      receiptSignatureStatus,
+      isPinnedReferee: true,
       contestId,
       gameId,
       role: payload.role || null,
@@ -221,7 +258,8 @@ export class ReceiptEngine {
         receipt.isStale = true;
       } else {
         const updatedWords = Array.isArray(current.words) ? [...current.words] : [];
-        if (receipt.word && !updatedWords.includes(receipt.word)) {
+        // INVARIANT: Do NOT deduplicate by word string. Append word turn at this version.
+        if (receipt.word) {
           updatedWords.push(receipt.word);
         }
 
