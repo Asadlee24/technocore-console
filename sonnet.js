@@ -541,3 +541,158 @@ export function buildSonnetBallotPayload(contestId, voterDid, entryId, requestId
 export function buildSonnetClaimPayload(contestId, gameId, destination, requestId) {
   return buildClaimPayload({ contestId, gameId, destination, requestId });
 }
+
+// ----------------------------------------------------
+// Squad Board & Letter Coverage Utilities
+// ----------------------------------------------------
+
+/**
+ * Extract all unique lowercase letters [a-z] from a DID string
+ * @param {string} didKey
+ * @returns {Set<string>}
+ */
+export function extractDidLetters(didKey) {
+  const letters = new Set();
+  if (!didKey || typeof didKey !== 'string') return letters;
+  const lower = didKey.toLowerCase();
+  for (let i = 0; i < lower.length; i++) {
+    const ch = lower[i];
+    if (ch >= 'a' && ch <= 'z') {
+      letters.add(ch);
+    }
+  }
+  return letters;
+}
+
+/**
+ * Compute aggregate letter coverage across an array of DIDs
+ * @param {string[]} didList
+ * @returns {{ letters: string[], letterCount: number, missingLetters: string[], coveragePercent: number, hasAllVowels: boolean, missingVowels: string[] }}
+ */
+export function computeRosterLetterCoverage(didList = []) {
+  const unionSet = new Set();
+  const validDids = (Array.isArray(didList) ? didList : []).filter(d => typeof d === 'string' && d.startsWith('did:key:'));
+  
+  for (const did of validDids) {
+    const letters = extractDidLetters(did);
+    for (const l of letters) {
+      unionSet.add(l);
+    }
+  }
+
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  const vowels = ['a', 'e', 'i', 'o', 'u'];
+  const coveredLetters = alphabet.filter(l => unionSet.has(l));
+  const missingLetters = alphabet.filter(l => !unionSet.has(l));
+  const missingVowels = vowels.filter(v => !unionSet.has(v));
+
+  return {
+    letters: coveredLetters,
+    letterCount: coveredLetters.length,
+    missingLetters,
+    coveragePercent: Math.round((coveredLetters.length / 26) * 100),
+    hasAllVowels: missingVowels.length === 0,
+    missingVowels
+  };
+}
+
+/**
+ * Clean and normalize an X (Twitter) handle or URL
+ * @param {string} raw
+ * @returns {{ handle: string, url: string }}
+ */
+export function normalizeXHandle(raw) {
+  if (!raw || typeof raw !== 'string') return { handle: '', url: '' };
+  const cleaned = raw.trim()
+    .replace(/^https?:\/\/(?:www\.)?(?:twitter|x)\.com\//i, '')
+    .replace(/^@/, '')
+    .split(/[/?#\s]/)[0];
+  if (!cleaned) return { handle: '', url: '' };
+  return {
+    handle: '@' + cleaned,
+    url: `https://x.com/${cleaned}`
+  };
+}
+
+/**
+ * Extract writer details from a registration or discovery message
+ * @param {object} msg
+ * @returns {object|null}
+ */
+export function parseWriterFromMessage(msg) {
+  if (!msg || !msg.from || !msg.from.startsWith('did:key:')) return null;
+  const did = msg.from;
+  const text = msg.text || '';
+  let payload = null;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    payload = null;
+  }
+
+  let role = 'writer';
+  let xAccountUrl = '';
+  let status = 'Active Participant';
+  let isCandidateWriter = false;
+
+  if (payload && typeof payload === 'object') {
+    if (payload.type === 'sonnet.register.v1') {
+      if (payload.role === 'writer') {
+        isCandidateWriter = true;
+        status = 'Registered Writer';
+      } else if (payload.role === 'voter') {
+        return null;
+      }
+      if (payload.x_account_url) {
+        xAccountUrl = payload.x_account_url;
+      }
+    } else if (payload.type === 'sonnet.application.v1') {
+      isCandidateWriter = true;
+      status = payload.game_id ? `Applied to ${payload.game_id}` : 'Free Agent / Looking for Squad';
+    } else if (payload.type === 'sonnet.recruit.v1') {
+      isCandidateWriter = true;
+      status = `Recruiting for ${payload.game_id || 'Team'}`;
+    } else if (payload.type === 'sonnet.roster.v1') {
+      isCandidateWriter = true;
+      status = `Team Roster (${payload.game_id || 'Active'})`;
+    } else if (payload.type === 'sonnet.note.v1') {
+      isCandidateWriter = true;
+      status = 'Active in Discovery';
+    }
+  }
+
+  // Look for X handle in text or payload
+  if (!xAccountUrl && text) {
+    const xMatch = text.match(/(?:https?:\/\/(?:www\.)?(?:twitter|x)\.com\/([a-zA-Z0-9_]+))|@([a-zA-Z0-9_]{2,15})/);
+    if (xMatch) {
+      xAccountUrl = xMatch[1] ? `https://x.com/${xMatch[1]}` : `https://x.com/${xMatch[2]}`;
+    }
+  }
+
+  const { handle, url } = normalizeXHandle(xAccountUrl);
+
+  if (!isCandidateWriter && !handle) return null;
+
+  const didLettersSet = extractDidLetters(did);
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  const vowels = ['a', 'e', 'i', 'o', 'u'];
+  const letters = alphabet.filter(l => didLettersSet.has(l));
+  const missingLetters = alphabet.filter(l => !didLettersSet.has(l));
+  const writerVowels = vowels.filter(v => didLettersSet.has(v));
+
+  return {
+    did,
+    xHandle: handle,
+    xUrl: url,
+    role,
+    status,
+    seq: msg.seq || null,
+    ts: msg.ts || null,
+    letters,
+    letterCount: letters.length,
+    missingLetters,
+    vowels: writerVowels,
+    hasAllVowels: writerVowels.length === 5
+  };
+}
+

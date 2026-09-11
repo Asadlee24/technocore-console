@@ -61,7 +61,11 @@ import {
   buildSonnetWordPayload,
   buildSonnetSubmitPayload,
   buildSonnetBallotPayload,
-  buildSonnetClaimPayload
+  buildSonnetClaimPayload,
+  computeRosterLetterCoverage,
+  extractDidLetters,
+  normalizeXHandle,
+  parseWriterFromMessage
 } from './sonnet.js';
 
 import { CryptoVisualizer } from './visualizer3d.js';
@@ -133,6 +137,16 @@ const state = {
     rosterAccepted: false,
     rosterFrozen: false,
     lastRosterReqId: null,
+
+    // Squad Board & Team Discovery
+    squadBoard: {
+      writers: new Map(),
+      isScanning: false,
+      filterQuery: '',
+      letterFilter: '',
+      requireX: true,
+      requireFree: false
+    },
 
     // Authoritative poem state (from referee receipts only)
     currentVersion: null,     // strictly null until referee receipt
@@ -356,6 +370,23 @@ function cacheElements() {
     sonnetTeamPayloadPreview: document.getElementById('sonnet-team-payload-preview'),
     sonnetBtnSendTeamReq: document.getElementById('sonnet-btn-send-team-req'),
     sonnetTeamReqResult: document.getElementById('sonnet-team-req-result'),
+
+    // Squad Board & Team Finder
+    squadCard: document.getElementById('sonnet-card-squad-board'),
+    squadWriterCountBadge: document.getElementById('squad-writer-count-badge'),
+    squadBtnRefresh: document.getElementById('squad-btn-refresh'),
+    squadCoverageBar: document.getElementById('squad-coverage-bar'),
+    squadCoverageStat: document.getElementById('squad-coverage-stat'),
+    squadCoverageMembersCount: document.getElementById('squad-coverage-members-count'),
+    squadCoveredLettersChips: document.getElementById('squad-covered-letters-chips'),
+    squadMissingLettersChips: document.getElementById('squad-missing-letters-chips'),
+    squadSearchInput: document.getElementById('squad-search-input'),
+    squadLetterFilter: document.getElementById('squad-letter-filter'),
+    squadFilterXOnly: document.getElementById('squad-filter-x-only'),
+    squadFilterFreeOnly: document.getElementById('squad-filter-free-only'),
+    squadFilterSummary: document.getElementById('squad-filter-summary'),
+    squadWritersList: document.getElementById('squad-writers-list'),
+
     sonnetRosterFreezeBadge: document.getElementById('sonnet-roster-freeze-badge'),
     sonnetRosterMembersInput: document.getElementById('sonnet-roster-members-input'),
     sonnetRosterPayloadPreview: document.getElementById('sonnet-roster-payload-preview'),
@@ -467,6 +498,10 @@ function setView(viewName) {
   if (viewName === 'sonnet') {
     updateSonnetStateUI();
     updateSonnetPreviews();
+    renderSquadBoardCoverage();
+    if (state.sonnet.squadBoard && state.sonnet.squadBoard.writers.size === 0) {
+      refreshSquadBoard();
+    }
   }
 }
 
@@ -1831,6 +1866,8 @@ async function initSonnet() {
   updateSonnetStateUI();
   updateSonnetPreviews();
   renderSonnetReceipts();
+  renderSquadBoardCoverage();
+  refreshSquadBoard();
 
   // Load frozen CMUdict lexicon
   try {
@@ -1881,9 +1918,11 @@ function pollSonnetRoom(roomName) {
 }
 
 /**
- * Ingest and process an incoming message for referee receipts
+ * Ingest and process an incoming message for referee receipts and Squad Board
  */
 function processIncomingSonnetMessage(msg) {
+  ingestSquadBoardMessage(msg);
+
   const receipt = receiptEngine.ingestMessage(msg, getPinnedReferee());
   if (receipt && !receipt.rejected) {
     applyRefereeReceiptToSonnetState(receipt);
@@ -2124,6 +2163,43 @@ function bindSonnetEvents() {
     el.sonnetRosterMembersInput.addEventListener('input', () => {
       updateSonnetPreviews();
       updateSonnetStateUI();
+      renderSquadBoardCoverage();
+      renderSquadBoard();
+    });
+  }
+
+  // Squad Board & Team Finder Controls
+  if (el.squadBtnRefresh) {
+    el.squadBtnRefresh.addEventListener('click', () => {
+      refreshSquadBoard();
+    });
+  }
+
+  if (el.squadSearchInput) {
+    el.squadSearchInput.addEventListener('input', () => {
+      state.sonnet.squadBoard.filterQuery = (el.squadSearchInput.value || '').trim();
+      renderSquadBoard();
+    });
+  }
+
+  if (el.squadLetterFilter) {
+    el.squadLetterFilter.addEventListener('input', () => {
+      state.sonnet.squadBoard.letterFilter = (el.squadLetterFilter.value || '').trim();
+      renderSquadBoard();
+    });
+  }
+
+  if (el.squadFilterXOnly) {
+    el.squadFilterXOnly.addEventListener('change', () => {
+      state.sonnet.squadBoard.requireX = el.squadFilterXOnly.checked;
+      renderSquadBoard();
+    });
+  }
+
+  if (el.squadFilterFreeOnly) {
+    el.squadFilterFreeOnly.addEventListener('change', () => {
+      state.sonnet.squadBoard.requireFree = el.squadFilterFreeOnly.checked;
+      renderSquadBoard();
     });
   }
 
@@ -2975,6 +3051,346 @@ async function handleSonnetSendClaim() {
   } finally {
     updateSonnetStateUI();
   }
+}
+
+// ----------------------------------------------------
+// Squad Board & Team Finder Engine
+// ----------------------------------------------------
+
+let squadBoardRenderTimer = null;
+function scheduleSquadBoardRender() {
+  if (squadBoardRenderTimer) return;
+  squadBoardRenderTimer = setTimeout(() => {
+    squadBoardRenderTimer = null;
+    if (state.activeView === 'sonnet') {
+      renderSquadBoard();
+    }
+  }, 150);
+}
+
+/**
+ * Ingest an incoming room message into the Squad Board
+ */
+function ingestSquadBoardMessage(msg) {
+  if (!msg || !state.sonnet || !state.sonnet.squadBoard) return;
+  const writer = parseWriterFromMessage(msg);
+  if (!writer) return;
+
+  const existing = state.sonnet.squadBoard.writers.get(writer.did);
+  if (existing) {
+    if (!existing.xHandle && writer.xHandle) {
+      existing.xHandle = writer.xHandle;
+      existing.xUrl = writer.xUrl;
+    }
+    if (writer.seq && (!existing.seq || writer.seq > existing.seq)) {
+      existing.seq = writer.seq;
+      existing.status = writer.status;
+      existing.ts = writer.ts;
+    }
+  } else {
+    state.sonnet.squadBoard.writers.set(writer.did, writer);
+  }
+  scheduleSquadBoardRender();
+}
+
+/**
+ * Live scan registration & discovery rooms for available writers
+ */
+async function refreshSquadBoard() {
+  if (!state.sonnet || !state.sonnet.squadBoard) return;
+  if (state.sonnet.squadBoard.isScanning) return;
+  state.sonnet.squadBoard.isScanning = true;
+
+  if (el.squadBtnRefresh) {
+    el.squadBtnRefresh.disabled = true;
+    el.squadBtnRefresh.textContent = 'Scanning...';
+  }
+  if (el.squadWriterCountBadge) {
+    el.squadWriterCountBadge.textContent = 'Scanning...';
+    el.squadWriterCountBadge.className = 'step-status-pill pending';
+  }
+
+  try {
+    const [regRes, discRes] = await Promise.all([
+      fetchProtocol('r/mb-sonnet-1-registration?format=json&limit=100'),
+      fetchProtocol('r/mb-sonnet-1-discovery?format=json&limit=100')
+    ]);
+
+    const ingestData = (res) => {
+      if (!res || !res.ok) return;
+      let msgs = [];
+      if (res.json && Array.isArray(res.json.messages)) {
+        msgs = res.json.messages;
+      } else if (res.json && Array.isArray(res.json)) {
+        msgs = res.json;
+      } else if (res.text) {
+        try {
+          const parsed = JSON.parse(res.text);
+          msgs = Array.isArray(parsed) ? parsed : (parsed.messages || []);
+        } catch {
+          msgs = [];
+        }
+      }
+      for (const m of msgs) {
+        ingestSquadBoardMessage(m);
+      }
+    };
+
+    ingestData(regRes);
+    ingestData(discRes);
+  } catch (err) {
+    console.warn('Squad board fetch notice:', err.message);
+  } finally {
+    state.sonnet.squadBoard.isScanning = false;
+    if (el.squadBtnRefresh) {
+      el.squadBtnRefresh.disabled = false;
+      el.squadBtnRefresh.textContent = 'Refresh Feed';
+    }
+    renderSquadBoard();
+  }
+}
+
+/**
+ * Render Squad Board writer cards and toolbar counters
+ */
+function renderSquadBoard() {
+  if (!el.squadWritersList) return;
+
+  // 1. Render active team letter coverage
+  renderSquadBoardCoverage();
+
+  // 2. Filter writers
+  const writers = Array.from(state.sonnet.squadBoard.writers.values());
+  const query = (state.sonnet.squadBoard.filterQuery || '').toLowerCase().trim();
+  const letterReq = (state.sonnet.squadBoard.letterFilter || '').toLowerCase().replace(/[^a-z]/g, '');
+  const requireX = Boolean(state.sonnet.squadBoard.requireX);
+  const requireFree = Boolean(state.sonnet.squadBoard.requireFree);
+
+  // Active roster member DIDs
+  const currentMembers = el.sonnetRosterMembersInput
+    ? el.sonnetRosterMembersInput.value.split('\n').map(s => s.trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  const filtered = writers.filter(w => {
+    if (requireX && !w.xHandle) return false;
+    if (requireFree && w.status.includes('Team Roster')) return false;
+
+    if (query) {
+      const matchDid = w.did.toLowerCase().includes(query);
+      const matchX = w.xHandle.toLowerCase().includes(query);
+      const matchStatus = w.status.toLowerCase().includes(query);
+      if (!matchDid && !matchX && !matchStatus) return false;
+    }
+
+    if (letterReq) {
+      const didLetters = extractDidLetters(w.did);
+      for (let i = 0; i < letterReq.length; i++) {
+        const reqCh = letterReq[i];
+        if (!didLetters.has(reqCh)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
+
+  // Sort: writers with X handle first, then by sequence descending
+  filtered.sort((a, b) => {
+    if (Boolean(a.xHandle) !== Boolean(b.xHandle)) {
+      return a.xHandle ? -1 : 1;
+    }
+    return (b.seq || 0) - (a.seq || 0);
+  });
+
+  // Update badge count
+  if (el.squadWriterCountBadge) {
+    el.squadWriterCountBadge.textContent = `${writers.length} Writers Live`;
+    el.squadWriterCountBadge.className = 'step-status-pill completed';
+  }
+
+  if (el.squadFilterSummary) {
+    el.squadFilterSummary.textContent = `Showing ${filtered.length} of ${writers.length} writers`;
+  }
+
+  if (filtered.length === 0) {
+    el.squadWritersList.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1; padding: 24px;">
+        <div class="empty-title">No writers match filter</div>
+        <div class="empty-desc">Try clearing the letter filter or unticking "With X handle only".</div>
+      </div>
+    `;
+    return;
+  }
+
+  // Render cards
+  const fragment = document.createDocumentFragment();
+  const vowels = ['a', 'e', 'i', 'o', 'u'];
+
+  filtered.forEach(w => {
+    const isInRoster = currentMembers.includes(w.did.toLowerCase());
+    const card = document.createElement('div');
+    card.className = `squad-card ${isInRoster ? 'in-roster' : ''}`;
+
+    let badgeClass = 'squad-badge';
+    if (w.status.includes('Registered')) badgeClass += ' registered';
+    else if (w.status.includes('Free') || w.status.includes('Looking')) badgeClass += ' free-agent';
+    else if (w.status.includes('Recruit')) badgeClass += ' recruiting';
+
+    const shortDid = `${w.did.slice(0, 13)}...${w.did.slice(-8)}`;
+
+    const vowelBadgesHtml = vowels.map(v => {
+      const hasV = w.vowels && w.vowels.includes(v);
+      return `<span class="squad-vowel-pill ${hasV ? 'has' : 'missing'}" title="${hasV ? 'Has vowel ' + v.toUpperCase() : 'Missing vowel ' + v.toUpperCase()}">${v}</span>`;
+    }).join('');
+
+    card.innerHTML = `
+      <div class="squad-card-header">
+        ${w.xHandle ? `
+          <a href="${escapeHtml(w.xUrl)}" target="_blank" rel="noreferrer" class="squad-x-link" title="Open ${escapeHtml(w.xHandle)} on X">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            <span>${escapeHtml(w.xHandle)}</span>
+          </a>
+        ` : `
+          <span class="squad-x-none">No X handle shared</span>
+        `}
+        <span class="${badgeClass}">${escapeHtml(w.status)}</span>
+      </div>
+
+      <div class="squad-did-row">
+        <span class="squad-did-text" title="${escapeHtml(w.did)}">${escapeHtml(shortDid)}</span>
+        <button class="squad-btn-copy-mini btn-copy-did" type="button" data-did="${escapeHtml(w.did)}" title="Copy full DID">Copy</button>
+      </div>
+
+      <div class="squad-letter-info">
+        <div class="squad-letter-meta">
+          <span>Letters: <strong>${w.letterCount} / 26</strong></span>
+          <div class="squad-vowel-badges" title="Vowel coverage">
+            ${vowelBadgesHtml}
+          </div>
+        </div>
+      </div>
+
+      <div class="squad-card-actions">
+        <button class="btn-roster-add ${isInRoster ? 'in-roster' : ''}" type="button" data-did="${escapeHtml(w.did)}">
+          ${isInRoster ? '✓ In Roster (Remove)' : '+ Add to Roster'}
+        </button>
+        ${w.xHandle ? `
+          <a href="${escapeHtml(w.xUrl)}" target="_blank" rel="noreferrer" class="btn-squad-dm" title="Open X profile">
+            Open X
+          </a>
+        ` : ''}
+      </div>
+    `;
+
+    // Copy DID event
+    const copyBtn = card.querySelector('.btn-copy-did');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(w.did).then(() => {
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+        });
+      });
+    }
+
+    // Toggle roster event
+    const rosterBtn = card.querySelector('.btn-roster-add');
+    if (rosterBtn) {
+      rosterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleRosterMember(w.did);
+      });
+    }
+
+    fragment.appendChild(card);
+  });
+
+  el.squadWritersList.innerHTML = '';
+  el.squadWritersList.appendChild(fragment);
+}
+
+/**
+ * Render Team Letter Coverage based on current roster textarea
+ */
+function renderSquadBoardCoverage() {
+  if (!el.squadCoverageBar || !el.sonnetRosterMembersInput) return;
+
+  const rawMembers = el.sonnetRosterMembersInput.value
+    .split('\n')
+    .map(s => s.trim())
+    .filter(s => s.startsWith('did:key:'));
+
+  const coverage = computeRosterLetterCoverage(rawMembers);
+
+  if (el.squadCoverageMembersCount) {
+    el.squadCoverageMembersCount.textContent = `(${rawMembers.length} writer${rawMembers.length === 1 ? '' : 's'} selected)`;
+  }
+
+  if (el.squadCoverageStat) {
+    el.squadCoverageStat.textContent = `${coverage.letterCount} / 26 Letters (${coverage.coveragePercent}%)`;
+  }
+
+  if (el.squadCoverageBar) {
+    el.squadCoverageBar.style.width = `${coverage.coveragePercent}%`;
+    if (coverage.coveragePercent >= 90) {
+      el.squadCoverageBar.style.background = 'var(--accent-green)';
+    } else if (coverage.coveragePercent >= 70) {
+      el.squadCoverageBar.style.background = 'var(--accent-cyan)';
+    } else {
+      el.squadCoverageBar.style.background = 'var(--accent-amber)';
+    }
+  }
+
+  const vowels = ['a', 'e', 'i', 'o', 'u'];
+
+  if (el.squadCoveredLettersChips) {
+    if (coverage.letters.length === 0) {
+      el.squadCoveredLettersChips.innerHTML = '<span class="squad-empty-hint">Add writers below to see covered letters</span>';
+    } else {
+      el.squadCoveredLettersChips.innerHTML = coverage.letters.map(l => {
+        const isVowel = vowels.includes(l);
+        return `<span class="squad-chip ${isVowel ? 'vowel' : ''}">${l}</span>`;
+      }).join('');
+    }
+  }
+
+  if (el.squadMissingLettersChips) {
+    if (coverage.missingLetters.length === 0) {
+      el.squadMissingLettersChips.innerHTML = '<span class="mono-xs" style="color: var(--accent-green); font-weight: 600;">✓ Full Alphabet Covered (100%)</span>';
+    } else {
+      el.squadMissingLettersChips.innerHTML = coverage.missingLetters.map(l => {
+        const isVowel = vowels.includes(l);
+        return `<span class="squad-chip missing ${isVowel ? 'vowel' : ''}">${l}</span>`;
+      }).join('');
+    }
+  }
+}
+
+/**
+ * Toggle a writer DID into the Roster textarea
+ */
+function toggleRosterMember(did) {
+  if (!el.sonnetRosterMembersInput || !did) return;
+
+  const currentLines = el.sonnetRosterMembersInput.value
+    .split('\n')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const lowerDid = did.toLowerCase();
+  const existingIdx = currentLines.findIndex(s => s.toLowerCase() === lowerDid);
+
+  if (existingIdx !== -1) {
+    currentLines.splice(existingIdx, 1);
+  } else {
+    currentLines.push(did);
+  }
+
+  el.sonnetRosterMembersInput.value = currentLines.join('\n');
+  el.sonnetRosterMembersInput.dispatchEvent(new Event('input'));
+  renderSquadBoard();
 }
 
 /**

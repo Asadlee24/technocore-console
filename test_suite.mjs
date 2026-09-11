@@ -45,7 +45,11 @@ import {
   buildWordProposalPayload,
   buildSubmissionPayload,
   buildBallotPayload,
-  buildClaimPayload
+  buildClaimPayload,
+  extractDidLetters,
+  computeRosterLetterCoverage,
+  normalizeXHandle,
+  parseWriterFromMessage
 } from './sonnet.js';
 import { DEFAULT_CONTEST, setPinnedReferee, getPinnedReferee, isRefereePinned, extractAndPinRefereeFromRules } from './contest-config.js';
 import { RoomPoller } from './transport.js';
@@ -1791,6 +1795,108 @@ test('Regression: Registration dispatch response handling supports res.lane (POS
   assert.strictEqual(registrationState.registrationPending, true);
   assert.strictEqual(registrationState.roleLocked, false);
   assert.strictEqual(registrationState.registrationAccepted, false);
+});
+
+console.log('\n--- Section 14: Squad Board & Letter Coverage Engine ---');
+
+test('extractDidLetters extracts only unique lowercase [a-z] letters', () => {
+  const did = 'did:key:z6Mkr8N6JvhKzWv7xiNSYhiDH4MEB14FfE7FuDCsMGTh7h4V';
+  const letters = extractDidLetters(did);
+  assert.strictEqual(letters.has('z'), true);
+  assert.strictEqual(letters.has('k'), true);
+  assert.strictEqual(letters.has('6'), false);
+  assert.strictEqual(letters.has(':'), false);
+  // All elements must be [a-z]
+  for (const ch of letters) {
+    assert.strictEqual(/^[a-z]$/.test(ch), true);
+  }
+});
+
+test('normalizeXHandle cleans Twitter/X URLs, handles, and extracts links', () => {
+  const url1 = normalizeXHandle('https://x.com/schatte08064468');
+  assert.strictEqual(url1.handle, '@schatte08064468');
+  assert.strictEqual(url1.url, 'https://x.com/schatte08064468');
+
+  const url2 = normalizeXHandle('https://twitter.com/bub__fun?s=20');
+  assert.strictEqual(url2.handle, '@bub__fun');
+  assert.strictEqual(url2.url, 'https://x.com/bub__fun');
+
+  const handle1 = normalizeXHandle('@Arashb122');
+  assert.strictEqual(handle1.handle, '@Arashb122');
+  assert.strictEqual(handle1.url, 'https://x.com/Arashb122');
+
+  const empty = normalizeXHandle('');
+  assert.strictEqual(empty.handle, '');
+  assert.strictEqual(empty.url, '');
+});
+
+test('computeRosterLetterCoverage aggregates letters, calculates coverage % and missing vowels', () => {
+  const asadDid = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
+  const samimiDid = 'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX';
+  const arashDid = 'did:key:z6Mkr8N6JvhKzWv7xiNSYhiDH4MEB14FfE7FuDCsMGTh7h4V';
+
+  const singleCoverage = computeRosterLetterCoverage([asadDid]);
+  assert.strictEqual(singleCoverage.letterCount > 15, true);
+  assert.strictEqual(singleCoverage.coveragePercent > 50, true);
+
+  const teamCoverage = computeRosterLetterCoverage([asadDid, samimiDid, arashDid]);
+  // Asad + Samimi + Arash union
+  assert.strictEqual(teamCoverage.letterCount >= singleCoverage.letterCount, true);
+  assert.strictEqual(teamCoverage.coveragePercent >= singleCoverage.coveragePercent, true);
+  assert.strictEqual(Array.isArray(teamCoverage.missingLetters), true);
+  // Total covered + missing must equal 26
+  assert.strictEqual(teamCoverage.letterCount + teamCoverage.missingLetters.length, 26);
+});
+
+test('parseWriterFromMessage correctly parses registration and discovery messages', () => {
+  // Registration message with X handle
+  const regMsg = {
+    seq: 63975,
+    ts: '2026-09-11T14:05:27.319789Z',
+    from: 'did:key:z6Mkof5viS8HipnBfig39RBCzGuHHoTwtrjUAjA26SZ3wpPX',
+    text: JSON.stringify({
+      type: 'sonnet.register.v1',
+      contest_id: 'sonnet-1',
+      role: 'writer',
+      x_account_url: 'https://x.com/schatte08064468',
+      request_id: 'reg-w1'
+    })
+  };
+  const writer = parseWriterFromMessage(regMsg);
+  assert.notStrictEqual(writer, null);
+  assert.strictEqual(writer.did, regMsg.from);
+  assert.strictEqual(writer.xHandle, '@schatte08064468');
+  assert.strictEqual(writer.status, 'Registered Writer');
+  assert.strictEqual(writer.seq, 63975);
+  assert.strictEqual(writer.letterCount > 20, true);
+
+  // Voter message should return null (writers only)
+  const voterMsg = {
+    seq: 64014,
+    from: 'did:key:z6MkrPJHktkYwWSYJebrESqkerwBRgJWiHvNxrNzshBM1hHK',
+    text: JSON.stringify({
+      type: 'sonnet.register.v1',
+      contest_id: 'sonnet-1',
+      role: 'voter',
+      request_id: 'reg-v1'
+    })
+  };
+  assert.strictEqual(parseWriterFromMessage(voterMsg), null);
+
+  // Discovery application message
+  const appMsg = {
+    seq: 1471,
+    from: 'did:key:z6Mkf5QD4tAM2gmbF6w9tuTfjjfBwXpYbfztikAACqNKZAEd',
+    text: JSON.stringify({
+      type: 'sonnet.application.v1',
+      contest_id: 'sonnet-1',
+      game_id: 'fluxwrites',
+      request_id: 'apply-1'
+    })
+  };
+  const appWriter = parseWriterFromMessage(appMsg);
+  assert.notStrictEqual(appWriter, null);
+  assert.strictEqual(appWriter.status, 'Applied to fluxwrites');
 });
 
 console.log('\n========================================');

@@ -906,6 +906,82 @@
             </div>
           </section>
 
+          <!-- Card 4b: Team Finder & Squad Board -->
+          <section class="panel" id="sonnet-card-squad-board" aria-labelledby="sonnet-squad-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-squad-heading" class="panel-title">Squad Board & Team Finder</h2>
+                <span class="panel-subtitle">Live writers in registration & discovery &bull; 1-Click Roster Assembly</span>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <span id="squad-writer-count-badge" class="step-status-pill completed">Scanning...</span>
+                <button id="squad-btn-refresh" class="btn btn-secondary" type="button" style="padding: 3px 8px; font-size: 0.75rem;">Refresh Feed</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              
+              <!-- Active Roster Alphabet Coverage Bar -->
+              <div class="squad-coverage-card">
+                <div class="squad-coverage-header">
+                  <div class="squad-coverage-title">
+                    <span>Active Roster Alphabet Coverage</span>
+                    <span id="squad-coverage-members-count" class="field-hint" style="margin-left: 6px;">(0 writers selected)</span>
+                  </div>
+                  <span id="squad-coverage-stat" class="squad-coverage-stat">0 / 26 Letters (0%)</span>
+                </div>
+                <div class="wizard-progress-track" style="margin: 8px 0; height: 6px;">
+                  <div id="squad-coverage-bar" class="wizard-progress-fill" style="width: 0%; background: var(--accent-cyan);"></div>
+                </div>
+                <div class="squad-coverage-details">
+                  <div class="squad-coverage-row">
+                    <span class="squad-label-accent">Covered Letters:</span>
+                    <div id="squad-covered-letters-chips" class="squad-letter-chips-row">
+                      <span class="squad-empty-hint">Add writers below to see covered letters</span>
+                    </div>
+                  </div>
+                  <div class="squad-coverage-row" style="margin-top: 6px;">
+                    <span class="squad-label-warning">Missing Letters:</span>
+                    <div id="squad-missing-letters-chips" class="squad-letter-chips-row">
+                      <span class="mono-xs text-warning">All 26 missing</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Search & Filter Controls -->
+              <div class="squad-toolbar">
+                <div class="field-row" style="margin-bottom: 0;">
+                  <div class="field-group" style="flex: 2; margin-bottom: 0;">
+                    <input id="squad-search-input" class="input-text" type="text" placeholder="Filter by @handle, DID, or status..." spellcheck="false">
+                  </div>
+                  <div class="field-group" style="flex: 1; margin-bottom: 0;">
+                    <input id="squad-letter-filter" class="input-text" type="text" placeholder="Needs letter (e.g. o, e)" maxlength="5" spellcheck="false">
+                  </div>
+                </div>
+                <div class="squad-filter-toggles">
+                  <label class="squad-toggle-label">
+                    <input type="checkbox" id="squad-filter-x-only" checked>
+                    <span>With X handle only</span>
+                  </label>
+                  <label class="squad-toggle-label">
+                    <input type="checkbox" id="squad-filter-free-only">
+                    <span>Free agents / available only</span>
+                  </label>
+                  <span id="squad-filter-summary" class="field-hint" style="margin-left: auto;">Loading writers...</span>
+                </div>
+              </div>
+
+              <!-- Writers List Feed Grid -->
+              <div id="squad-writers-list" class="squad-grid">
+                <div class="empty-state">
+                  <div class="empty-title">Scanning rooms...</div>
+                  <div class="empty-desc">Connecting to /r/mb-sonnet-1-registration and /r/mb-sonnet-1-discovery for active writers.</div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
           <!-- Card 6: Roster Consent & Withdrawal -->
           <section class="panel" id="sonnet-card-roster" aria-labelledby="sonnet-roster-heading">
             <div class="panel-header">
