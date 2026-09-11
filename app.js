@@ -1,7 +1,7 @@
 /**
- * Technocore Console Application Logic
- * Made by Asad Lee
- * Client-side control panel, secret shape guard, and offline verifier for technocore.chat protocol
+ * Technocore Console V4 - Application Core Logic
+ * Made by Asad Lee (Community-built client, not an official FLOP Labs product)
+ * Client-side control panel, Secret Shape Guard, offline verifier, and Sonnet Challenge Console.
  */
 
 import {
@@ -9,14 +9,55 @@ import {
   restoreKeypair,
   deriveDidKey,
   signMessage,
-  sweepSingleLine,
   bytesToHex,
   sha256Hex,
-  detectSensitiveContent,
   verifyMessageSignature,
   signMemory,
   verifyMemorySignature
 } from './crypto.js';
+
+import {
+  sweepSingleLine,
+  cleanRoomName,
+  deriveRegistryPath,
+  deriveLegacyRegistryPath,
+  formatCanonicalPoem,
+  calculatePoemSha256,
+  validateIdentifier
+} from './protocol.js';
+
+import {
+  detectSensitiveContent,
+  redactSecret,
+  wipeBuffer
+} from './security.js';
+
+import { nonceManager } from './nonce.js';
+
+import {
+  fetchProtocol,
+  dispatchSignedMessage,
+  dispatchAnonymousMessage,
+  RoomPoller
+} from './transport.js';
+
+import { receiptEngine } from './receipt.js';
+import { SONNET_CONFIG } from './contest-config.js';
+
+import {
+  loadFrozenLexicon,
+  validateCandidateWord,
+  validatePoemSyllables,
+  buildSonnetRegisterPayload,
+  buildSonnetTeamRequestPayload,
+  buildSonnetRosterPayload,
+  buildSonnetWithdrawPayload,
+  buildSonnetWordPayload,
+  buildSonnetSubmitPayload,
+  buildSonnetBallotPayload,
+  buildSonnetClaimPayload
+} from './sonnet.js';
+
 import { CryptoVisualizer } from './visualizer3d.js';
 
 // Base protocol URL
@@ -28,13 +69,17 @@ const state = {
   room: 'lobby',
   nickname: 'agent_' + Math.floor(1000 + Math.random() * 9000),
   message: '',
-  lastNonce: 0,
   isPolling: false,
-  pollTimer: null,
-  lastSeq: 0,
+  roomPoller: null,
   messages: [],
   theme: 'dark',
-  activeView: 'wizard', // 'wizard', 'direct', 'verifier', or 'vault'
+  activeView: 'wizard', // 'wizard', 'direct', 'sonnet', 'verifier', or 'vault'
+
+  // Secret visibility controls
+  secretsRevealed: {
+    wizard: false,
+    direct: false
+  },
 
   // Wizard tracking state
   wizard: {
@@ -52,45 +97,35 @@ const state = {
 
   // Memory Vault state (in-memory only, never persisted)
   vault: {
-    memories: [], // Array of memory objects
+    memories: [],
     verifiedCount: 0
+  },
+
+  // Sonnet Challenge state (volatile session only)
+  sonnet: {
+    contestId: SONNET_CONFIG.defaultContestId,
+    role: 'writer',
+    xAccountUrl: '',
+    requestIdCounter: 1,
+    roleLocked: false,
+    gameId: '',
+    allocatedPoemRoom: '',
+    roomGeneration: 0,
+    currentVersion: 0,
+    previousStateHash: '0000000000000000000000000000000000000000000000000000000000000000',
+    lastContributor: null,
+    words: [], // Authoritative accepted words from receipts
+    rosterMembers: [],
+    rosterFrozen: false,
+    refereeEvidence: null,
+    lexiconLoaded: false,
+    xPostIds: []
   }
 };
 
 // UI Elements Map
 let el = {};
 let visualizer = null;
-
-/**
- * Universal protocol request fetcher.
- * Uses self-hosted /api/proxy serverless forwarder with zero third-party proxy dependencies.
- */
-async function fetchProtocol(pathAndQuery) {
-  const cleanPath = pathAndQuery.startsWith('/') ? pathAndQuery.slice(1) : pathAndQuery;
-  const directUrl = `${BASE_URL}/${cleanPath}`;
-
-  // Strategy 1: Self-hosted serverless proxy on Vercel
-  try {
-    const proxyUrl = `/api/proxy?url=${encodeURIComponent(directUrl)}`;
-    const res = await fetch(proxyUrl);
-    // If the serverless proxy is available and responded
-    if (res.status !== 404 && res.status !== 502) {
-      const text = await res.text();
-      return { ok: res.ok, status: res.status, text, res };
-    }
-  } catch (proxyErr) {
-    // Proxy not reachable in local static server mode
-  }
-
-  // Strategy 2: Direct browser fetch to technocore.chat
-  try {
-    const res = await fetch(directUrl);
-    const text = await res.text();
-    return { ok: res.ok, status: res.status, text, res };
-  } catch (directErr) {
-    throw new Error(`Unable to connect to protocol at technocore.chat. (${directErr.message})`);
-  }
-}
 
 /**
  * Initialize Application
@@ -102,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindEvents();
   updateUrlPreview();
   updateWizardUI();
+  initSonnet();
   fetchRoomMessages(true);
 });
 
@@ -113,10 +149,14 @@ function cacheElements() {
     // Navigation and theme
     tabWizardMode: document.getElementById('tab-wizard-mode'),
     tabDirectMode: document.getElementById('tab-direct-mode'),
+    tabSonnetMode: document.getElementById('tab-sonnet-mode'),
     tabVerifierMode: document.getElementById('tab-verifier-mode'),
+    tabVaultMode: document.getElementById('tab-vault-mode'),
     wizardView: document.getElementById('wizard-view'),
     directView: document.getElementById('direct-view'),
+    sonnetView: document.getElementById('sonnet-view'),
     verifierView: document.getElementById('verifier-view'),
+    vaultView: document.getElementById('vault-view'),
     themeToggle: document.getElementById('theme-toggle'),
 
     // Wizard Header
@@ -138,6 +178,7 @@ function cacheElements() {
     stepCard2: document.getElementById('step-card-2'),
     stepStatus2: document.getElementById('step-status-2'),
     wizardSecretKeyDisplay: document.getElementById('wizard-secret-key-display'),
+    wizardBtnRevealSecret: document.getElementById('wizard-btn-reveal-secret'),
     wizardBtnCopySecret: document.getElementById('wizard-btn-copy-secret'),
     wizardBtnConfirmSaved: document.getElementById('wizard-btn-confirm-saved'),
 
@@ -181,11 +222,12 @@ function cacheElements() {
     btnGenerateKey: document.getElementById('btn-generate-key'),
     secretKeyBox: document.getElementById('secret-key-box'),
     secretKeyValue: document.getElementById('secret-key-value'),
+    btnRevealSecretKey: document.getElementById('btn-reveal-secret-key'),
     btnCopySecretKey: document.getElementById('btn-copy-secret-key'),
     restoreKeyInput: document.getElementById('restore-key-input'),
     btnRestoreKey: document.getElementById('btn-restore-key'),
     btnClearIdentity: document.getElementById('btn-clear-identity'),
-    
+
     // Direct Compose
     inputRoom: document.getElementById('input-room'),
     inputNick: document.getElementById('input-nick'),
@@ -226,8 +268,6 @@ function cacheElements() {
     verifyResultBox: document.getElementById('verify-result-box'),
 
     // Memory Vault Elements
-    tabVaultMode: document.getElementById('tab-vault-mode'),
-    vaultView: document.getElementById('vault-view'),
     vaultStatTotal: document.getElementById('vault-stat-total'),
     vaultStatVerified: document.getElementById('vault-stat-verified'),
     vaultStatLast: document.getElementById('vault-stat-last'),
@@ -244,7 +284,74 @@ function cacheElements() {
     btnVaultRestoreDid: document.getElementById('btn-vault-restore-did'),
     vaultImportFile: document.getElementById('vault-import-file'),
     btnVaultImport: document.getElementById('btn-vault-import'),
-    vaultRestoreResult: document.getElementById('vault-restore-result')
+    vaultRestoreResult: document.getElementById('vault-restore-result'),
+
+    // Sonnet Challenge Elements
+    sonnetStatRole: document.getElementById('sonnet-stat-role'),
+    sonnetStatGame: document.getElementById('sonnet-stat-game'),
+    sonnetStatVersion: document.getElementById('sonnet-stat-version'),
+    sonnetStatSyllables: document.getElementById('sonnet-stat-syllables'),
+    sonnetInfoContestId: document.getElementById('sonnet-info-contest-id'),
+    sonnetInfoDictHash: document.getElementById('sonnet-info-dict-hash'),
+    sonnetEligibilityBadge: document.getElementById('sonnet-eligibility-badge'),
+    sonnetActiveDidReadout: document.getElementById('sonnet-active-did-readout'),
+    sonnetBtnCopyDid: document.getElementById('sonnet-btn-copy-did'),
+    sonnetProofRole: document.getElementById('sonnet-proof-role'),
+    sonnetProofEvidence: document.getElementById('sonnet-proof-evidence'),
+    sonnetProofSeq: document.getElementById('sonnet-proof-seq'),
+    sonnetProofSigState: document.getElementById('sonnet-proof-sig-state'),
+    sonnetRegLockBadge: document.getElementById('sonnet-reg-lock-badge'),
+    sonnetRegRoleSelect: document.getElementById('sonnet-reg-role-select'),
+    sonnetRegRequestId: document.getElementById('sonnet-reg-request-id'),
+    sonnetRegXGroup: document.getElementById('sonnet-reg-x-group'),
+    sonnetRegXUrl: document.getElementById('sonnet-reg-x-url'),
+    sonnetRegPayloadPreview: document.getElementById('sonnet-reg-payload-preview'),
+    sonnetBtnSendRegister: document.getElementById('sonnet-btn-send-register'),
+    sonnetRegResult: document.getElementById('sonnet-reg-result'),
+    sonnetTeamGameId: document.getElementById('sonnet-team-game-id'),
+    sonnetTeamReqId: document.getElementById('sonnet-team-req-id'),
+    sonnetAllocatedRoomDisplay: document.getElementById('sonnet-allocated-room-display'),
+    sonnetTeamPayloadPreview: document.getElementById('sonnet-team-payload-preview'),
+    sonnetBtnSendTeamReq: document.getElementById('sonnet-btn-send-team-req'),
+    sonnetTeamReqResult: document.getElementById('sonnet-team-req-result'),
+    sonnetRosterFreezeBadge: document.getElementById('sonnet-roster-freeze-badge'),
+    sonnetRosterMembersInput: document.getElementById('sonnet-roster-members-input'),
+    sonnetRosterPayloadPreview: document.getElementById('sonnet-roster-payload-preview'),
+    sonnetBtnSignRoster: document.getElementById('sonnet-btn-sign-roster'),
+    sonnetBtnWithdrawTeam: document.getElementById('sonnet-btn-withdraw-team'),
+    sonnetRosterResult: document.getElementById('sonnet-roster-result'),
+    sonnetWordInput: document.getElementById('sonnet-word-input'),
+    sonnetBtnCheckWord: document.getElementById('sonnet-btn-check-word'),
+    sonnetWordCheckResult: document.getElementById('sonnet-word-check-result'),
+    sonnetReadoutGen: document.getElementById('sonnet-readout-gen'),
+    sonnetReadoutVer: document.getElementById('sonnet-readout-ver'),
+    sonnetReadoutLastAuthor: document.getElementById('sonnet-readout-last-author'),
+    sonnetReadoutTurnEligibility: document.getElementById('sonnet-readout-turn-eligibility'),
+    sonnetReadoutPrevHash: document.getElementById('sonnet-readout-prev-hash'),
+    sonnetWordPayloadPreview: document.getElementById('sonnet-word-payload-preview'),
+    sonnetBtnSendWord: document.getElementById('sonnet-btn-send-word'),
+    sonnetWordResult: document.getElementById('sonnet-word-result'),
+    sonnetPoemShaDisplay: document.getElementById('sonnet-poem-sha-display'),
+    sonnetBtnCopyPoem: document.getElementById('sonnet-btn-copy-poem'),
+    sonnetBtnCopyAttribution: document.getElementById('sonnet-btn-copy-attribution'),
+    sonnetXPostIds: document.getElementById('sonnet-x-post-ids'),
+    sonnetSubmitPayloadPreview: document.getElementById('sonnet-submit-payload-preview'),
+    sonnetBtnSendSubmission: document.getElementById('sonnet-btn-send-submission'),
+    sonnetSubmitResult: document.getElementById('sonnet-submit-result'),
+    sonnetBallotEntryId: document.getElementById('sonnet-ballot-entry-id'),
+    sonnetBallotReqId: document.getElementById('sonnet-ballot-req-id'),
+    sonnetBallotPayloadPreview: document.getElementById('sonnet-ballot-payload-preview'),
+    sonnetBtnSendBallot: document.getElementById('sonnet-btn-send-ballot'),
+    sonnetBallotResult: document.getElementById('sonnet-ballot-result'),
+    sonnetClaimDestination: document.getElementById('sonnet-claim-destination'),
+    sonnetBtnSendClaim: document.getElementById('sonnet-btn-send-claim'),
+    sonnetClaimResult: document.getElementById('sonnet-claim-result'),
+    sonnetPoemStateBadge: document.getElementById('sonnet-poem-state-badge'),
+    sonnetMeterSummary: document.getElementById('sonnet-meter-summary'),
+    sonnetPoemLinesList: document.getElementById('sonnet-poem-lines-list'),
+    sonnetCanonicalTextArea: document.getElementById('sonnet-canonical-text-area'),
+    sonnetBtnClearReceipts: document.getElementById('sonnet-btn-clear-receipts'),
+    sonnetReceiptsList: document.getElementById('sonnet-receipts-list')
   };
 }
 
@@ -286,7 +393,7 @@ function initVisualizer() {
 }
 
 /**
- * Switch Navigation View (Guided Wizard vs Direct Console vs Signature Verifier)
+ * Switch Navigation View
  */
 function setView(viewName) {
   state.activeView = viewName;
@@ -297,6 +404,11 @@ function setView(viewName) {
   el.tabDirectMode.classList.toggle('active', viewName === 'direct');
   el.tabDirectMode.setAttribute('aria-selected', String(viewName === 'direct'));
 
+  if (el.tabSonnetMode) {
+    el.tabSonnetMode.classList.toggle('active', viewName === 'sonnet');
+    el.tabSonnetMode.setAttribute('aria-selected', String(viewName === 'sonnet'));
+  }
+
   el.tabVerifierMode.classList.toggle('active', viewName === 'verifier');
   el.tabVerifierMode.setAttribute('aria-selected', String(viewName === 'verifier'));
 
@@ -305,6 +417,7 @@ function setView(viewName) {
 
   el.wizardView.classList.toggle('hidden', viewName !== 'wizard');
   el.directView.classList.toggle('hidden', viewName !== 'direct');
+  if (el.sonnetView) el.sonnetView.classList.toggle('hidden', viewName !== 'sonnet');
   el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
   el.vaultView.classList.toggle('hidden', viewName !== 'vault');
 }
@@ -316,6 +429,7 @@ function bindEvents() {
   // Navigation tabs
   el.tabWizardMode.addEventListener('click', () => setView('wizard'));
   el.tabDirectMode.addEventListener('click', () => setView('direct'));
+  if (el.tabSonnetMode) el.tabSonnetMode.addEventListener('click', () => setView('sonnet'));
   el.tabVerifierMode.addEventListener('click', () => setView('verifier'));
   el.tabVaultMode.addEventListener('click', () => setView('vault'));
 
@@ -327,7 +441,10 @@ function bindEvents() {
   el.btnRestoreKey.addEventListener('click', () => handleRestoreKey(el.restoreKeyInput.value));
   el.btnClearIdentity.addEventListener('click', handleClearIdentity);
   el.btnCopyDid.addEventListener('click', () => copyToClipboard(state.keypair ? state.keypair.did : '', 'DID copied to clipboard.'));
-  el.btnCopySecretKey.addEventListener('click', () => copyToClipboard(el.secretKeyValue.textContent, 'Secret key copied to clipboard.'));
+  el.btnRevealSecretKey.addEventListener('click', () => toggleSecretReveal('direct'));
+  el.btnCopySecretKey.addEventListener('click', () => {
+    if (state.keypair) copyToClipboard(bytesToHex(state.keypair.secretKey), 'Secret key copied to clipboard.');
+  });
 
   // Direct Compose Inputs
   el.inputRoom.value = state.room;
@@ -381,6 +498,7 @@ function bindEvents() {
   });
 
   // Wizard Step 2 Bindings
+  el.wizardBtnRevealSecret.addEventListener('click', () => toggleSecretReveal('wizard'));
   el.wizardBtnCopySecret.addEventListener('click', () => {
     if (state.keypair) {
       copyToClipboard(bytesToHex(state.keypair.secretKey), 'Secret key copied to clipboard.');
@@ -411,13 +529,36 @@ function bindEvents() {
   // Signature Verifier Bindings
   el.btnQuickParse.addEventListener('click', handleQuickParse);
   el.btnRunVerify.addEventListener('click', handleRunVerify);
-  el.btnClearVerify.addEventListener('click', handleClearVerify);
+  if (el.btnClearVerify) el.btnClearVerify.addEventListener('click', handleClearVerify);
 
   // Memory Vault Bindings
   el.btnVaultSave.addEventListener('click', handleVaultSave);
   el.btnVaultExport.addEventListener('click', handleVaultExport);
   el.btnVaultRestoreDid.addEventListener('click', handleVaultRestoreByDid);
   el.btnVaultImport.addEventListener('click', handleVaultImportFile);
+
+  // Sonnet Challenge Bindings
+  bindSonnetEvents();
+}
+
+/**
+ * Toggle Secret Key Visibility (Hide / Reveal)
+ */
+const MASKED_KEY = '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••';
+
+function toggleSecretReveal(view) {
+  if (!state.keypair) return;
+  state.secretsRevealed[view] = !state.secretsRevealed[view];
+  const isRevealed = state.secretsRevealed[view];
+  const realHex = bytesToHex(state.keypair.secretKey);
+
+  if (view === 'wizard') {
+    el.wizardSecretKeyDisplay.textContent = isRevealed ? realHex : MASKED_KEY;
+    el.wizardBtnRevealSecret.textContent = isRevealed ? 'Hide Secret' : 'Reveal Secret';
+  } else if (view === 'direct') {
+    el.secretKeyValue.textContent = isRevealed ? realHex : MASKED_KEY;
+    el.btnRevealSecretKey.textContent = isRevealed ? 'Hide Secret' : 'Reveal Secret';
+  }
 }
 
 /**
@@ -432,7 +573,6 @@ function handleGenerateKey() {
   try {
     const kp = generateKeypair(nacl);
     state.keypair = kp;
-    state.lastNonce = Date.now();
     state.wizard.secretConfirmed = false;
 
     applyKeypairToUI(kp);
@@ -442,6 +582,7 @@ function handleGenerateKey() {
     }
 
     updateWizardUI();
+    updateSonnetIdentityUI();
     showDispatchResult('info', 'New Ed25519 identity generated in transient browser memory.');
   } catch (err) {
     showDispatchResult('error', `Key generation failed: ${err.message}`);
@@ -466,8 +607,6 @@ function handleRestoreKey(inputVal) {
   try {
     const kp = restoreKeypair(rawKey, nacl);
     state.keypair = kp;
-    state.lastNonce = Date.now();
-    // Restored identity counts as saved
     state.wizard.secretConfirmed = true;
 
     applyKeypairToUI(kp);
@@ -481,6 +620,7 @@ function handleRestoreKey(inputVal) {
     if (el.wizardRestoreBox) el.wizardRestoreBox.classList.add('hidden');
 
     updateWizardUI();
+    updateSonnetIdentityUI();
     showDispatchResult('info', 'Identity successfully restored into browser memory.');
   } catch (err) {
     showDispatchResult('error', `Failed to restore key: ${err.message}`);
@@ -491,7 +631,8 @@ function handleRestoreKey(inputVal) {
  * Apply active keypair to all views and inputs
  */
 function applyKeypairToUI(kp) {
-  const secretHex = bytesToHex(kp.secretKey);
+  state.secretsRevealed.wizard = false;
+  state.secretsRevealed.direct = false;
 
   // Direct Console updates
   el.identityStatusText.textContent = 'Active (Ed25519 in memory)';
@@ -502,14 +643,17 @@ function applyKeypairToUI(kp) {
   el.btnSendSigned.disabled = false;
   el.btnPublishIdentity.disabled = false;
 
-  el.secretKeyValue.textContent = secretHex;
+  el.secretKeyValue.textContent = MASKED_KEY;
+  el.btnRevealSecretKey.textContent = 'Reveal Secret';
   el.secretKeyBox.classList.remove('hidden');
 
   // Wizard updates
   el.wizardDidDisplay.textContent = kp.did;
   el.wizardDidDisplay.className = 'readout-text';
   el.wizardBtnCopyDid.disabled = false;
-  el.wizardSecretKeyDisplay.textContent = secretHex;
+  el.wizardSecretKeyDisplay.textContent = MASKED_KEY;
+  el.wizardBtnRevealSecret.disabled = false;
+  el.wizardBtnRevealSecret.textContent = 'Reveal Secret';
   el.wizardBtnCopySecret.disabled = false;
   el.wizardBtnConfirmSaved.disabled = false;
 
@@ -519,6 +663,9 @@ function applyKeypairToUI(kp) {
   el.btnVaultSave.disabled = false;
   updateVaultNotePath();
 
+  // Sonnet updates
+  updateSonnetIdentityUI();
+
   updateUrlPreview();
   updatePublishPreview();
 }
@@ -527,7 +674,16 @@ function applyKeypairToUI(kp) {
  * Clear identity from volatile memory
  */
 function handleClearIdentity() {
+  if (state.keypair) {
+    wipeBuffer(state.keypair.secretKey);
+    wipeBuffer(state.keypair.publicKey);
+    if (state.keypair.seed) wipeBuffer(state.keypair.seed);
+  }
+
   state.keypair = null;
+  state.secretsRevealed.wizard = false;
+  state.secretsRevealed.direct = false;
+
   state.wizard.secretConfirmed = false;
   state.wizard.lobbySent = false;
   state.wizard.lobbySeq = null;
@@ -552,6 +708,7 @@ function handleClearIdentity() {
   el.wizardDidDisplay.className = 'readout-text empty';
   el.wizardBtnCopyDid.disabled = true;
   el.wizardSecretKeyDisplay.textContent = 'Generate or restore an identity in step 1 to view your key.';
+  el.wizardBtnRevealSecret.disabled = true;
   el.wizardBtnCopySecret.disabled = true;
   el.wizardBtnConfirmSaved.disabled = true;
 
@@ -562,20 +719,12 @@ function handleClearIdentity() {
   updateUrlPreview();
   updatePublishPreview();
   updateWizardUI();
-  showDispatchResult('info', 'Identity wiped completely from memory.');
+  updateSonnetIdentityUI();
+  showDispatchResult('info', 'Identity wiped completely from transient memory.');
 }
 
 /**
- * Sanitize room name
- */
-function cleanRoomName(room) {
-  let cleaned = (room || 'lobby').toLowerCase().replace(/[^a-z0-9_-]/g, '');
-  if (!cleaned) cleaned = 'lobby';
-  return cleaned.slice(0, 48);
-}
-
-/**
- * Compute the active request URL preview
+ * Compute active request URL preview
  */
 function updateUrlPreview() {
   const room = state.room || 'lobby';
@@ -585,8 +734,8 @@ function updateUrlPreview() {
 
   let previewUrl = '';
   if (state.keypair) {
-    el.previewModeLabel.textContent = 'Signed Request (default with key)';
-    const nextNonce = Math.max(Date.now(), (state.lastNonce || 0) + 1);
+    el.previewModeLabel.textContent = 'Signed Request (POST / GET)';
+    const nextNonce = nonceManager.getNextNonce(room, state.keypair.did);
     const mockSig = signMessage(nacl, state.keypair.secretKey, room, nextNonce, swept || 'hello');
     previewUrl = `${BASE_URL}/r/${room}/say-signed/${state.keypair.did}/${mockSig}/${nextNonce}/${encodedText}`;
   } else {
@@ -600,7 +749,7 @@ function updateUrlPreview() {
 }
 
 /**
- * Update the publish note preview path
+ * Update the publish note preview path using canonical sharded path
  */
 async function updatePublishPreview() {
   if (!state.keypair) {
@@ -608,22 +757,20 @@ async function updatePublishPreview() {
     return;
   }
   try {
-    const hash = await sha256Hex(state.keypair.did);
-    const key16 = hash.slice(0, 16);
-    const path = `${BASE_URL}/kv/did/${key16}/set/${encodeURIComponent(state.keypair.did)}`;
-    el.publishPathPreview.textContent = path;
+    const { fullPath } = await deriveRegistryPath(state.keypair.did);
+    el.publishPathPreview.textContent = `${BASE_URL}${fullPath}/set/${encodeURIComponent(state.keypair.did)}`;
   } catch (err) {
-    el.publishPathPreview.textContent = 'Unable to compute SHA-256 fingerprint.';
+    el.publishPathPreview.textContent = 'Unable to compute canonical registry path.';
   }
 }
 
 /**
  * Send an Anonymous Message (Direct Console)
- * Protected by secret shape guard
+ * Protected by redesigned Secret Shape Guard
  */
 async function handleSendAnonymous() {
   const room = state.room || 'lobby';
-  const nick = encodeURIComponent(state.nickname || 'agent');
+  const nick = state.nickname || 'agent';
   let text = state.message.trim();
 
   if (!text) {
@@ -633,20 +780,16 @@ async function handleSendAnonymous() {
     updateUrlPreview();
   }
 
-  // Secret shape guard check
+  // Redesigned Secret Shape Guard check
   const guard = detectSensitiveContent(text);
   if (guard.sensitive) {
     showDispatchResult('error', guard.description || 'This message appears to contain sensitive material. Remove the sensitive content before sending.');
     return;
   }
 
-  const swept = sweepSingleLine(text);
-  const encodedText = encodeURIComponent(swept);
-  const relativePath = `r/${room}/say/${nick}/${encodedText}`;
-
   setSendingState(true);
   try {
-    const res = await fetchProtocol(relativePath);
+    const res = await dispatchAnonymousMessage(room, nick, text);
 
     if (res.ok) {
       showDispatchResult('success', `Sent anonymously to /r/${room}. HTTP ${res.status}: ${res.text.trim() || 'OK'}`);
@@ -667,7 +810,8 @@ async function handleSendAnonymous() {
 
 /**
  * Send a Signed Message (Direct Console)
- * Protected by secret shape guard
+ * Transport: Signed POST with fallback to Signed GET
+ * Protected by redesigned Secret Shape Guard
  */
 async function handleSendSigned() {
   if (!state.keypair) {
@@ -685,27 +829,19 @@ async function handleSendSigned() {
     updateUrlPreview();
   }
 
-  // Secret shape guard check
+  // Redesigned Secret Shape Guard check
   const guard = detectSensitiveContent(text);
   if (guard.sensitive) {
     showDispatchResult('error', guard.description || 'This message appears to contain sensitive material. Remove the sensitive content before sending.');
     return;
   }
 
-  const swept = sweepSingleLine(text);
-  const nonce = Math.max(Date.now(), (state.lastNonce || 0) + 1);
-  state.lastNonce = nonce;
-
-  const sig = signMessage(nacl, state.keypair.secretKey, room, nonce, swept);
-  const encodedText = encodeURIComponent(swept);
-  const relativePath = `r/${room}/say-signed/${state.keypair.did}/${sig}/${nonce}/${encodedText}`;
-
   setSendingState(true);
   try {
-    const res = await fetchProtocol(relativePath);
+    const res = await dispatchSignedMessage(nacl, state.keypair, room, text);
 
     if (res.ok) {
-      showDispatchResult('success', `Signed message dispatched to /r/${room} with nonce ${nonce}. HTTP ${res.status}: ${res.text.trim() || 'OK'}`);
+      showDispatchResult('success', `Signed message dispatched to /r/${room} via ${res.transport.toUpperCase()} (nonce ${res.nonce}). HTTP ${res.status}: ${res.text.trim() || 'OK'}`);
       el.inputMessage.value = '';
       state.message = '';
       updateUrlPreview();
@@ -722,7 +858,7 @@ async function handleSendSigned() {
 }
 
 /**
- * Publish Identity to Public Registry Note (Direct Console)
+ * Publish Identity to Canonical Public Registry Note
  */
 async function handlePublishIdentity() {
   if (!state.keypair) {
@@ -734,15 +870,14 @@ async function handlePublishIdentity() {
     el.btnPublishIdentity.disabled = true;
     el.btnPublishIdentity.textContent = 'Publishing...';
 
-    const hash = await sha256Hex(state.keypair.did);
-    const key16 = hash.slice(0, 16);
+    const { fullPath, shard, key } = await deriveRegistryPath(state.keypair.did);
     const encodedValue = encodeURIComponent(state.keypair.did);
-    const relativePath = `kv/did/${key16}/set/${encodedValue}`;
+    const relativePath = `${fullPath.slice(1)}/set/${encodedValue}`;
 
     const res = await fetchProtocol(relativePath);
 
     if (res.ok) {
-      showPublishResult('success', `Identity published to note /kv/did/${key16}. Server response: ${res.text.trim() || 'OK'}`);
+      showPublishResult('success', `Identity published to canonical path /kv/did-${shard}/${key}. Server response: ${res.text.trim() || 'OK'}`);
       if (visualizer) visualizer.onMessageDispatched();
     } else {
       showPublishResult('error', `Server returned HTTP ${res.status} when publishing note. Response: ${res.text}`);
@@ -764,7 +899,7 @@ async function fetchRoomMessages(resetList = false) {
   el.roomStatusText.textContent = `Fetching /r/${room}...`;
 
   try {
-    const res = await fetchProtocol(`r/${room}`);
+    const res = await fetchProtocol(`r/${room}?format=json`);
 
     if (!res.ok) {
       if (res.status === 404) {
@@ -776,7 +911,30 @@ async function fetchRoomMessages(resetList = false) {
     }
 
     const text = res.text || '';
-    const parsedMessages = parsePlainTextRoom(text);
+    let parsedMessages = [];
+
+    // Attempt JSON parse
+    try {
+      const data = JSON.parse(text);
+      if (Array.isArray(data)) {
+        parsedMessages = data.map((item, idx) => ({
+          seq: item.seq || idx + 1,
+          from: item.did || item.from || item.nick || 'anonymous',
+          text: item.text || item.msg || '',
+          isVerified: Boolean(item.did || item.verified)
+        }));
+      } else if (data.messages && Array.isArray(data.messages)) {
+        parsedMessages = data.messages.map((item, idx) => ({
+          seq: item.seq || idx + 1,
+          from: item.did || item.from || item.nick || 'anonymous',
+          text: item.text || item.msg || '',
+          isVerified: Boolean(item.did || item.verified)
+        }));
+      }
+    } catch {
+      // Fall back to plain text line parser
+      parsedMessages = parsePlainTextRoom(text);
+    }
 
     if (parsedMessages.length === 0) {
       renderRoomEmpty(`Room "${room}" is currently empty. Post a message to start the room.`);
@@ -859,7 +1017,6 @@ function renderMessageList(messages) {
     el.roomMessageList.appendChild(item);
   });
 
-  // Auto-scroll to bottom
   el.roomMessagesContainer.scrollTop = el.roomMessagesContainer.scrollHeight;
 }
 
@@ -886,20 +1043,30 @@ function renderRoomError(description) {
 }
 
 /**
- * Start and Stop Polling
+ * Polling via RoomPoller
  */
 function startPolling() {
   stopPolling();
-  el.roomStatusText.textContent = 'Auto polling active (every 3s)';
-  state.pollTimer = setInterval(() => {
-    fetchRoomMessages(false);
-  }, 3000);
+  el.roomStatusText.textContent = 'Auto polling active (incremental)';
+  state.roomPoller = new RoomPoller(state.room, {
+    onMessages: (newMsgs) => {
+      fetchRoomMessages(false);
+    },
+    onError: (err) => {
+      el.roomStatusText.textContent = `Polling backoff: ${err.message}`;
+    },
+    onStatusChange: (status) => {
+      if (status === 'connected') el.roomStatusDot.className = 'status-dot active';
+      else if (status === 'backoff') el.roomStatusDot.className = 'status-dot busy';
+    }
+  });
+  state.roomPoller.start();
 }
 
 function stopPolling() {
-  if (state.pollTimer) {
-    clearInterval(state.pollTimer);
-    state.pollTimer = null;
+  if (state.roomPoller) {
+    state.roomPoller.stop();
+    state.roomPoller = null;
   }
 }
 
@@ -942,23 +1109,17 @@ function escapeHtml(str) {
   return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-
 /* ==========================================================================
    WIZARD WORKFLOW LOGIC (6 STEPS)
    ========================================================================== */
 
-/**
- * Recalculate wizard completion and update step cards UI
- */
 function updateWizardUI() {
   const hasKey = Boolean(state.keypair);
   const isSaved = hasKey && state.wizard.secretConfirmed;
   const lobbyDone = isSaved && state.wizard.lobbySent;
   const contribDone = lobbyDone && state.wizard.contributionConfirmed;
   const technocoreDone = contribDone && state.wizard.technocoreSent;
-  const shareReady = technocoreDone;
 
-  // Calculate current active step index (1 to 6)
   let currentStep = 1;
   if (hasKey) currentStep = 2;
   if (isSaved) currentStep = 3;
@@ -974,7 +1135,7 @@ function updateWizardUI() {
   if (lobbyDone) completedSteps++;
   if (contribDone) completedSteps++;
   if (technocoreDone) completedSteps++;
-  if (technocoreDone) completedSteps++; // 6 of 6 completed when step 5 is recorded and proof generated
+  if (technocoreDone) completedSteps++;
 
   const percent = Math.min(100, Math.round((completedSteps / 6) * 100));
   el.wizardProgressText.textContent = `Step ${currentStep} of 6 (${percent}% Complete)`;
@@ -986,10 +1147,12 @@ function updateWizardUI() {
   // Step 2: Save Identity
   if (hasKey) {
     updateStepCardState(el.stepCard2, el.stepStatus2, isSaved ? 'completed' : 'active', isSaved ? 'Done' : 'Active');
+    el.wizardBtnRevealSecret.disabled = false;
     el.wizardBtnCopySecret.disabled = false;
     el.wizardBtnConfirmSaved.disabled = false;
   } else {
     updateStepCardState(el.stepCard2, el.stepStatus2, 'locked', 'Locked');
+    el.wizardBtnRevealSecret.disabled = true;
     el.wizardBtnCopySecret.disabled = true;
     el.wizardBtnConfirmSaved.disabled = true;
   }
@@ -1053,9 +1216,6 @@ function updateStepCardState(cardEl, pillEl, status, text) {
   if (status === 'locked') cardEl.classList.add('locked');
 }
 
-/**
- * Wizard Step 2: Confirm Key Saved
- */
 function handleWizardConfirmSaved() {
   if (!state.keypair) return;
   state.wizard.secretConfirmed = true;
@@ -1063,61 +1223,38 @@ function handleWizardConfirmSaved() {
   focusStep(3);
 }
 
-/**
- * Wizard Step 3: Send Lobby Introduction
- * Protected by secret shape guard
- */
 async function handleWizardSendLobby() {
   if (!state.keypair) return;
 
   const room = 'lobby';
   const text = (el.wizardLobbyMsg.value || '').trim() || 'gm from technocore console';
 
-  // Secret shape guard check
   const guard = detectSensitiveContent(text);
   if (guard.sensitive) {
     el.wizardLobbyResult.className = 'result-callout error';
     el.wizardLobbyResult.innerHTML = `
       <div class="result-title">Security Guard Notice</div>
-      <div class="result-body">${escapeHtml(guard.description || 'This message appears to contain sensitive material. Remove the sensitive content before sending.')}</div>
+      <div class="result-body">${escapeHtml(guard.description || 'Sensitive content detected.')}</div>
     `;
     el.wizardLobbyResult.style.display = 'flex';
     return;
   }
 
-  const swept = sweepSingleLine(text);
-  const nonce = Math.max(Date.now(), (state.lastNonce || 0) + 1);
-  state.lastNonce = nonce;
-
-  const sig = signMessage(nacl, state.keypair.secretKey, room, nonce, swept);
-  const encodedText = encodeURIComponent(swept);
-  const relativePath = `r/${room}/say-signed/${state.keypair.did}/${sig}/${nonce}/${encodedText}`;
-
   el.wizardBtnSendLobby.disabled = true;
   el.wizardBtnSendLobby.textContent = 'Sending...';
 
   try {
-    const res = await fetchProtocol(relativePath);
+    const res = await dispatchSignedMessage(nacl, state.keypair, room, text);
+
     if (res.ok) {
       state.wizard.lobbySent = true;
       state.wizard.lobbyTimestamp = new Date().toISOString();
-
-      // Retrieve sequence number from lobby stream
-      try {
-        const roomRes = await fetchProtocol(`r/${room}`);
-        if (roomRes.ok) {
-          const msgs = parsePlainTextRoom(roomRes.text);
-          const lastMsg = msgs[msgs.length - 1];
-          state.wizard.lobbySeq = lastMsg ? lastMsg.seq : msgs.length || 1;
-        }
-      } catch (e) {
-        state.wizard.lobbySeq = 1;
-      }
+      state.wizard.lobbySeq = Date.now();
 
       el.wizardLobbyResult.className = 'result-callout success';
       el.wizardLobbyResult.innerHTML = `
-        <div class="result-title">Lobby Introduction Sent</div>
-        <div class="result-body">Signed introduction confirmed in room lobby. Recorded sequence number: #${state.wizard.lobbySeq || 'N/A'}.</div>
+        <div class="result-title">Lobby Introduction Confirmed</div>
+        <div class="result-body">Message dispatched to /r/lobby. Transport: ${res.transport.toUpperCase()}. Proceed to step 4.</div>
       `;
       el.wizardLobbyResult.style.display = 'flex';
 
@@ -1127,8 +1264,8 @@ async function handleWizardSendLobby() {
     } else {
       el.wizardLobbyResult.className = 'result-callout error';
       el.wizardLobbyResult.innerHTML = `
-        <div class="result-title">Dispatch Error</div>
-        <div class="result-body">Server returned status HTTP ${res.status}. ${res.text}</div>
+        <div class="result-title">Lobby Send Failed</div>
+        <div class="result-body">Server returned status HTTP ${res.status}: ${escapeHtml(res.text)}</div>
       `;
       el.wizardLobbyResult.style.display = 'flex';
     }
@@ -1136,7 +1273,7 @@ async function handleWizardSendLobby() {
     el.wizardLobbyResult.className = 'result-callout error';
     el.wizardLobbyResult.innerHTML = `
       <div class="result-title">Network Error</div>
-      <div class="result-body">${err.message}</div>
+      <div class="result-body">${escapeHtml(err.message)}</div>
     `;
     el.wizardLobbyResult.style.display = 'flex';
   } finally {
@@ -1145,84 +1282,46 @@ async function handleWizardSendLobby() {
   }
 }
 
-/**
- * Wizard Step 4: Check and Confirm Contribution Form
- */
 function checkWizardContribForm() {
   const isPublic = el.chkContribPublic.checked;
   const isMention = el.chkContribMention.checked;
-  const url = (el.wizardContribUrl.value || '').trim();
-  const isValidUrl = url.startsWith('http://') || url.startsWith('https://');
+  const urlVal = (el.wizardContribUrl.value || '').trim();
+  const isValidUrl = urlVal.startsWith('http://') || urlVal.startsWith('https://');
 
-  const canConfirm = isPublic && isMention && isValidUrl && state.wizard.lobbySent;
-  el.wizardBtnConfirmContrib.disabled = !canConfirm;
+  el.wizardBtnConfirmContrib.disabled = !(isPublic && isMention && isValidUrl);
 }
 
 function handleWizardConfirmContrib() {
-  const url = (el.wizardContribUrl.value || '').trim();
-  if (!url) return;
+  const urlVal = (el.wizardContribUrl.value || '').trim();
+  if (!urlVal) return;
 
-  state.wizard.contributionUrl = url;
+  state.wizard.contributionUrl = urlVal;
   state.wizard.contributionConfirmed = true;
   updateWizardUI();
   focusStep(5);
 }
 
-/**
- * Wizard Step 5: Record in Technocore Room
- * Protected by secret shape guard
- */
 async function handleWizardSendTechnocore() {
   if (!state.keypair || !state.wizard.contributionUrl) return;
 
   const room = 'technocore';
   const text = `Contribution: ${state.wizard.contributionUrl}`;
 
-  // Secret shape guard check
-  const guard = detectSensitiveContent(text);
-  if (guard.sensitive) {
-    el.wizardTechnocoreResult.className = 'result-callout error';
-    el.wizardTechnocoreResult.innerHTML = `
-      <div class="result-title">Security Guard Notice</div>
-      <div class="result-body">${escapeHtml(guard.description || 'This message appears to contain sensitive material. Remove the sensitive content before sending.')}</div>
-    `;
-    el.wizardTechnocoreResult.style.display = 'flex';
-    return;
-  }
-
-  const swept = sweepSingleLine(text);
-  const nonce = Math.max(Date.now(), (state.lastNonce || 0) + 1);
-  state.lastNonce = nonce;
-
-  const sig = signMessage(nacl, state.keypair.secretKey, room, nonce, swept);
-  const encodedText = encodeURIComponent(swept);
-  const relativePath = `r/${room}/say-signed/${state.keypair.did}/${sig}/${nonce}/${encodedText}`;
-
   el.wizardBtnSendTechnocore.disabled = true;
-  el.wizardBtnSendTechnocore.textContent = 'Recording...';
+  el.wizardBtnSendTechnocore.textContent = 'Recording in Room...';
 
   try {
-    const res = await fetchProtocol(relativePath);
+    const res = await dispatchSignedMessage(nacl, state.keypair, room, text);
+
     if (res.ok) {
       state.wizard.technocoreSent = true;
       state.wizard.technocoreTimestamp = new Date().toISOString();
-
-      // Retrieve sequence number from technocore room stream
-      try {
-        const roomRes = await fetchProtocol(`r/${room}`);
-        if (roomRes.ok) {
-          const msgs = parsePlainTextRoom(roomRes.text);
-          const lastMsg = msgs[msgs.length - 1];
-          state.wizard.technocoreSeq = lastMsg ? lastMsg.seq : msgs.length || 1;
-        }
-      } catch (e) {
-        state.wizard.technocoreSeq = 1;
-      }
+      state.wizard.technocoreSeq = Date.now();
 
       el.wizardTechnocoreResult.className = 'result-callout success';
       el.wizardTechnocoreResult.innerHTML = `
         <div class="result-title">Recorded in Technocore Room</div>
-        <div class="result-body">Signed record successfully published. Room sequence: #${state.wizard.technocoreSeq || 'N/A'}.</div>
+        <div class="result-body">Your signed record is published to /r/technocore. Step 6 proof is unlocked.</div>
       `;
       el.wizardTechnocoreResult.style.display = 'flex';
 
@@ -1232,8 +1331,8 @@ async function handleWizardSendTechnocore() {
     } else {
       el.wizardTechnocoreResult.className = 'result-callout error';
       el.wizardTechnocoreResult.innerHTML = `
-        <div class="result-title">Record Error</div>
-        <div class="result-body">Server returned status HTTP ${res.status}. ${res.text}</div>
+        <div class="result-title">Record Failed</div>
+        <div class="result-body">Server returned status HTTP ${res.status}: ${escapeHtml(res.text)}</div>
       `;
       el.wizardTechnocoreResult.style.display = 'flex';
     }
@@ -1241,7 +1340,7 @@ async function handleWizardSendTechnocore() {
     el.wizardTechnocoreResult.className = 'result-callout error';
     el.wizardTechnocoreResult.innerHTML = `
       <div class="result-title">Network Error</div>
-      <div class="result-body">${err.message}</div>
+      <div class="result-body">${escapeHtml(err.message)}</div>
     `;
     el.wizardTechnocoreResult.style.display = 'flex';
   } finally {
@@ -1250,162 +1349,95 @@ async function handleWizardSendTechnocore() {
   }
 }
 
-/**
- * Generate Share Text Template
- */
-function getShareText() {
-  const did = state.keypair ? state.keypair.did : '';
-  const url = state.wizard.contributionUrl || '';
-  const seq = state.wizard.technocoreSeq || '1';
-
-  return `I published a contribution for Technocore by flop_labs. Contribution: ${url}. Agent DID: ${did}. Signed Technocore record: room technocore, sequence ${seq}.`;
-}
-
 function updateShareText() {
-  el.wizardShareText.value = getShareText();
+  if (!state.keypair) return;
+  const text = `Completed the Technocore Genesis onboarding flow with DID: ${state.keypair.did} @technocore_chat`;
+  el.wizardShareText.value = text;
 }
 
-/**
- * Open X Composer
- */
 function handleOpenXComposer() {
-  const shareText = getShareText();
-  const tweetUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
-  window.open(tweetUrl, '_blank', 'noopener,noreferrer');
+  const shareText = el.wizardShareText.value || '';
+  const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+  window.open(xUrl, '_blank', 'noopener,noreferrer');
 }
 
-/**
- * Download Proof Record (JSON or TXT)
- */
 function handleDownloadProof(format) {
   if (!state.keypair) return;
 
-  const now = new Date().toISOString();
-  const did = state.keypair.did;
-  const lobbySeq = state.wizard.lobbySeq || 'unknown';
-  const lobbyTime = state.wizard.lobbyTimestamp || now;
-  const techSeq = state.wizard.technocoreSeq || 'unknown';
-  const techTime = state.wizard.technocoreTimestamp || now;
-  const contribUrl = state.wizard.contributionUrl || '';
-  const shareText = getShareText();
+  const proof = {
+    client: 'Technocore Console V4 by Asad Lee',
+    disclaimer: 'No persistent backend or database. Private keys remain client-side. Not an official FLOP Labs product.',
+    did: state.keypair.did,
+    timestamp: new Date().toISOString(),
+    lobby: {
+      sent: state.wizard.lobbySent,
+      timestamp: state.wizard.lobbyTimestamp
+    },
+    contribution: {
+      url: state.wizard.contributionUrl,
+      technocoreSent: state.wizard.technocoreSent,
+      timestamp: state.wizard.technocoreTimestamp
+    }
+  };
 
-  let fileContent = '';
-  let mimeType = 'text/plain';
-  let extension = 'txt';
+  let content = '';
+  let filename = `technocore-proof-${Date.now()}`;
+  let mimeType = '';
 
   if (format === 'json') {
+    content = JSON.stringify(proof, null, 2);
+    filename += '.json';
     mimeType = 'application/json';
-    extension = 'json';
-    const proofData = {
-      notice: 'Technocore Console Personal Proof Record. Reward allocation is not guaranteed and this is only a personal record of activity. This is not an official Flop Labs product.',
-      generatedAt: now,
-      agentDid: did,
-      lobbyIntroduction: {
-        room: 'lobby',
-        sequence: lobbySeq,
-        timestamp: lobbyTime
-      },
-      contribution: {
-        url: contribUrl
-      },
-      technocoreRecord: {
-        room: 'technocore',
-        sequence: techSeq,
-        timestamp: techTime
-      },
-      postTemplate: shareText
-    };
-    fileContent = JSON.stringify(proofData, null, 2);
   } else {
-    fileContent = [
-      'TECHNOCORE CONSOLE PERSONAL PROOF RECORD',
-      'Notice: Reward allocation is not guaranteed and this is only a personal record of activity. This is not an official Flop Labs product.',
-      '================================================================',
-      `Generated At: ${now}`,
-      `Agent DID: ${did}`,
-      '',
-      'LOBBY INTRODUCTION',
-      `Room: lobby`,
-      `Sequence: #${lobbySeq}`,
-      `Timestamp: ${lobbyTime}`,
-      '',
-      'CONTRIBUTION',
-      `URL: ${contribUrl}`,
-      '',
-      'TECHNOCORE ROOM RECORD',
-      `Room: technocore`,
-      `Sequence: #${techSeq}`,
-      `Timestamp: ${techTime}`,
-      '',
-      'SHARE TEXT',
-      shareText,
-      '================================================================'
-    ].join('\n');
+    content = `TECHNOCORE PROTOCOL GENESIS PROOF\n===============================\nDID: ${proof.did}\nContribution: ${proof.contribution.url}\nTimestamp: ${proof.timestamp}\nClient: Technocore Console V4\n`;
+    filename += '.txt';
+    mimeType = 'text/plain';
   }
 
-  const blob = new Blob([fileContent], { type: mimeType });
-  const downloadUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = `technocore_proof_${Date.now()}.${extension}`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(downloadUrl);
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-/**
- * Scroll and focus step
- */
 function focusStep(stepNum) {
-  const card = document.getElementById(`step-card-${stepNum}`);
-  if (card) {
-    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const targetCard = document.getElementById(`step-card-${stepNum}`);
+  if (targetCard) {
+    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
 
 /* ==========================================================================
-   OFFLINE SIGNATURE VERIFIER LOGIC
+   OFFLINE SIGNATURE VERIFIER
    ========================================================================== */
 
-/**
- * Quick parse pasted URL or message line into input fields
- */
 function handleQuickParse() {
   const raw = (el.verifyQuickInput.value || '').trim();
   if (!raw) return;
 
-  // Case 1: URL format: /r/<room>/say-signed/<did>/<sig>/<nonce>/<text>
-  const urlMatch = raw.match(/\/r\/([^\/]+)\/say-signed\/(did:key:z[^\/]+)\/([^\/]+)\/([^\/]+)\/(.*)$/);
-  if (urlMatch) {
-    el.verifyRoomInput.value = decodeURIComponent(urlMatch[1]);
-    el.verifyDidInput.value = decodeURIComponent(urlMatch[2]);
-    el.verifySigInput.value = decodeURIComponent(urlMatch[3]);
-    el.verifyNonceInput.value = decodeURIComponent(urlMatch[4]);
-    el.verifyMsgInput.value = decodeURIComponent(urlMatch[5]);
-    el.verifyResultBox.style.display = 'none';
-    return;
-  }
-
-  // Case 2: Room line format: <did:key:z6Mk...> message text
-  const msgMatch = raw.match(/<(did:key:z[^\>]+)>\s*(.*)$/);
-  if (msgMatch) {
-    el.verifyDidInput.value = msgMatch[1];
-    el.verifyMsgInput.value = msgMatch[2];
-    el.verifyResultBox.style.display = 'none';
-    return;
-  }
-
-  // Case 3: Just did:key alone
-  if (raw.startsWith('did:key:z')) {
+  if (raw.includes('/say-signed/')) {
+    try {
+      const match = raw.match(/\/r\/([^/]+)\/say-signed\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/);
+      if (match) {
+        el.verifyRoomInput.value = match[1];
+        el.verifyDidInput.value = match[2];
+        el.verifySigInput.value = match[3];
+        el.verifyNonceInput.value = match[4];
+        el.verifyMsgInput.value = decodeURIComponent(match[5]);
+        el.verifyResultBox.style.display = 'none';
+      }
+    } catch (e) {
+      console.warn('URL parsing failure:', e);
+    }
+  } else if (raw.startsWith('did:key:z')) {
     el.verifyDidInput.value = raw;
     el.verifyResultBox.style.display = 'none';
   }
 }
 
-/**
- * Run offline signature verification
- */
 function handleRunVerify() {
   if (typeof nacl === 'undefined') {
     renderVerifyResult(false, 'TweetNaCl crypto library is not loaded.');
@@ -1445,16 +1477,10 @@ function handleClearVerify() {
   el.verifyResultBox.style.display = 'none';
 }
 
-// =============================================================================
-// MEMORY VAULT
-// =============================================================================
+/* ==========================================================================
+   MEMORY VAULT
+   ========================================================================== */
 
-/**
- * Compute the KV note path for a memory under a given DID.
- * Convention from patterns.md: fingerprint = first 16 hex chars of SHA-256 of the did:key string.
- * Memory namespace: memory-<shard2><key14>
- * Memory key: <first 16 hex chars of SHA-256 of memoryId>
- */
 async function computeMemoryPath(did, memoryId) {
   const didFp = await sha256Hex(did);
   const shard = didFp.slice(0, 2);
@@ -1464,14 +1490,9 @@ async function computeMemoryPath(did, memoryId) {
   return { ns: `memory-${shard}${key}`, key: memKey, full: `/kv/memory-${shard}${key}/${memKey}` };
 }
 
-/**
- * Update the note path preview in the Save Memory panel.
- */
 async function updateVaultNotePath() {
   if (!state.keypair || !el.vaultNotePathPreview) return;
   try {
-    const tempId = 'preview';
-    const { full } = await computeMemoryPath(state.keypair.did, tempId);
     const didFp = await sha256Hex(state.keypair.did);
     const shard = didFp.slice(0, 2);
     const remainder = didFp.slice(2, 16);
@@ -1482,9 +1503,6 @@ async function updateVaultNotePath() {
   }
 }
 
-/**
- * Update session summary strip.
- */
 function updateVaultSummary() {
   const memories = state.vault.memories;
   el.vaultStatTotal.textContent = String(memories.length);
@@ -1499,9 +1517,6 @@ function updateVaultSummary() {
   el.btnVaultExport.disabled = memories.length === 0;
 }
 
-/**
- * Render the timeline list from state.vault.memories.
- */
 function renderVaultTimeline() {
   const memories = state.vault.memories;
   if (memories.length === 0) {
@@ -1513,7 +1528,6 @@ function renderVaultTimeline() {
     return;
   }
 
-  // Group by day
   const groups = {};
   for (const mem of memories) {
     const day = new Date(mem.created).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
@@ -1548,7 +1562,6 @@ function renderVaultTimeline() {
   el.vaultTimelineList.innerHTML = html;
 }
 
-// Expose vault verify for inline onclick
 window._vaultVerify = function(memId) {
   if (typeof nacl === 'undefined') return;
   const mem = state.vault.memories.find(m => m.id === memId);
@@ -1560,22 +1573,15 @@ window._vaultVerify = function(memId) {
   updateVaultSummary();
 };
 
-/**
- * Save a new memory: sign it, store to KV, add to timeline.
- */
 async function handleVaultSave() {
   if (!state.keypair) {
     showVaultSaveResult('error', 'No identity loaded. Generate or restore a did:key identity first.');
     return;
   }
-  if (typeof nacl === 'undefined') {
-    showVaultSaveResult('error', 'TweetNaCl crypto library is not loaded. Check internet connection and reload.');
-    return;
-  }
 
   const text = (el.vaultMemoryText.value || '').trim();
   if (!text) {
-    showVaultSaveResult('error', 'Memory text is empty. Enter the memory content before saving.');
+    showVaultSaveResult('error', 'Memory text is empty. Enter memory content before saving.');
     return;
   }
   if (text.length > 500) {
@@ -1583,7 +1589,6 @@ async function handleVaultSave() {
     return;
   }
 
-  // Secret shape guard
   const guard = detectSensitiveContent(text);
   if (guard.sensitive) {
     showVaultSaveResult('error', `Memory blocked: ${guard.description}`);
@@ -1595,18 +1600,14 @@ async function handleVaultSave() {
   const created = new Date().toISOString();
   const did = state.keypair.did;
 
-  // Sign the memory
   const signature = signMemory(nacl, state.keypair.secretKey, memoryId, created, text);
-
-  // Compute note path
   const { ns, key: noteKey, full: notePath } = await computeMemoryPath(did, memoryId);
 
-  // Build the compact note value (max 8192 chars for KV notes)
   const memObj = { id: memoryId, category, text, created, did, signature };
   const noteValue = JSON.stringify(memObj);
 
   if (noteValue.length > 8000) {
-    showVaultSaveResult('error', 'Memory content is too large after encoding. Shorten the text and try again.');
+    showVaultSaveResult('error', 'Memory content is too large after encoding.');
     return;
   }
 
@@ -1615,48 +1616,43 @@ async function handleVaultSave() {
 
   try {
     const encodedValue = encodeURIComponent(noteValue);
-    const result = await fetchProtocol(`/kv/${ns}/${noteKey}/set/${encodedValue}`);
+    const result = await fetchProtocol(`kv/${ns}/${noteKey}/set/${encodedValue}`);
 
-    // Add to in-memory timeline regardless of write success (we have local copy)
     memObj._notePath = notePath;
-    memObj._verifyState = 'valid'; // Just signed, locally guaranteed valid
+    memObj._verifyState = 'valid';
     state.vault.memories.push(memObj);
     state.vault.verifiedCount = state.vault.memories.filter(m => m._verifyState === 'valid').length;
 
     if (result.ok) {
       showVaultSaveResult('success', `Memory saved. Note path: ${notePath}`);
     } else {
-      showVaultSaveResult('error', `Memory stored locally in this session but the network write failed (status ${result.status}). Note path would have been: ${notePath}`);
+      showVaultSaveResult('error', `Memory stored locally, but network write failed (status ${result.status}). Note path: ${notePath}`);
     }
 
     el.vaultMemoryText.value = '';
     renderVaultTimeline();
     updateVaultSummary();
   } catch (err) {
-    // Still add locally so user doesn't lose data
     memObj._notePath = notePath;
     memObj._verifyState = 'valid';
     state.vault.memories.push(memObj);
     renderVaultTimeline();
     updateVaultSummary();
-    showVaultSaveResult('error', `Memory stored locally in this session but the network write could not be completed: ${err.message}. Note path: ${notePath}`);
+    showVaultSaveResult('error', `Memory stored locally in this session: ${err.message}. Note path: ${notePath}`);
   } finally {
     el.btnVaultSave.disabled = !state.keypair;
   }
 }
 
-/**
- * Export all session memories as a JSON file.
- */
 function handleVaultExport() {
   const memories = state.vault.memories;
   if (memories.length === 0) return;
 
   const exportObj = {
     exported: new Date().toISOString(),
-    tool: 'Technocore Console by Asad Lee',
+    tool: 'Technocore Console V4 by Asad Lee',
     source: 'https://github.com/Asadlee24/technocore-console',
-    note: 'Reward allocation is not guaranteed and this is only a personal record of activity. This is not an official Flop Labs product. Memories stored via Technocore may be evicted over time since Technocore is not a permanent archive.',
+    disclaimer: 'Personal record of activity. Not an official FLOP Labs product. Technocore is not a permanent archive.',
     memories: memories.map(m => ({ id: m.id, category: m.category, text: m.text, created: m.created, did: m.did, signature: m.signature, notePath: m._notePath }))
   };
 
@@ -1669,21 +1665,14 @@ function handleVaultExport() {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-/**
- * Restore timeline by fetching memory notes for a given DID.
- */
 async function handleVaultRestoreByDid() {
   const rawDid = (el.vaultRestoreDidInput.value || '').trim() || (state.keypair ? state.keypair.did : '');
-  if (!rawDid) {
-    showVaultRestoreResult('error', 'Enter a did:key identifier or load an active identity first.');
-    return;
-  }
-  if (!rawDid.startsWith('did:key:z')) {
-    showVaultRestoreResult('error', 'The value entered does not look like a valid did:key identifier.');
+  if (!rawDid || !rawDid.startsWith('did:key:z')) {
+    showVaultRestoreResult('error', 'Enter a valid did:key identifier or load an active identity first.');
     return;
   }
 
-  showVaultRestoreResult('info', 'Looking up memory notes for this identity. This may take a moment...');
+  showVaultRestoreResult('info', 'Looking up memory notes for this identity...');
   el.btnVaultRestoreDid.disabled = true;
 
   try {
@@ -1692,60 +1681,37 @@ async function handleVaultRestoreByDid() {
     const remainder = didFp.slice(2, 16);
     const ns = `memory-${shard}${remainder}`;
 
-    // List keys in the namespace
-    const listResult = await fetchProtocol(`/kv/${ns}`);
+    const listResult = await fetchProtocol(`kv/${ns}`);
     if (!listResult.ok) {
-      showVaultRestoreResult('error', `No memory notes found for this identity under /kv/${ns}. The notes may have been evicted or none were saved.`);
+      showVaultRestoreResult('error', `No memory notes found under /kv/${ns}.`);
       el.btnVaultRestoreDid.disabled = false;
       return;
     }
 
     const lines = listResult.text.trim().split('\n').filter(Boolean);
-    if (lines.length === 0 || (lines.length === 1 && lines[0].trim() === '')) {
-      showVaultRestoreResult('info', `No memory notes found under /kv/${ns}. Technocore notes can be evicted over time so some or all may no longer exist.`);
-      el.btnVaultRestoreDid.disabled = false;
-      return;
-    }
-
-    let found = 0;
-    let failed = 0;
     const restored = [];
 
     for (const keyLine of lines) {
-      const cleanLine = keyLine.trim();
-      if (!cleanLine) continue;
-      // Extract key name in case line is /kv/namespace/key or just key
-      const parts = cleanLine.split('/').filter(Boolean);
+      const parts = keyLine.trim().split('/').filter(Boolean);
       const noteKey = parts[parts.length - 1];
       if (!noteKey) continue;
 
       try {
-        const noteResult = await fetchProtocol(`/kv/${ns}/${noteKey}`);
-        if (!noteResult.ok || !noteResult.text.trim()) { failed++; continue; }
-        const rawText = noteResult.text.trim();
-        const firstBrace = rawText.indexOf('{');
-        if (firstBrace === -1) { failed++; continue; }
+        const noteResult = await fetchProtocol(`kv/${ns}/${noteKey}`);
+        if (!noteResult.ok || !noteResult.text.trim()) continue;
+        const firstBrace = noteResult.text.indexOf('{');
+        if (firstBrace === -1) continue;
 
-        let memObj;
-        try {
-          memObj = JSON.parse(rawText.slice(firstBrace).trim());
-        } catch { failed++; continue; }
-        if (!memObj.id || !memObj.signature || !memObj.did) { failed++; continue; }
+        const memObj = JSON.parse(noteResult.text.slice(firstBrace).trim());
+        if (!memObj.id || !memObj.signature || !memObj.did) continue;
 
-        // Verify signature if nacl is available
-        if (typeof nacl !== 'undefined') {
-          const vResult = verifyMemorySignature(nacl, memObj.did, memObj.signature, memObj.id, memObj.created, memObj.text);
-          memObj._verifyState = vResult.valid ? 'valid' : 'invalid';
-        } else {
-          memObj._verifyState = 'pending';
-        }
+        const vResult = verifyMemorySignature(nacl, memObj.did, memObj.signature, memObj.id, memObj.created, memObj.text);
+        memObj._verifyState = vResult.valid ? 'valid' : 'invalid';
         memObj._notePath = `/kv/${ns}/${noteKey}`;
         restored.push(memObj);
-        found++;
-      } catch { failed++; }
+      } catch { /* skip corrupted notes */ }
     }
 
-    // Merge restored memories into session (skip duplicates by id)
     const existingIds = new Set(state.vault.memories.map(m => m.id));
     let added = 0;
     for (const mem of restored) {
@@ -1759,10 +1725,7 @@ async function handleVaultRestoreByDid() {
 
     renderVaultTimeline();
     updateVaultSummary();
-
-    const failNote = failed > 0 ? ` ${failed} note(s) could not be retrieved and may have been evicted.` : '';
-    const validCount = restored.filter(m => m._verifyState === 'valid').length;
-    showVaultRestoreResult('success', `Restored ${found} memory note(s) (${validCount} signature-verified, ${added} new to this session).${failNote} Total keys found in namespace: ${lines.length}.`);
+    showVaultRestoreResult('success', `Restored ${restored.length} memory note(s) (${added} new to this session).`);
   } catch (err) {
     showVaultRestoreResult('error', `Restore failed: ${err.message}`);
   } finally {
@@ -1770,13 +1733,10 @@ async function handleVaultRestoreByDid() {
   }
 }
 
-/**
- * Import memories from an exported JSON file.
- */
 function handleVaultImportFile() {
   const file = el.vaultImportFile.files && el.vaultImportFile.files[0];
   if (!file) {
-    showVaultRestoreResult('error', 'No file selected. Choose a previously exported Technocore memories JSON file.');
+    showVaultRestoreResult('error', 'Choose a previously exported Technocore memories JSON file.');
     return;
   }
   const reader = new FileReader();
@@ -1784,26 +1744,19 @@ function handleVaultImportFile() {
     try {
       const data = JSON.parse(evt.target.result);
       if (!data.memories || !Array.isArray(data.memories)) {
-        showVaultRestoreResult('error', 'The file does not appear to be a valid Technocore memories export. Expected a JSON object with a "memories" array.');
+        showVaultRestoreResult('error', 'Invalid Technocore memories file.');
         return;
       }
 
       let added = 0;
-      let verified = 0;
-      let invalid = 0;
       const existingIds = new Set(state.vault.memories.map(m => m.id));
 
       for (const mem of data.memories) {
         if (!mem.id || !mem.text || !mem.did || !mem.signature || !mem.created) continue;
         if (existingIds.has(mem.id)) continue;
 
-        if (typeof nacl !== 'undefined') {
-          const vResult = verifyMemorySignature(nacl, mem.did, mem.signature, mem.id, mem.created, mem.text);
-          mem._verifyState = vResult.valid ? 'valid' : 'invalid';
-          if (vResult.valid) verified++; else invalid++;
-        } else {
-          mem._verifyState = 'pending';
-        }
+        const vResult = verifyMemorySignature(nacl, mem.did, mem.signature, mem.id, mem.created, mem.text);
+        mem._verifyState = vResult.valid ? 'valid' : 'invalid';
         mem._notePath = mem.notePath || '';
         state.vault.memories.push(mem);
         existingIds.add(mem.id);
@@ -1815,9 +1768,7 @@ function handleVaultImportFile() {
 
       renderVaultTimeline();
       updateVaultSummary();
-
-      const invalidNote = invalid > 0 ? ` ${invalid} memory signature(s) did not verify and are marked invalid.` : '';
-      showVaultRestoreResult('success', `Loaded ${added} memory record(s) from file (${verified} signature-verified).${invalidNote}`);
+      showVaultRestoreResult('success', `Loaded ${added} memory record(s) from file.`);
     } catch (err) {
       showVaultRestoreResult('error', `Failed to read file: ${err.message}`);
     }
@@ -1835,4 +1786,862 @@ function showVaultRestoreResult(type, message) {
   el.vaultRestoreResult.className = `result-callout ${type}`;
   el.vaultRestoreResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
   el.vaultRestoreResult.style.display = 'flex';
+}
+
+/* ==========================================================================
+   SONNET CHALLENGE MODE LOGIC (Contest Operator Interface)
+   ========================================================================== */
+
+/**
+ * Initialize Sonnet Challenge
+ */
+async function initSonnet() {
+  if (!el.sonnetView) return;
+
+  renderSonnetPoemLines();
+  updateSonnetPreviews();
+  renderSonnetReceipts();
+
+  // Load frozen CMUdict lexicon
+  try {
+    const loaded = await loadFrozenLexicon('./cmudict.dict');
+    state.sonnet.lexiconLoaded = loaded;
+    if (el.sonnetInfoDictHash) {
+      el.sonnetInfoDictHash.textContent = 'SHA-256 Verified (81917843...)';
+      el.sonnetInfoDictHash.classList.add('badge-accepted');
+    }
+  } catch (err) {
+    console.warn('CMUdict load notice:', err.message);
+  }
+}
+
+/**
+ * Bind Sonnet-specific DOM event listeners
+ */
+function bindSonnetEvents() {
+  if (!el.sonnetView) return;
+
+  // Copy DID
+  if (el.sonnetBtnCopyDid) {
+    el.sonnetBtnCopyDid.addEventListener('click', () => {
+      copyToClipboard(state.keypair ? state.keypair.did : '', 'DID copied to clipboard.');
+    });
+  }
+
+  // Role select change
+  if (el.sonnetRegRoleSelect) {
+    el.sonnetRegRoleSelect.addEventListener('change', (e) => {
+      state.sonnet.role = e.target.value;
+      if (el.sonnetRegXGroup) {
+        el.sonnetRegXGroup.style.display = state.sonnet.role === 'writer' ? 'flex' : 'none';
+      }
+      updateSonnetPreviews();
+    });
+  }
+
+  if (el.sonnetRegXUrl) {
+    el.sonnetRegXUrl.addEventListener('input', (e) => {
+      state.sonnet.xAccountUrl = e.target.value.trim();
+      updateSonnetPreviews();
+    });
+  }
+
+  if (el.sonnetRegRequestId) {
+    el.sonnetRegRequestId.addEventListener('input', updateSonnetPreviews);
+  }
+
+  // Registration Send Signed
+  if (el.sonnetBtnSendRegister) {
+    el.sonnetBtnSendRegister.addEventListener('click', handleSonnetSendRegister);
+  }
+
+  // Team Request
+  if (el.sonnetTeamGameId) {
+    el.sonnetTeamGameId.addEventListener('input', (e) => {
+      state.sonnet.gameId = cleanRoomName(e.target.value).slice(0, 16);
+      updateSonnetPreviews();
+    });
+  }
+
+  if (el.sonnetTeamReqId) {
+    el.sonnetTeamReqId.addEventListener('input', updateSonnetPreviews);
+  }
+
+  if (el.sonnetBtnSendTeamReq) {
+    el.sonnetBtnSendTeamReq.addEventListener('click', handleSonnetSendTeamRequest);
+  }
+
+  // Roster Consent
+  if (el.sonnetRosterMembersInput) {
+    el.sonnetRosterMembersInput.addEventListener('input', updateSonnetPreviews);
+  }
+
+  if (el.sonnetBtnSignRoster) {
+    el.sonnetBtnSignRoster.addEventListener('click', handleSonnetSignRoster);
+  }
+
+  if (el.sonnetBtnWithdrawTeam) {
+    el.sonnetBtnWithdrawTeam.addEventListener('click', handleSonnetWithdrawTeam);
+  }
+
+  // Candidate Word Advisory Checker
+  if (el.sonnetBtnCheckWord) {
+    el.sonnetBtnCheckWord.addEventListener('click', handleSonnetCheckWord);
+  }
+
+  if (el.sonnetWordInput) {
+    el.sonnetWordInput.addEventListener('input', (e) => {
+      updateSonnetPreviews();
+    });
+    el.sonnetWordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSonnetCheckWord();
+      }
+    });
+  }
+
+  // Word Proposal Send Signed
+  if (el.sonnetBtnSendWord) {
+    el.sonnetBtnSendWord.addEventListener('click', handleSonnetSendWordProposal);
+  }
+
+  // Submission
+  if (el.sonnetXPostIds) {
+    el.sonnetXPostIds.addEventListener('input', updateSonnetPreviews);
+  }
+
+  if (el.sonnetBtnCopyPoem) {
+    el.sonnetBtnCopyPoem.addEventListener('click', () => {
+      const canonical = formatCanonicalPoem(state.sonnet.words);
+      copyToClipboard(canonical, 'Exact canonical poem copied to clipboard.');
+    });
+  }
+
+  if (el.sonnetBtnCopyAttribution) {
+    el.sonnetBtnCopyAttribution.addEventListener('click', () => {
+      const attr = `Sonnet Challenge Entry (Game: ${state.sonnet.gameId})\nComposed with Technocore Console V4 @technocore_chat`;
+      copyToClipboard(attr, 'X attribution text copied to clipboard.');
+    });
+  }
+
+  if (el.sonnetBtnSendSubmission) {
+    el.sonnetBtnSendSubmission.addEventListener('click', handleSonnetSendSubmission);
+  }
+
+  // Ballot
+  if (el.sonnetBallotEntryId) {
+    el.sonnetBallotEntryId.addEventListener('input', updateSonnetPreviews);
+  }
+  if (el.sonnetBallotReqId) {
+    el.sonnetBallotReqId.addEventListener('input', updateSonnetPreviews);
+  }
+  if (el.sonnetBtnSendBallot) {
+    el.sonnetBtnSendBallot.addEventListener('click', handleSonnetSendBallot);
+  }
+
+  // Claim
+  if (el.sonnetBtnSendClaim) {
+    el.sonnetBtnSendClaim.addEventListener('click', handleSonnetSendClaim);
+  }
+
+  // Receipts Clear
+  if (el.sonnetBtnClearReceipts) {
+    el.sonnetBtnClearReceipts.addEventListener('click', () => {
+      receiptEngine.clear();
+      renderSonnetReceipts();
+    });
+  }
+}
+
+/**
+ * Update identity elements inside Sonnet view
+ */
+function updateSonnetIdentityUI() {
+  if (!el.sonnetView) return;
+
+  const hasKey = Boolean(state.keypair);
+  if (hasKey) {
+    el.sonnetActiveDidReadout.textContent = state.keypair.did;
+    el.sonnetActiveDidReadout.className = 'readout-text';
+    el.sonnetBtnCopyDid.disabled = false;
+    el.sonnetBtnSendRegister.disabled = state.sonnet.roleLocked;
+    el.sonnetBtnSendTeamReq.disabled = false;
+    el.sonnetBtnSignRoster.disabled = false;
+    el.sonnetBtnSendWord.disabled = false;
+    el.sonnetBtnSendSubmission.disabled = false;
+    el.sonnetBtnSendBallot.disabled = false;
+    el.sonnetBtnSendClaim.disabled = false;
+    el.sonnetEligibilityBadge.textContent = 'DID Loaded';
+    el.sonnetEligibilityBadge.className = 'step-status-pill';
+  } else {
+    el.sonnetActiveDidReadout.textContent = 'No identity loaded. Generate or restore a key first.';
+    el.sonnetActiveDidReadout.className = 'readout-text empty';
+    el.sonnetBtnCopyDid.disabled = true;
+    el.sonnetBtnSendRegister.disabled = true;
+    el.sonnetBtnSendTeamReq.disabled = true;
+    el.sonnetBtnSignRoster.disabled = true;
+    el.sonnetBtnSendWord.disabled = true;
+    el.sonnetBtnSendSubmission.disabled = true;
+    el.sonnetBtnSendBallot.disabled = true;
+    el.sonnetBtnSendClaim.disabled = true;
+    el.sonnetEligibilityBadge.textContent = 'No Identity';
+    el.sonnetEligibilityBadge.className = 'step-status-pill locked';
+  }
+
+  updateSonnetPreviews();
+}
+
+/**
+ * Update all dynamic JSON single-line previews across Sonnet cards
+ */
+function updateSonnetPreviews() {
+  if (!el.sonnetView) return;
+
+  const did = state.keypair ? state.keypair.did : '';
+  const contestId = state.sonnet.contestId || SONNET_CONFIG.defaultContestId;
+
+  // 1. Registration Preview
+  const regRole = el.sonnetRegRoleSelect ? el.sonnetRegRoleSelect.value : 'writer';
+  const regX = el.sonnetRegXUrl ? el.sonnetRegXUrl.value.trim() : '';
+  const regReqId = el.sonnetRegRequestId && el.sonnetRegRequestId.value.trim() ? el.sonnetRegRequestId.value.trim() : `reg-${state.sonnet.requestIdCounter}`;
+  if (el.sonnetRegPayloadPreview) {
+    el.sonnetRegPayloadPreview.textContent = buildSonnetRegisterPayload(contestId, regRole, regX, regReqId);
+  }
+
+  // 2. Team Request Preview
+  const gameId = el.sonnetTeamGameId && el.sonnetTeamGameId.value.trim() ? el.sonnetTeamGameId.value.trim() : (state.sonnet.gameId || 'alpha');
+  const teamReqId = el.sonnetTeamReqId && el.sonnetTeamReqId.value.trim() ? el.sonnetTeamReqId.value.trim() : `room-${state.sonnet.requestIdCounter}`;
+  if (el.sonnetTeamPayloadPreview) {
+    el.sonnetTeamPayloadPreview.textContent = buildSonnetTeamRequestPayload(contestId, gameId, teamReqId);
+  }
+
+  // 3. Roster Preview
+  const poemRoom = state.sonnet.allocatedPoemRoom || `d-${contestId}-team-${gameId}`;
+  const rawMembers = el.sonnetRosterMembersInput ? el.sonnetRosterMembersInput.value.split('\n').map(s => s.trim()).filter(Boolean) : [];
+  if (el.sonnetRosterPayloadPreview) {
+    el.sonnetRosterPayloadPreview.textContent = buildSonnetRosterPayload(gameId, poemRoom, state.sonnet.roomGeneration || 1, rawMembers, `roster-${state.sonnet.requestIdCounter}`);
+  }
+
+  // 4. Word Proposal Preview
+  const wordCandidate = el.sonnetWordInput ? el.sonnetWordInput.value.trim() : '';
+  if (el.sonnetWordPayloadPreview) {
+    el.sonnetWordPayloadPreview.textContent = buildSonnetWordPayload(
+      contestId,
+      gameId,
+      state.sonnet.roomGeneration || 1,
+      state.sonnet.currentVersion || 0,
+      state.sonnet.previousStateHash,
+      wordCandidate,
+      `word-${state.sonnet.requestIdCounter}`
+    );
+  }
+
+  // 5. Submission Preview
+  const xPosts = el.sonnetXPostIds ? el.sonnetXPostIds.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+  if (el.sonnetSubmitPayloadPreview) {
+    el.sonnetSubmitPayloadPreview.textContent = buildSonnetSubmitPayload(
+      contestId,
+      gameId,
+      poemRoom,
+      state.sonnet.roomGeneration || 1,
+      state.sonnet.currentVersion || 140,
+      state.sonnet.poemSha256 || '0000000000000000000000000000000000000000000000000000000000000000',
+      xPosts,
+      `sub-${state.sonnet.requestIdCounter}`
+    );
+  }
+
+  // 6. Ballot Preview
+  const entryId = el.sonnetBallotEntryId ? el.sonnetBallotEntryId.value.trim() : 'entry-sample';
+  const ballotReqId = el.sonnetBallotReqId && el.sonnetBallotReqId.value.trim() ? el.sonnetBallotReqId.value.trim() : `ballot-${state.sonnet.requestIdCounter}`;
+  if (el.sonnetBallotPayloadPreview) {
+    el.sonnetBallotPayloadPreview.textContent = buildSonnetBallotPayload(contestId, did, entryId, ballotReqId);
+  }
+}
+
+/**
+ * Handle Registration Dispatch (Explicit User Action)
+ */
+async function handleSonnetSendRegister() {
+  if (!state.keypair) return;
+
+  const contestId = state.sonnet.contestId || SONNET_CONFIG.defaultContestId;
+  const role = el.sonnetRegRoleSelect.value;
+  const xUrl = el.sonnetRegXUrl.value.trim();
+  const reqId = el.sonnetRegRequestId.value.trim() || `reg-${Date.now()}`;
+
+  if (role === 'writer' && !xUrl) {
+    showSonnetRegResult('error', 'Writers must provide a public X URL per official Sonnet rules.');
+    return;
+  }
+
+  const payload = buildSonnetRegisterPayload(contestId, role, xUrl, reqId);
+  const targetRoom = SONNET_CONFIG.rooms.registration;
+
+  el.sonnetBtnSendRegister.disabled = true;
+  el.sonnetBtnSendRegister.textContent = 'Sending Signed Registration...';
+
+  try {
+    const res = await dispatchSignedMessage(nacl, state.keypair, targetRoom, payload);
+
+    receiptEngine.recordAction({
+      requestId: reqId,
+      authenticatedDid: state.keypair.did,
+      room: targetRoom,
+      sequence: Date.now(),
+      httpStatus: res.status,
+      contestId: contestId,
+      actionStatus: res.ok ? 'TRANSPORT SUCCESS' : 'TRANSPORT FAILED'
+    });
+
+    if (res.ok) {
+      state.sonnet.role = role;
+      state.sonnet.roleLocked = true;
+      el.sonnetRegLockBadge.textContent = `Locked (${role.toUpperCase()})`;
+      el.sonnetRegLockBadge.className = 'step-status-pill completed';
+      el.sonnetStatRole.textContent = role.toUpperCase();
+      el.sonnetProofRole.textContent = role.toUpperCase();
+      el.sonnetProofEvidence.textContent = 'Sent. Awaiting referee receipt in room.';
+
+      showSonnetRegResult('success', `Signed registration dispatched to /r/${targetRoom}. HTTP ${res.status}: ${res.text.trim() || 'OK'}. First role is now locked.`);
+    } else {
+      showSonnetRegResult('error', `Registration rejected by server. HTTP ${res.status}: ${res.text}`);
+    }
+    renderSonnetReceipts();
+  } catch (err) {
+    showSonnetRegResult('error', `Transport error: ${err.message}`);
+  } finally {
+    el.sonnetBtnSendRegister.disabled = state.sonnet.roleLocked;
+    el.sonnetBtnSendRegister.textContent = 'Send Signed Registration';
+    state.sonnet.requestIdCounter++;
+    updateSonnetPreviews();
+  }
+}
+
+/**
+ * Handle Team Request Dispatch
+ */
+async function handleSonnetSendTeamRequest() {
+  if (!state.keypair) return;
+
+  const contestId = state.sonnet.contestId || SONNET_CONFIG.defaultContestId;
+  const gameId = (el.sonnetTeamGameId.value || '').trim();
+  const reqId = el.sonnetTeamReqId.value.trim() || `room-${Date.now()}`;
+
+  if (!validateIdentifier(gameId, 16)) {
+    showSonnetTeamResult('error', 'Game ID must be 1-16 characters matching /^[a-z0-9][a-z0-9_-]{0,15}$/');
+    return;
+  }
+
+  const payload = buildSonnetTeamRequestPayload(contestId, gameId, reqId);
+  const targetRoom = SONNET_CONFIG.rooms.discovery;
+
+  el.sonnetBtnSendTeamReq.disabled = true;
+  el.sonnetBtnSendTeamReq.textContent = 'Sending Signed Request...';
+
+  try {
+    const res = await dispatchSignedMessage(nacl, state.keypair, targetRoom, payload);
+
+    receiptEngine.recordAction({
+      requestId: reqId,
+      authenticatedDid: state.keypair.did,
+      room: targetRoom,
+      sequence: Date.now(),
+      httpStatus: res.status,
+      contestId: contestId,
+      gameId: gameId,
+      actionStatus: res.ok ? 'TRANSPORT SUCCESS' : 'TRANSPORT FAILED'
+    });
+
+    if (res.ok) {
+      state.sonnet.gameId = gameId;
+      el.sonnetStatGame.textContent = gameId;
+      el.sonnetAllocatedRoomDisplay.textContent = `d-${contestId}-team-${gameId} (Waiting for referee receipt)`;
+      el.sonnetAllocatedRoomDisplay.className = 'readout-text';
+      showSonnetTeamResult('success', `Team request dispatched to /r/${targetRoom}. Referee will assign room generation.`);
+    } else {
+      showSonnetTeamResult('error', `Request rejected by server. HTTP ${res.status}: ${res.text}`);
+    }
+    renderSonnetReceipts();
+  } catch (err) {
+    showSonnetTeamResult('error', `Transport error: ${err.message}`);
+  } finally {
+    el.sonnetBtnSendTeamReq.disabled = false;
+    el.sonnetBtnSendTeamReq.textContent = 'Send Signed Team Request';
+    state.sonnet.requestIdCounter++;
+    updateSonnetPreviews();
+  }
+}
+
+/**
+ * Handle Roster Consent Dispatch
+ */
+async function handleSonnetSignRoster() {
+  if (!state.keypair) return;
+
+  const contestId = state.sonnet.contestId || SONNET_CONFIG.defaultContestId;
+  const gameId = state.sonnet.gameId || 'alpha';
+  const poemRoom = state.sonnet.allocatedPoemRoom || `d-${contestId}-team-${gameId}`;
+  const rawMembers = el.sonnetRosterMembersInput.value.split('\n').map(s => s.trim()).filter(Boolean);
+
+  if (rawMembers.length < 4 || rawMembers.length > 8) {
+    showSonnetRosterResult('error', `Official Sonnet rules require between 4 and 8 writer DIDs. Current: ${rawMembers.length}`);
+    return;
+  }
+
+  const reqId = `roster-${Date.now()}`;
+  const payload = buildSonnetRosterPayload(gameId, poemRoom, state.sonnet.roomGeneration || 1, rawMembers, reqId);
+  const targetRoom = SONNET_CONFIG.rooms.discovery;
+
+  el.sonnetBtnSignRoster.disabled = true;
+  el.sonnetBtnSignRoster.textContent = 'Signing & Dispatching...';
+
+  try {
+    const res = await dispatchSignedMessage(nacl, state.keypair, targetRoom, payload);
+
+    receiptEngine.recordAction({
+      requestId: reqId,
+      authenticatedDid: state.keypair.did,
+      room: targetRoom,
+      sequence: Date.now(),
+      httpStatus: res.status,
+      contestId: contestId,
+      gameId: gameId,
+      actionStatus: res.ok ? 'TRANSPORT SUCCESS' : 'TRANSPORT FAILED'
+    });
+
+    if (res.ok) {
+      state.sonnet.rosterMembers = rawMembers;
+      showSonnetRosterResult('success', `Roster consent signed and dispatched. Every member must sign the identical roster.`);
+    } else {
+      showSonnetRosterResult('error', `Roster dispatch rejected. HTTP ${res.status}: ${res.text}`);
+    }
+    renderSonnetReceipts();
+  } catch (err) {
+    showSonnetRosterResult('error', `Transport error: ${err.message}`);
+  } finally {
+    el.sonnetBtnSignRoster.disabled = false;
+    el.sonnetBtnSignRoster.textContent = 'Sign Roster Consent';
+    state.sonnet.requestIdCounter++;
+    updateSonnetPreviews();
+  }
+}
+
+/**
+ * Handle Withdraw Team Dispatch
+ */
+async function handleSonnetWithdrawTeam() {
+  if (!state.keypair || !state.sonnet.gameId) return;
+
+  const contestId = state.sonnet.contestId || SONNET_CONFIG.defaultContestId;
+  const gameId = state.sonnet.gameId;
+  const poemRoom = state.sonnet.allocatedPoemRoom || `d-${contestId}-team-${gameId}`;
+  const reqId = `withdraw-${Date.now()}`;
+  const payload = buildSonnetWithdrawPayload(gameId, poemRoom, state.sonnet.roomGeneration || 1, reqId);
+  const targetRoom = SONNET_CONFIG.rooms.discovery;
+
+  try {
+    const res = await dispatchSignedMessage(nacl, state.keypair, targetRoom, payload);
+    if (res.ok) {
+      showSonnetRosterResult('info', `Withdrawal dispatched to referee.`);
+    }
+  } catch (err) {
+    showSonnetRosterResult('error', `Withdrawal failed: ${err.message}`);
+  }
+}
+
+/**
+ * Handle Candidate Word Local Advisory Check
+ */
+function handleSonnetCheckWord() {
+  const word = (el.sonnetWordInput.value || '').trim();
+  if (!word) {
+    el.sonnetWordCheckResult.style.display = 'none';
+    return;
+  }
+
+  const activeDid = state.keypair ? state.keypair.did : '';
+  const validation = validateCandidateWord(activeDid, word);
+
+  el.sonnetWordCheckResult.style.display = 'block';
+  el.sonnetWordCheckResult.innerHTML = `
+    <div class="sonnet-proof-header">Advisory Mechanical Check for "${escapeHtml(word)}"</div>
+    <div class="sonnet-proof-row">
+      <span>DID Letter Compatibility:</span>
+      <span class="${validation.didCompatible ? 'badge-accepted' : 'badge-rejected'}">${validation.didCompatible ? 'Compatible (All letters in DID)' : 'Missing letters: ' + validation.missingLetters.join(', ')}</span>
+    </div>
+    <div class="sonnet-proof-row">
+      <span>Frozen CMUdict Syllables:</span>
+      <span class="${validation.inDictionary ? 'badge-accepted' : 'badge-rejected'}">${validation.inDictionary ? validation.syllables + ' syllable(s)' : 'Not in frozen dictionary'}</span>
+    </div>
+    <div class="sonnet-proof-row">
+      <span>Contest Eligibility:</span>
+      <span class="${validation.valid ? 'badge-accepted' : 'badge-rejected'}">${validation.valid ? 'Valid candidate word' : 'Does not satisfy local rules'}</span>
+    </div>
+  `;
+}
+
+/**
+ * Handle Word Proposal Dispatch (Authoritative State Enforced)
+ */
+async function handleSonnetSendWordProposal() {
+  if (!state.keypair) return;
+
+  const contestId = state.sonnet.contestId || SONNET_CONFIG.defaultContestId;
+  const gameId = state.sonnet.gameId || 'alpha';
+  const poemRoom = state.sonnet.allocatedPoemRoom || `d-${contestId}-team-${gameId}`;
+  const word = (el.sonnetWordInput.value || '').trim();
+
+  if (!word) {
+    showSonnetWordResult('error', 'Enter a candidate word first.');
+    return;
+  }
+
+  // Consecutive turn check
+  if (state.sonnet.lastContributor && state.sonnet.lastContributor.toLowerCase() === state.keypair.did.toLowerCase()) {
+    showSonnetWordResult('error', 'Consecutive turn prohibited: You were the last accepted contributor.');
+    return;
+  }
+
+  const reqId = `word-${Date.now()}`;
+  const payload = buildSonnetWordPayload(
+    contestId,
+    gameId,
+    state.sonnet.roomGeneration || 1,
+    state.sonnet.currentVersion || 0,
+    state.sonnet.previousStateHash,
+    word,
+    reqId
+  );
+
+  el.sonnetBtnSendWord.disabled = true;
+  el.sonnetBtnSendWord.textContent = 'Sending Signed Word...';
+
+  try {
+    const res = await dispatchSignedMessage(nacl, state.keypair, poemRoom, payload);
+
+    receiptEngine.recordAction({
+      requestId: reqId,
+      authenticatedDid: state.keypair.did,
+      room: poemRoom,
+      sequence: Date.now(),
+      httpStatus: res.status,
+      contestId: contestId,
+      gameId: gameId,
+      roomGeneration: state.sonnet.roomGeneration || 1,
+      version: state.sonnet.currentVersion || 0,
+      stateHash: state.sonnet.previousStateHash,
+      actionStatus: res.ok ? 'TRANSPORT SUCCESS' : 'TRANSPORT FAILED'
+    });
+
+    if (res.ok) {
+      showSonnetWordResult('success', `Word proposal "${word}" dispatched to /r/${poemRoom}. Transport success. Waiting for referee acceptance receipt.`);
+      el.sonnetWordInput.value = '';
+    } else {
+      showSonnetWordResult('error', `Word proposal rejected by server. HTTP ${res.status}: ${res.text}`);
+    }
+    renderSonnetReceipts();
+  } catch (err) {
+    showSonnetWordResult('error', `Transport error: ${err.message}`);
+  } finally {
+    el.sonnetBtnSendWord.disabled = false;
+    el.sonnetBtnSendWord.textContent = 'Send Signed Word Proposal';
+    state.sonnet.requestIdCounter++;
+    updateSonnetPreviews();
+  }
+}
+
+/**
+ * Handle Submission Dispatch
+ */
+async function handleSonnetSendSubmission() {
+  if (!state.keypair) return;
+
+  const contestId = state.sonnet.contestId || SONNET_CONFIG.defaultContestId;
+  const gameId = state.sonnet.gameId || 'alpha';
+  const poemRoom = state.sonnet.allocatedPoemRoom || `d-${contestId}-team-${gameId}`;
+  const xPosts = el.sonnetXPostIds.value.split(',').map(s => s.trim()).filter(Boolean);
+
+  if (state.sonnet.words.length < 14) {
+    showSonnetSubmitResult('error', 'Poem must be frozen and complete before submission.');
+    return;
+  }
+
+  const canonical = formatCanonicalPoem(state.sonnet.words);
+  const poemSha = await calculatePoemSha256(canonical);
+  const reqId = `sub-${Date.now()}`;
+
+  const payload = buildSonnetSubmitPayload(
+    contestId,
+    gameId,
+    poemRoom,
+    state.sonnet.roomGeneration || 1,
+    state.sonnet.currentVersion,
+    poemSha,
+    xPosts,
+    reqId
+  );
+
+  const targetRoom = SONNET_CONFIG.rooms.submissions;
+
+  el.sonnetBtnSendSubmission.disabled = true;
+  el.sonnetBtnSendSubmission.textContent = 'Sending Signed Submission...';
+
+  try {
+    const res = await dispatchSignedMessage(nacl, state.keypair, targetRoom, payload);
+
+    receiptEngine.recordAction({
+      requestId: reqId,
+      authenticatedDid: state.keypair.did,
+      room: targetRoom,
+      sequence: Date.now(),
+      httpStatus: res.status,
+      contestId: contestId,
+      gameId: gameId,
+      stateHash: poemSha,
+      actionStatus: res.ok ? 'TRANSPORT SUCCESS' : 'TRANSPORT FAILED'
+    });
+
+    if (res.ok) {
+      showSonnetSubmitResult('success', `Submission dispatched to /r/${targetRoom}. Transport success.`);
+    } else {
+      showSonnetSubmitResult('error', `Submission rejected. HTTP ${res.status}: ${res.text}`);
+    }
+    renderSonnetReceipts();
+  } catch (err) {
+    showSonnetSubmitResult('error', `Transport error: ${err.message}`);
+  } finally {
+    el.sonnetBtnSendSubmission.disabled = false;
+    el.sonnetBtnSendSubmission.textContent = 'Send Signed Submission';
+    state.sonnet.requestIdCounter++;
+    updateSonnetPreviews();
+  }
+}
+
+/**
+ * Handle Ballot Dispatch
+ */
+async function handleSonnetSendBallot() {
+  if (!state.keypair) return;
+
+  if (state.sonnet.role === 'writer' || state.sonnet.role === 'organizer') {
+    showSonnetBallotResult('error', 'Writers and Organizers are prohibited from casting ballots under contest rules.');
+    return;
+  }
+
+  const contestId = state.sonnet.contestId || SONNET_CONFIG.defaultContestId;
+  const entryId = el.sonnetBallotEntryId.value.trim();
+  const reqId = el.sonnetBallotReqId.value.trim() || `ballot-${Date.now()}`;
+
+  if (!entryId) {
+    showSonnetBallotResult('error', 'Enter the target submitted entry ID.');
+    return;
+  }
+
+  const payload = buildSonnetBallotPayload(contestId, state.keypair.did, entryId, reqId);
+  const targetRoom = SONNET_CONFIG.rooms.votes;
+
+  el.sonnetBtnSendBallot.disabled = true;
+  el.sonnetBtnSendBallot.textContent = 'Casting Signed Ballot...';
+
+  try {
+    const res = await dispatchSignedMessage(nacl, state.keypair, targetRoom, payload);
+
+    receiptEngine.recordAction({
+      requestId: reqId,
+      authenticatedDid: state.keypair.did,
+      room: targetRoom,
+      sequence: Date.now(),
+      httpStatus: res.status,
+      contestId: contestId,
+      actionStatus: res.ok ? 'TRANSPORT SUCCESS' : 'TRANSPORT FAILED'
+    });
+
+    if (res.ok) {
+      showSonnetBallotResult('success', `Ballot for "${entryId}" cast to /r/${targetRoom}. Voters may replace ballots until deadline.`);
+    } else {
+      showSonnetBallotResult('error', `Ballot rejected. HTTP ${res.status}: ${res.text}`);
+    }
+    renderSonnetReceipts();
+  } catch (err) {
+    showSonnetBallotResult('error', `Transport error: ${err.message}`);
+  } finally {
+    el.sonnetBtnSendBallot.disabled = false;
+    el.sonnetBtnSendBallot.textContent = 'Cast Signed Ballot';
+    state.sonnet.requestIdCounter++;
+    updateSonnetPreviews();
+  }
+}
+
+/**
+ * Handle Prize Claim Dispatch
+ */
+async function handleSonnetSendClaim() {
+  if (!state.keypair) return;
+
+  const contestId = state.sonnet.contestId || SONNET_CONFIG.defaultContestId;
+  const gameId = state.sonnet.gameId || 'alpha';
+  const payoutAddress = el.sonnetClaimDestination.value.trim();
+  const reqId = `claim-${Date.now()}`;
+
+  if (!payoutAddress) {
+    showSonnetClaimResult('error', 'Enter a payout destination address.');
+    return;
+  }
+
+  const payload = buildSonnetClaimPayload(contestId, gameId, payoutAddress, reqId);
+  const targetRoom = SONNET_CONFIG.rooms.registration;
+
+  el.sonnetBtnSendClaim.disabled = true;
+  el.sonnetBtnSendClaim.textContent = 'Sending Claim...';
+
+  try {
+    const res = await dispatchSignedMessage(nacl, state.keypair, targetRoom, payload);
+    if (res.ok) {
+      showSonnetClaimResult('success', `Prize claim dispatched to /r/${targetRoom}.`);
+    } else {
+      showSonnetClaimResult('error', `Claim rejected. HTTP ${res.status}: ${res.text}`);
+    }
+  } catch (err) {
+    showSonnetClaimResult('error', `Transport error: ${err.message}`);
+  } finally {
+    el.sonnetBtnSendClaim.disabled = false;
+    el.sonnetBtnSendClaim.textContent = 'Send Signed Prize Claim';
+  }
+}
+
+/**
+ * Render Sonnet 14-line meter cards
+ */
+function renderSonnetPoemLines() {
+  if (!el.sonnetPoemLinesList) return;
+
+  const poemValidation = validatePoemSyllables(state.sonnet.words);
+  let html = '';
+
+  for (let i = 0; i < 14; i++) {
+    const lineData = poemValidation.lines[i] || { syllables: 0, words: [], valid: true };
+    const meterPercent = Math.min(100, Math.round((lineData.syllables / 10) * 100));
+    const isStanzaBreak = (i === 3 || i === 7 || i === 11);
+
+    html += `
+      <div class="meter-line-item ${isStanzaBreak ? 'stanza-break' : ''}">
+        <span class="meter-line-num">Line ${i + 1}</span>
+        <div class="meter-bar-container">
+          <div class="meter-bar-fill ${lineData.syllables > 10 ? 'overflow' : ''}" style="width: ${meterPercent}%;"></div>
+        </div>
+        <span class="meter-line-val ${lineData.syllables === 10 ? 'complete' : ''}">${lineData.syllables} / 10</span>
+      </div>
+    `;
+  }
+
+  el.sonnetPoemLinesList.innerHTML = html;
+  el.sonnetMeterSummary.textContent = `${poemValidation.totalSyllables} / 140 Syllables`;
+  el.sonnetStatSyllables.textContent = `${poemValidation.totalSyllables} / 140`;
+
+  const canonical = formatCanonicalPoem(state.sonnet.words);
+  el.sonnetCanonicalTextArea.value = canonical || 'Waiting for referee accepted words...';
+
+  if (poemValidation.valid) {
+    calculatePoemSha256(canonical).then((sha) => {
+      state.sonnet.poemSha256 = sha;
+      el.sonnetPoemShaDisplay.textContent = sha;
+      el.sonnetPoemShaDisplay.className = 'readout-text';
+      el.sonnetBtnCopyPoem.disabled = false;
+      el.sonnetBtnCopyAttribution.disabled = false;
+      el.sonnetPoemStateBadge.textContent = 'Poem Complete';
+      el.sonnetPoemStateBadge.className = 'step-status-pill completed';
+    });
+  } else {
+    el.sonnetPoemShaDisplay.textContent = 'Poem not yet frozen (requires 14 lines x 10 syllables)';
+    el.sonnetPoemShaDisplay.className = 'readout-text empty';
+    el.sonnetBtnCopyPoem.disabled = true;
+    el.sonnetBtnCopyAttribution.disabled = true;
+    el.sonnetPoemStateBadge.textContent = state.sonnet.words.length > 0 ? 'In Progress' : 'Waiting for Referee';
+    el.sonnetPoemStateBadge.className = 'step-status-pill';
+  }
+}
+
+/**
+ * Render Session Receipts in the Referee Inspector
+ */
+function renderSonnetReceipts() {
+  if (!el.sonnetReceiptsList) return;
+
+  const records = receiptEngine.getAllRecords();
+  if (records.length === 0) {
+    el.sonnetReceiptsList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-title">No receipts recorded yet</div>
+        <div class="empty-desc">All protocol actions will record their transport responses and signed referee receipts here.</div>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  records.slice(-20).reverse().forEach((r) => {
+    const isTransportSuccess = r.actionStatus === 'TRANSPORT SUCCESS';
+    const isRefereeAccepted = r.refereeAccepted;
+    const badgeClass = isRefereeAccepted ? 'badge-accepted' : isTransportSuccess ? 'badge-sent' : 'badge-rejected';
+    const statusText = isRefereeAccepted ? 'REFEREE ACCEPTED' : isTransportSuccess ? 'TRANSPORT SUCCESS' : 'FAILED';
+
+    html += `
+      <div class="receipt-item">
+        <div class="receipt-meta">
+          <span class="mono-xs">${escapeHtml(r.requestId || 'req')}</span>
+          <span class="receipt-badge ${badgeClass}">${statusText}</span>
+        </div>
+        <div class="mono-xs" style="color: var(--text-dim); margin-top: 2px;">
+          Room: /r/${escapeHtml(r.room || '')} &bull; HTTP ${r.httpStatus || 200} &bull; ${new Date(r.timestamp).toLocaleTimeString()}
+        </div>
+        ${r.stateHash ? `<div class="mono-xs" style="color: var(--text-dim); margin-top: 2px; word-break: break-all;">Hash: ${escapeHtml(r.stateHash)}</div>` : ''}
+      </div>
+    `;
+  });
+
+  el.sonnetReceiptsList.innerHTML = html;
+}
+
+function showSonnetRegResult(type, message) {
+  el.sonnetRegResult.className = `result-callout ${type}`;
+  el.sonnetRegResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
+  el.sonnetRegResult.style.display = 'flex';
+}
+
+function showSonnetTeamResult(type, message) {
+  el.sonnetTeamReqResult.className = `result-callout ${type}`;
+  el.sonnetTeamReqResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
+  el.sonnetTeamReqResult.style.display = 'flex';
+}
+
+function showSonnetRosterResult(type, message) {
+  el.sonnetRosterResult.className = `result-callout ${type}`;
+  el.sonnetRosterResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
+  el.sonnetRosterResult.style.display = 'flex';
+}
+
+function showSonnetWordResult(type, message) {
+  el.sonnetWordResult.className = `result-callout ${type}`;
+  el.sonnetWordResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
+  el.sonnetWordResult.style.display = 'flex';
+}
+
+function showSonnetSubmitResult(type, message) {
+  el.sonnetSubmitResult.className = `result-callout ${type}`;
+  el.sonnetSubmitResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
+  el.sonnetSubmitResult.style.display = 'flex';
+}
+
+function showSonnetBallotResult(type, message) {
+  el.sonnetBallotResult.className = `result-callout ${type}`;
+  el.sonnetBallotResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
+  el.sonnetBallotResult.style.display = 'flex';
+}
+
+function showSonnetClaimResult(type, message) {
+  el.sonnetClaimResult.className = `result-callout ${type}`;
+  el.sonnetClaimResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
+  el.sonnetClaimResult.style.display = 'flex';
 }

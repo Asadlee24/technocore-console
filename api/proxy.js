@@ -1,7 +1,8 @@
 /**
- * Vercel Serverless Proxy for Technocore Protocol
+ * Vercel Serverless Proxy for Technocore Protocol V4
  * Secure server-to-server forwarder for technocore.chat.
- * Completely eliminates third-party CORS proxy dependencies.
+ * Forwards GET and POST requests including JSON bodies, Content-Type, and upstream responses.
+ * Strictly verifies target URL and ensures zero client credential leakage.
  */
 
 export default async function handler(req, res) {
@@ -40,19 +41,39 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Target URL must start with https://technocore.chat/' });
     }
 
+    // Forward headers
+    const fetchHeaders = {
+      'User-Agent': 'TechnocoreConsole/4.0 (Stateless Proxy)',
+      'Accept': 'text/plain, application/json, */*'
+    };
+
+    let fetchBody = undefined;
+    if (req.method === 'POST') {
+      const contentType = req.headers['content-type'] || 'application/json';
+      fetchHeaders['Content-Type'] = contentType;
+
+      if (req.body !== undefined && req.body !== null) {
+        fetchBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      }
+    }
+
     const response = await fetch(targetUrl, {
       method: req.method,
-      headers: {
-        'User-Agent': 'TechnocoreConsole/2.0 (Self-Hosted Proxy)',
-        'Accept': 'text/plain, application/json, */*'
-      }
+      headers: fetchHeaders,
+      body: fetchBody
     });
 
-    const body = await response.text();
+    const responseText = await response.text();
     const contentType = response.headers.get('content-type') || 'text/plain; charset=utf-8';
 
+    // Pass through generation headers if present
+    const roomGen = response.headers.get('x-room-generation');
+    if (roomGen) {
+      res.setHeader('X-Room-Generation', roomGen);
+    }
+
     res.setHeader('Content-Type', contentType);
-    return res.status(response.status).send(body);
+    return res.status(response.status).send(responseText);
   } catch (error) {
     return res.status(502).json({
       error: 'Proxy gateway error connecting to technocore.chat',

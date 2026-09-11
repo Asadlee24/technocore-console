@@ -1357,3 +1357,456 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-focus);
 }
+
+/* ==================================================== */
+/* SONNET CHALLENGE OPERATOR STYLES (V4)                */
+/* ==================================================== */
+
+.sonnet-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.sonnet-header-card {
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-panel);
+}
+
+.sonnet-header-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.sonnet-tag-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.sonnet-tag-pill {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-inset);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.sonnet-tag-pill.active {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.sonnet-title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.sonnet-subtitle {
+  font-size: 0.825rem;
+  color: var(--text-secondary);
+  max-width: 680px;
+  line-height: 1.5;
+}
+
+.sonnet-session-summary {
+  display: flex;
+  gap: 10px;
+  background: var(--surface-panel-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
+
+.sonnet-stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 65px;
+}
+
+.sonnet-stat-val {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+}
+
+.sonnet-stat-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.sonnet-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.sonnet-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sonnet-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 14px;
+  background: var(--surface-inset);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.sonnet-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sonnet-info-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sonnet-info-val {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.sonnet-info-val.mono-xs {
+  font-size: 0.72rem;
+  color: var(--accent-cyan);
+}
+
+.sonnet-proof-box {
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sonnet-proof-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+
+.sonnet-proof-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.sonnet-proof-val {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.sonnet-sub-panel {
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+}
+
+.sonnet-sub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.advisory-badge {
+  font-size: 0.65rem;
+  color: var(--accent-amber);
+  background: var(--accent-amber-dim);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.sonnet-check-readout {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+}
+
+.sonnet-check-readout.valid {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: var(--accent-green-dim);
+  color: var(--text-primary);
+}
+
+.sonnet-check-readout.invalid {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: var(--accent-red-dim);
+  color: var(--text-primary);
+}
+
+.code-preview-box {
+  background: var(--surface-input);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 8px 10px;
+  color: var(--accent-cyan);
+  word-break: break-all;
+  white-space: pre-wrap;
+  user-select: all;
+}
+
+/* Poem Syllable Meter Card */
+.sonnet-poem-meter-card {
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+
+.meter-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.sonnet-lines-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sonnet-line-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+}
+
+.sonnet-line-row.active {
+  border-color: var(--accent-cyan);
+}
+
+.line-num {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  width: 55px;
+}
+
+.line-words {
+  flex: 1;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-words.empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.line-syllables-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  font-weight: 600;
+}
+
+.line-syllables-badge.full {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.line-syllables-badge.partial {
+  background: var(--accent-amber-dim);
+  color: var(--accent-amber);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.line-syllables-badge.zero {
+  background: var(--surface-inset);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.sonnet-stanza-separator {
+  height: 1px;
+  background: var(--border-strong);
+  margin: 4px 0;
+  opacity: 0.6;
+}
+
+/* Status Badges */
+.badge-status {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  letter-spacing: 0.04em;
+}
+
+.badge-status.badge-local {
+  background: var(--accent-cyan-dim);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(92, 225, 230, 0.3);
+}
+
+.badge-status.badge-signed {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.badge-status.badge-sent {
+  background: var(--accent-amber-dim);
+  color: var(--accent-amber);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-status.badge-accepted {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge-status.badge-rejected {
+  background: var(--accent-red-dim);
+  color: var(--accent-red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-status.badge-stale {
+  background: rgba(249, 115, 22, 0.15);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.badge-status.badge-eligible {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge-status.badge-pending {
+  background: var(--accent-amber-dim);
+  color: var(--accent-amber);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Receipts List */
+.sonnet-receipts-list {
+  max-height: 480px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.receipt-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.receipt-item:hover {
+  background: var(--surface-inset);
+}
+
+.receipt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.receipt-title {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.receipt-meta {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.receipt-details {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--accent-cyan);
+  background: var(--surface-panel-alt);
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  word-break: break-all;
+}
+
+/* Responsive Overrides */
+@media (max-width: 1024px) {
+  .sonnet-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

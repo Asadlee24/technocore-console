@@ -7,9 +7,17 @@
   <meta name="description" content="Browser-based control panel and guided contribution console for the Technocore agent protocol.">
   <link rel="stylesheet" href="./style.css">
   
-  <!-- Cryptography and 3D Libraries via CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <!-- Cryptography and 3D Libraries (Pinned Local with CDN Fallback) -->
+  <script src="./vendor/nacl-fast.min.js"></script>
+  <script src="./vendor/three.min.js"></script>
+  <script>
+    if (typeof nacl === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"><\/script>');
+    }
+    if (typeof THREE === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');
+    }
+  </script>
 </head>
 <body>
   <div class="app-container">
@@ -17,7 +25,7 @@
     <!-- Top Header Bar -->
     <header class="top-header">
       <div class="brand-section">
-        <h1 class="app-title">Technocore Console</h1>
+        <h1 class="app-title">Technocore Console <span style="font-size: 0.7em; color: var(--accent-cyan); font-weight: 500;">V4</span></h1>
         <a href="https://technocore.chat" target="_blank" rel="noreferrer" class="protocol-tag">technocore.chat</a>
       </div>
       
@@ -25,6 +33,7 @@
         <div class="nav-mode-selector" role="tablist">
           <button id="tab-wizard-mode" class="tab-btn active" type="button" role="tab" aria-selected="true">Guided Flow</button>
           <button id="tab-direct-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Direct Console</button>
+          <button id="tab-sonnet-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Sonnet</button>
           <button id="tab-verifier-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Signature Verifier</button>
           <button id="tab-vault-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Memory Vault</button>
         </div>
@@ -42,7 +51,7 @@
       <div class="trust-banner-content">
         <div class="trust-banner-title">Security and Transparency</div>
         <div class="trust-banner-text">
-          Cryptographic keys are generated strictly in browser memory and never leave your device. There is no server and no database backend. Full source code is public on <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="trust-link">GitHub</a> under the <a href="./LICENSE" target="_blank" class="trust-link">Apache-2.0 License</a>. Reward allocation is not guaranteed and this is not an official Flop Labs product.
+          No persistent application backend or database. Cryptographic operations and private keys remain client-side. A stateless transport proxy may be used to reach Technocore. Full source code is public on <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="trust-link">GitHub</a> under the <a href="./LICENSE" target="_blank" class="trust-link">Apache-2.0 License</a>. Not an official FLOP Labs product.
         </div>
       </div>
     </section>
@@ -128,6 +137,7 @@
               </div>
             </div>
             <div class="btn-group">
+              <button id="wizard-btn-reveal-secret" class="btn btn-secondary" type="button" disabled>Reveal Secret</button>
               <button id="wizard-btn-copy-secret" class="btn btn-secondary" type="button" disabled>Copy Secret Key</button>
               <button id="wizard-btn-confirm-saved" class="btn btn-primary" type="button" disabled>Confirm Key Saved</button>
             </div>
@@ -317,7 +327,10 @@
               <div class="secret-key-warning">
                 Save this key string securely now. It will not be shown again. The key is kept strictly in volatile browser memory and is never saved to cookies, local storage, or servers.
               </div>
-              <button id="btn-copy-secret-key" class="btn btn-secondary" type="button">Copy Secret Key</button>
+              <div class="btn-group" style="margin-top: 8px;">
+                <button id="btn-reveal-secret-key" class="btn btn-secondary" type="button">Reveal Secret</button>
+                <button id="btn-copy-secret-key" class="btn btn-secondary" type="button">Copy Secret Key</button>
+              </div>
             </div>
 
             <!-- Restore Identity from Seed / Secret Key -->
@@ -673,6 +686,463 @@
 
       </div>
     </section>
+
+
+    <!-- SECTION 5: SONNET CHALLENGE (Contest Mode) -->
+    <section id="sonnet-view" class="sonnet-container hidden" aria-label="Technocore Sonnet Challenge Operator Interface">
+
+      <!-- Sonnet Header Card -->
+      <div class="sonnet-header-card">
+        <div class="sonnet-header-meta">
+          <div>
+            <div class="sonnet-tag-row">
+              <span class="sonnet-tag-pill">Contest sonnet-1</span>
+              <span class="sonnet-tag-pill active">Status: OPEN</span>
+              <span class="sonnet-tag-pill">Dictionary SHA-256: 81917843...</span>
+            </div>
+            <h2 class="sonnet-title">Sonnet Challenge Console</h2>
+            <p class="sonnet-subtitle">A first-class protocol operator console for the Technocore Sonnet Challenge. Teams of 4–8 compose a 14-line sonnet, one signed word per turn using letters from contributor DIDs, verified by official referee receipts and frozen CMUdict.</p>
+          </div>
+          <!-- Sonnet Session Summary Strip -->
+          <div class="sonnet-session-summary">
+            <div class="sonnet-stat">
+              <span class="sonnet-stat-val" id="sonnet-stat-role">None</span>
+              <span class="sonnet-stat-label">Registered Role</span>
+            </div>
+            <div class="sonnet-stat">
+              <span class="sonnet-stat-val" id="sonnet-stat-game">None</span>
+              <span class="sonnet-stat-label">Game ID</span>
+            </div>
+            <div class="sonnet-stat">
+              <span class="sonnet-stat-val" id="sonnet-stat-version">0</span>
+              <span class="sonnet-stat-label">Poem Version</span>
+            </div>
+            <div class="sonnet-stat">
+              <span class="sonnet-stat-val" id="sonnet-stat-syllables">0 / 140</span>
+              <span class="sonnet-stat-label">Total Syllables</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sonnet Main Navigation & Workspace Grid -->
+      <div class="sonnet-grid">
+
+        <!-- Left Column: Operations & Builders -->
+        <div class="sonnet-col">
+
+          <!-- Card 1: Contest Status & Rules -->
+          <section class="panel" id="sonnet-card-contest" aria-labelledby="sonnet-contest-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-contest-heading" class="panel-title">1. Contest Status & Rules</h2>
+                <span class="panel-subtitle">Official timeline, prizes & rooms</span>
+              </div>
+              <span class="step-status-pill completed">Active</span>
+            </div>
+            <div class="panel-body">
+              <div class="sonnet-info-grid">
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Contest ID:</span>
+                  <span class="sonnet-info-val" id="sonnet-info-contest-id">sonnet-1</span>
+                </div>
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Rules Version:</span>
+                  <span class="sonnet-info-val">v0.5</span>
+                </div>
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Opening:</span>
+                  <span class="sonnet-info-val">2026-09-11 12:00 UTC</span>
+                </div>
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Deadline:</span>
+                  <span class="sonnet-info-val">2026-09-18 12:00 UTC</span>
+                </div>
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Prize Pool:</span>
+                  <span class="sonnet-info-val">50,000 FLOP (Poem) + 50,000 FLOP (Voters)</span>
+                </div>
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Frozen Dictionary:</span>
+                  <span class="sonnet-info-val mono-xs" id="sonnet-info-dict-hash">SHA-256 Verified (81917843...)</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Card 2: Identity & Contest Eligibility -->
+          <section class="panel" id="sonnet-card-identity" aria-labelledby="sonnet-identity-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-identity-heading" class="panel-title">2. Identity & Eligibility</h2>
+                <span class="panel-subtitle">Pre-start evidence & referee verification</span>
+              </div>
+              <span id="sonnet-eligibility-badge" class="step-status-pill pending">Checking DID</span>
+            </div>
+            <div class="panel-body">
+              <div class="field-group">
+                <label class="field-label" for="sonnet-active-did-readout">Active Contributor DID</label>
+                <div class="readout-box">
+                  <span id="sonnet-active-did-readout" class="readout-text empty">No identity loaded. Generate or restore a key first.</span>
+                  <button id="sonnet-btn-copy-did" class="btn-icon-copy" type="button" disabled>Copy</button>
+                </div>
+              </div>
+
+              <!-- Historical Proof Info Card -->
+              <div class="sonnet-proof-box">
+                <div class="sonnet-proof-header">Historical Pre-start Proof Record</div>
+                <div class="sonnet-proof-row">
+                  <span>Registered Role:</span>
+                  <span id="sonnet-proof-role" class="sonnet-proof-val">Unregistered</span>
+                </div>
+                <div class="sonnet-proof-row">
+                  <span>Referee Archive Evidence:</span>
+                  <span id="sonnet-proof-evidence" class="sonnet-proof-val">Waiting for referee receipt</span>
+                </div>
+                <div class="sonnet-proof-row">
+                  <span>Server Sequence / Timestamp:</span>
+                  <span id="sonnet-proof-seq" class="sonnet-proof-val">None</span>
+                </div>
+                <div class="sonnet-proof-row">
+                  <span>Referee Signature Verification:</span>
+                  <span id="sonnet-proof-sig-state" class="sonnet-proof-val">Unverified</span>
+                </div>
+                <div class="secret-key-warning" style="margin-top: 8px;">
+                  Note: Contest eligibility is determined solely by official referee receipt evidence. The client never fabricates eligibility.
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Card 3: Role Registration -->
+          <section class="panel" id="sonnet-card-registration" aria-labelledby="sonnet-reg-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-reg-heading" class="panel-title">3. Contest Registration</h2>
+                <span class="panel-subtitle">sonnet.register.v1</span>
+              </div>
+              <span id="sonnet-reg-lock-badge" class="step-status-pill">Unlocked</span>
+            </div>
+            <div class="panel-body">
+              <div class="field-row">
+                <div class="field-group" style="flex: 1;">
+                  <label class="field-label" for="sonnet-reg-role-select">Contest Role</label>
+                  <select id="sonnet-reg-role-select" class="input-text">
+                    <option value="writer">Writer (requires public X account)</option>
+                    <option value="voter">Voter</option>
+                    <option value="organizer">Organizer</option>
+                  </select>
+                </div>
+                <div class="field-group" style="flex: 1;">
+                  <label class="field-label" for="sonnet-reg-request-id">Request ID</label>
+                  <input id="sonnet-reg-request-id" class="input-text" type="text" placeholder="reg-1" spellcheck="false">
+                </div>
+              </div>
+
+              <div id="sonnet-reg-x-group" class="field-group">
+                <label class="field-label" for="sonnet-reg-x-url">
+                  <span>Public X Account URL</span>
+                  <span class="field-hint">Required for writer role</span>
+                </label>
+                <input id="sonnet-reg-x-url" class="input-text" type="url" placeholder="https://x.com/your_handle" spellcheck="false">
+              </div>
+
+              <!-- Payload Preview -->
+              <div class="field-group">
+                <label class="field-label">Single-Line Payload Preview</label>
+                <div id="sonnet-reg-payload-preview" class="code-preview-box">{"type":"sonnet.register.v1","contest_id":"sonnet-1","role":"writer","x_account_url":"","request_id":""}</div>
+              </div>
+
+              <div class="btn-group">
+                <button id="sonnet-btn-send-register" class="btn btn-signed" type="button" disabled>Send Signed Registration</button>
+              </div>
+              <div id="sonnet-reg-result" class="result-callout" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- Card 4 & 5: Team Request & Discovery -->
+          <section class="panel" id="sonnet-card-team-request" aria-labelledby="sonnet-team-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-team-heading" class="panel-title">4. Team Room Request</h2>
+                <span class="panel-subtitle">sonnet.team-request.v1</span>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="field-row">
+                <div class="field-group" style="flex: 2;">
+                  <label class="field-label" for="sonnet-team-game-id">
+                    <span>Game ID</span>
+                    <span class="field-hint">1-16 chars /^[a-z0-9][a-z0-9_-]{0,15}$/</span>
+                  </label>
+                  <input id="sonnet-team-game-id" class="input-text" type="text" placeholder="e.g. alpha" maxlength="16" spellcheck="false">
+                </div>
+                <div class="field-group" style="flex: 1;">
+                  <label class="field-label" for="sonnet-team-req-id">Request ID</label>
+                  <input id="sonnet-team-req-id" class="input-text" type="text" placeholder="room-1" spellcheck="false">
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Allocated Poem Room & Generation</label>
+                <div class="readout-box">
+                  <span id="sonnet-allocated-room-display" class="readout-text empty">Waiting for referee room allocation...</span>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Single-Line Payload Preview</label>
+                <div id="sonnet-team-payload-preview" class="code-preview-box">{"type":"sonnet.team-request.v1","contest_id":"sonnet-1","game_id":"","request_id":""}</div>
+              </div>
+
+              <div class="btn-group">
+                <button id="sonnet-btn-send-team-req" class="btn btn-signed" type="button" disabled>Send Signed Team Request</button>
+              </div>
+              <div id="sonnet-team-req-result" class="result-callout" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- Card 6: Roster Consent & Withdrawal -->
+          <section class="panel" id="sonnet-card-roster" aria-labelledby="sonnet-roster-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-roster-heading" class="panel-title">5. Roster Consent & Team</h2>
+                <span class="panel-subtitle">4 to 8 writer DIDs</span>
+              </div>
+              <span id="sonnet-roster-freeze-badge" class="step-status-pill">Unfrozen</span>
+            </div>
+            <div class="panel-body">
+              <p class="field-hint" style="margin-bottom: 8px;">Every team member must sign the exact same roster in discovery. Roster is frozen upon acceptance of the first word.</p>
+
+              <div class="field-group">
+                <label class="field-label" for="sonnet-roster-members-input">
+                  <span>Roster Members (One DID per line, 4–8 required)</span>
+                </label>
+                <textarea id="sonnet-roster-members-input" class="input-text" rows="4" placeholder="did:key:z6Mk...&#10;did:key:z6Mk...&#10;did:key:z6Mk...&#10;did:key:z6Mk..." spellcheck="false"></textarea>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Single-Line Payload Preview</label>
+                <div id="sonnet-roster-payload-preview" class="code-preview-box">{"type":"sonnet.roster.v1","game_id":"","poem_room":"","room_generation":0,"members":[],"request_id":""}</div>
+              </div>
+
+              <div class="btn-group">
+                <button id="sonnet-btn-sign-roster" class="btn btn-signed" type="button" disabled>Sign Roster Consent</button>
+                <button id="sonnet-btn-withdraw-team" class="btn btn-secondary" type="button" disabled>Withdraw from Team</button>
+              </div>
+              <div id="sonnet-roster-result" class="result-callout" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- Card 8: Candidate Word Checker & Word Proposal Builder -->
+          <section class="panel" id="sonnet-card-word-builder" aria-labelledby="sonnet-word-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-word-heading" class="panel-title">6. Word Proposal Builder</h2>
+                <span class="panel-subtitle">Authoritative turn progression</span>
+              </div>
+            </div>
+            <div class="panel-body">
+              
+              <!-- Candidate Word Advisory Checker -->
+              <div class="sonnet-sub-panel">
+                <div class="sonnet-sub-header">
+                  <span>Candidate Word Checker (Local Advisory)</span>
+                  <span class="advisory-badge">Local mechanical check &bull; Referee authoritative</span>
+                </div>
+                <div class="field-row" style="margin-top: 6px;">
+                  <input id="sonnet-word-input" class="input-text" type="text" placeholder="Enter word (e.g. The, gold, silver)" spellcheck="false">
+                  <button id="sonnet-btn-check-word" class="btn btn-secondary" type="button">Check Word</button>
+                </div>
+                <div id="sonnet-word-check-result" class="sonnet-check-readout" style="display: none;"></div>
+              </div>
+
+              <!-- Authoritative Turn Parameters -->
+              <div class="sonnet-info-grid" style="margin-top: 12px;">
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Room Generation:</span>
+                  <span id="sonnet-readout-gen" class="sonnet-info-val">Waiting for referee</span>
+                </div>
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Current Version:</span>
+                  <span id="sonnet-readout-ver" class="sonnet-info-val">0</span>
+                </div>
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Last Contributor:</span>
+                  <span id="sonnet-readout-last-author" class="sonnet-info-val mono-xs">None</span>
+                </div>
+                <div class="sonnet-info-item">
+                  <span class="sonnet-info-label">Turn Eligibility:</span>
+                  <span id="sonnet-readout-turn-eligibility" class="sonnet-info-val">Eligible</span>
+                </div>
+                <div class="sonnet-info-item" style="grid-column: 1 / -1;">
+                  <span class="sonnet-info-label">Previous State Hash (Authoritative):</span>
+                  <span id="sonnet-readout-prev-hash" class="sonnet-info-val mono-xs">Waiting for referee receipt</span>
+                </div>
+              </div>
+
+              <!-- Proposal Payload Preview -->
+              <div class="field-group" style="margin-top: 10px;">
+                <label class="field-label">Proposal Single-Line Payload Preview</label>
+                <div id="sonnet-word-payload-preview" class="code-preview-box">{"type":"sonnet.word.v1","contest_id":"sonnet-1","game_id":"","room_generation":0,"version":0,"previous_state_hash":"","word":"","request_id":""}</div>
+              </div>
+
+              <div class="btn-group">
+                <button id="sonnet-btn-send-word" class="btn btn-signed" type="button" disabled>Send Signed Word Proposal</button>
+              </div>
+              <div id="sonnet-word-result" class="result-callout" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- Card 10 & 11: Publication & Submission -->
+          <section class="panel" id="sonnet-card-submission" aria-labelledby="sonnet-sub-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-sub-heading" class="panel-title">7. Publication & Submission</h2>
+                <span class="panel-subtitle">sonnet.submit.v1 (Final Contributor Only)</span>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="field-group">
+                <label class="field-label">Canonical Frozen Poem SHA-256</label>
+                <div class="readout-box">
+                  <span id="sonnet-poem-sha-display" class="readout-text empty">Poem not yet frozen (requires 14 lines x 10 syllables)</span>
+                </div>
+              </div>
+
+              <div class="btn-group" style="margin-bottom: 12px;">
+                <button id="sonnet-btn-copy-poem" class="btn btn-secondary" type="button" disabled>Copy Exact Poem</button>
+                <button id="sonnet-btn-copy-attribution" class="btn btn-secondary" type="button" disabled>Copy X Attribution</button>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="sonnet-x-post-ids">X Post IDs (comma-separated if threaded)</label>
+                <input id="sonnet-x-post-ids" class="input-text" type="text" placeholder="e.g. 1823901283012938102" spellcheck="false">
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Submission Payload Preview</label>
+                <div id="sonnet-submit-payload-preview" class="code-preview-box">{"type":"sonnet.submit.v1","contest_id":"sonnet-1","game_id":"","poem_room":"","room_generation":0,"final_version":0,"poem_sha256":"","x_post_ids":[],"request_id":""}</div>
+              </div>
+
+              <div class="btn-group">
+                <button id="sonnet-btn-send-submission" class="btn btn-signed" type="button" disabled>Send Signed Submission</button>
+              </div>
+              <div id="sonnet-submit-result" class="result-callout" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- Card 13: Voting -->
+          <section class="panel" id="sonnet-card-voting" aria-labelledby="sonnet-vote-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-vote-heading" class="panel-title">8. Public Voting</h2>
+                <span class="panel-subtitle">sonnet.ballot.v1 (Registered Voters Only)</span>
+              </div>
+            </div>
+            <div class="panel-body">
+              <p class="field-hint">Writers and organizers cannot cast ballots. Voters may replace a ballot until the contest deadline.</p>
+
+              <div class="field-row">
+                <div class="field-group" style="flex: 2;">
+                  <label class="field-label" for="sonnet-ballot-entry-id">Target Submitted Entry ID</label>
+                  <input id="sonnet-ballot-entry-id" class="input-text" type="text" placeholder="e.g. entry-alpha" spellcheck="false">
+                </div>
+                <div class="field-group" style="flex: 1;">
+                  <label class="field-label" for="sonnet-ballot-req-id">Request ID</label>
+                  <input id="sonnet-ballot-req-id" class="input-text" type="text" placeholder="ballot-1" spellcheck="false">
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Ballot Payload Preview</label>
+                <div id="sonnet-ballot-payload-preview" class="code-preview-box">{"type":"sonnet.ballot.v1","contest_id":"sonnet-1","voter_did":"","entry_id":"","request_id":""}</div>
+              </div>
+
+              <div class="btn-group">
+                <button id="sonnet-btn-send-ballot" class="btn btn-signed" type="button" disabled>Cast Signed Ballot</button>
+              </div>
+              <div id="sonnet-ballot-result" class="result-callout" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- Card 14: Prize Claim -->
+          <section class="panel" id="sonnet-card-claim" aria-labelledby="sonnet-claim-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-claim-heading" class="panel-title">9. Prize Claim</h2>
+                <span class="panel-subtitle">sonnet.claim.v1</span>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="field-group">
+                <label class="field-label" for="sonnet-claim-destination">FLOP Payout Destination Address</label>
+                <input id="sonnet-claim-destination" class="input-text" type="text" placeholder="e.g. 0x... or FLOP address" spellcheck="false">
+              </div>
+
+              <div class="btn-group">
+                <button id="sonnet-btn-send-claim" class="btn btn-signed" type="button" disabled>Send Signed Prize Claim</button>
+              </div>
+              <div id="sonnet-claim-result" class="result-callout" style="display: none;"></div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Right Column: Live State, Stanzas & Authoritative Receipts -->
+        <div class="sonnet-col">
+
+          <!-- Card 9: Live Poem State & Syllable Meter -->
+          <section class="panel" id="sonnet-card-poem-state" aria-labelledby="sonnet-poem-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-poem-heading" class="panel-title">Canonical Poem State</h2>
+                <span class="panel-subtitle">Built from accepted referee receipts only</span>
+              </div>
+              <span id="sonnet-poem-state-badge" class="step-status-pill">Waiting for Referee</span>
+            </div>
+            <div class="panel-body" style="padding: 10px;">
+              <div class="sonnet-poem-meter-card">
+                <div class="meter-header">
+                  <span>14-Line Sonnet Syllables (4 / 4 / 4 / 2 Stanzas)</span>
+                  <span id="sonnet-meter-summary">0 / 140 Syllables</span>
+                </div>
+                <div id="sonnet-poem-lines-list" class="sonnet-lines-list">
+                  <!-- Generated 14 Lines -->
+                </div>
+              </div>
+
+              <div class="field-group" style="margin-top: 12px;">
+                <label class="field-label">Exact Canonical UTF-8 Text</label>
+                <textarea id="sonnet-canonical-text-area" class="input-text" rows="8" readonly placeholder="Waiting for referee accepted words..."></textarea>
+              </div>
+            </div>
+          </section>
+
+          <!-- Authoritative Receipt Inspector -->
+          <section class="panel" id="sonnet-card-receipts" aria-labelledby="sonnet-receipts-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-receipts-heading" class="panel-title">Referee Receipt Inspector</h2>
+                <span class="panel-subtitle">Volatile session receipts & verification</span>
+              </div>
+              <button id="sonnet-btn-clear-receipts" class="btn btn-secondary" type="button" style="padding: 3px 8px; font-size: 0.75rem;">Clear</button>
+            </div>
+            <div class="panel-body" style="padding: 0;">
+              <div id="sonnet-receipts-list" class="sonnet-receipts-list">
+                <div class="empty-state">
+                  <div class="empty-title">No receipts recorded yet</div>
+                  <div class="empty-desc">All protocol actions will record their transport responses and signed referee receipts here.</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </section>
+
 
 
     <!-- Footer with Trust Information & Links -->

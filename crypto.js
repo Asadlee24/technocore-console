@@ -1,7 +1,10 @@
 /**
- * Cryptographic helpers for Technocore Protocol
- * Uses tweetnacl for Ed25519 operations and Web Crypto API for SHA-256
+ * Cryptographic helpers for Technocore Protocol V4
+ * Uses tweetnacl for Ed25519 operations and Web Crypto / Node crypto for SHA-256
  */
+
+import { sweepSingleLine as protoSweep, sha256Hex as protoSha256 } from './protocol.js';
+import { detectSensitiveContent as secDetect } from './security.js';
 
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
@@ -89,6 +92,7 @@ export function decodeBase58(str) {
 
 /**
  * Base64url encoder without padding
+ * Canonical 64 bytes produces 86 characters, unpadded, ending in one of AQgw
  * @param {Uint8Array} bytes
  * @returns {string}
  */
@@ -98,7 +102,12 @@ export function encodeBase64Url(bytes) {
   for (let i = 0; i < len; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
-  const base64 = btoa(binary);
+  let base64;
+  if (typeof btoa !== 'undefined') {
+    base64 = btoa(binary);
+  } else {
+    base64 = Buffer.from(binary, 'binary').toString('base64');
+  }
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
@@ -112,7 +121,12 @@ export function decodeBase64Url(str) {
   while (base64.length % 4 !== 0) {
     base64 += '=';
   }
-  const binary = atob(base64);
+  let binary;
+  if (typeof atob !== 'undefined') {
+    binary = atob(base64);
+  } else {
+    binary = Buffer.from(base64, 'base64').toString('binary');
+  }
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
@@ -153,15 +167,12 @@ export function hexToBytes(hex) {
 }
 
 /**
- * Compute SHA-256 hash of a string and return hex
- * @param {string} text
+ * Compute SHA-256 hash of a string or bytes and return hex
+ * @param {string|Uint8Array} input
  * @returns {Promise<string>}
  */
-export async function sha256Hex(text) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  return bytesToHex(new Uint8Array(hashBuffer));
+export async function sha256Hex(input) {
+  return await protoSha256(input);
 }
 
 /**
@@ -202,70 +213,21 @@ export function parseDidKey(did) {
 }
 
 /**
- * Sweep single-line text according to Technocore protocol spec:
- * Replace C0/C1 control characters, format characters, zero-width joiners, bidi overrides, newlines with spaces.
+ * Single-line text sweep per official Technocore specification
  * @param {string} text
  * @returns {string}
  */
 export function sweepSingleLine(text) {
-  if (!text) return '';
-  let cleaned = text.replace(/[\r\n\t\x00-\x1F\x7F-\x9F\u200B-\u200F\u202A-\u202E\uFEFF]/g, ' ');
-  return cleaned;
+  return protoSweep(text);
 }
 
 /**
- * Secret shape guard:
- * Detects whether message text contains sensitive material such as private keys, seed phrases, or raw key signatures.
+ * Secret shape guard
  * @param {string} text
- * @returns {{ sensitive: boolean, reason?: string, description?: string }}
+ * @returns {{ sensitive: boolean, warning?: boolean, reason?: string, description?: string }}
  */
 export function detectSensitiveContent(text) {
-  if (!text || typeof text !== 'string') {
-    return { sensitive: false };
-  }
-
-  // 1. PEM private key header
-  const pemRegex = /BEGIN (?:[A-Z0-9_-]+ )?PRIVATE KEY/i;
-  if (pemRegex.test(text)) {
-    return {
-      sensitive: true,
-      reason: 'PEM private key block detected',
-      description: 'This message contains a private key header. Remove the private key text before sending.'
-    };
-  }
-
-  // 2. 64 or more consecutive hexadecimal characters (raw seed or secret key)
-  const hexRegex = /[0-9a-fA-F]{64,}/;
-  if (hexRegex.test(text)) {
-    return {
-      sensitive: true,
-      reason: 'Raw secret key or seed hex detected',
-      description: 'This message contains a 64 character or longer hex string matching a secret key or seed. Remove the raw key before sending.'
-    };
-  }
-
-  // 3. 12 or 24 space-separated lowercase words (seed phrase shape)
-  const seed12Regex = /\b(?:[a-z]{2,16}\s+){11}[a-z]{2,16}\b/i;
-  const seed24Regex = /\b(?:[a-z]{2,16}\s+){23}[a-z]{2,16}\b/i;
-  if (seed12Regex.test(text) || seed24Regex.test(text)) {
-    return {
-      sensitive: true,
-      reason: 'Seed phrase pattern detected',
-      description: 'This message matches the pattern of a 12 or 24 word seed phrase. Remove the recovery phrase before sending.'
-    };
-  }
-
-  // 4. Base64url string of 86 or more consecutive characters (raw signature or key outside allowed context)
-  const b64Regex = /[A-Za-z0-9_-]{86,}/;
-  if (b64Regex.test(text)) {
-    return {
-      sensitive: true,
-      reason: 'Long base64url key or signature detected',
-      description: 'This message contains an 86 character or longer base64url string. Remove the raw signature or key before sending.'
-    };
-  }
-
-  return { sensitive: false };
+  return secDetect(text);
 }
 
 /**
@@ -327,48 +289,20 @@ export function restoreKeypair(inputStr, naclInstance) {
 
 /**
  * Sign a protocol message: room|nonce|text
+ * Signature strictly covers text AFTER single-line sweep and trim.
+ *
  * @param {object} naclInstance
  * @param {Uint8Array} secretKey (64 bytes)
  * @param {string} room
- * @param {number|string} nonce
+ * @param {number|string|bigint} nonce
  * @param {string} text
  * @returns {string} 86-character base64url signature
  */
 export function signMessage(naclInstance, secretKey, room, nonce, text) {
+  const cleanRoom = (room || 'lobby').trim().toLowerCase();
+  const cleanNonce = String(nonce).trim();
   const sweptText = sweepSingleLine(text);
-  const payload = `${room}|${nonce}|${sweptText}`;
-  const encoder = new TextEncoder();
-  const payloadBytes = encoder.encode(payload);
-  const sigBytes = naclInstance.sign.detached(payloadBytes, secretKey);
-  const b64urlSig = encodeBase64Url(sigBytes);
-  return b64urlSig;
-}
-
-/**
- * Offline signature verifier:
- * Validates an Ed25519 signature locally against a did:key, room, nonce, and message text.
- * Pure local computation with zero network requests.
- * @param {object} naclInstance
- * @param {string} did
- * @param {string} signature
- * @param {string} room
- * @param {number|string} nonce
- * @param {string} text
- * @returns {{ valid: boolean, error?: string }}
- */
-/**
- * Sign a memory record: memoryId|created|text
- * Payload format matches the note signature convention used for memory KV notes.
- * @param {object} naclInstance
- * @param {Uint8Array} secretKey (64 bytes)
- * @param {string} memoryId
- * @param {string|number} created - ISO timestamp or ms timestamp string
- * @param {string} text - memory body text
- * @returns {string} 86-character base64url signature
- */
-export function signMemory(naclInstance, secretKey, memoryId, created, text) {
-  const sweptText = sweepSingleLine(text);
-  const payload = `${memoryId}|${created}|${sweptText}`;
+  const payload = `${cleanRoom}|${cleanNonce}|${sweptText}`;
   const encoder = new TextEncoder();
   const payloadBytes = encoder.encode(payload);
   const sigBytes = naclInstance.sign.detached(payloadBytes, secretKey);
@@ -376,52 +310,18 @@ export function signMemory(naclInstance, secretKey, memoryId, created, text) {
 }
 
 /**
- * Verify a memory signature locally.
+ * Offline signature verifier:
+ * Validates an Ed25519 signature locally against a did:key, room, nonce, and message text.
+ * Pure local computation with zero network requests.
+ *
  * @param {object} naclInstance
  * @param {string} did
- * @param {string} signature (base64url 86 chars)
- * @param {string} memoryId
- * @param {string|number} created
+ * @param {string} signature
+ * @param {string} room
+ * @param {number|string|bigint} nonce
  * @param {string} text
  * @returns {{ valid: boolean, error?: string }}
  */
-export function verifyMemorySignature(naclInstance, did, signature, memoryId, created, text) {
-  try {
-    if (!did || !signature || !memoryId || created === undefined || created === null) {
-      return { valid: false, error: 'All fields (did:key, signature, memory id, created, and text) are required.' };
-    }
-
-    let publicKey;
-    try {
-      publicKey = parseDidKey(did.trim());
-    } catch {
-      return { valid: false, error: 'The did:key identifier is malformed or invalid.' };
-    }
-
-    let sigBytes;
-    try {
-      sigBytes = decodeBase64Url(signature.trim());
-      if (sigBytes.length !== 64) {
-        return { valid: false, error: 'The signature must be a 64 byte Ed25519 signature in unpadded base64url format.' };
-      }
-    } catch {
-      return { valid: false, error: 'The signature string is not valid base64url.' };
-    }
-
-    const sweptText = sweepSingleLine(text || '');
-    const payload = `${memoryId}|${created}|${sweptText}`;
-    const encoder = new TextEncoder();
-    const payloadBytes = encoder.encode(payload);
-
-    const isValid = naclInstance.sign.detached.verify(payloadBytes, sigBytes, publicKey);
-    return isValid
-      ? { valid: true }
-      : { valid: false, error: 'The signature does not match this memory record.' };
-  } catch (err) {
-    return { valid: false, error: `Verification failed: ${err.message}` };
-  }
-}
-
 export function verifyMessageSignature(naclInstance, did, signature, room, nonce, text) {
   try {
     if (!did || !signature || !room || nonce === undefined || nonce === null) {
@@ -485,5 +385,70 @@ export function verifyMessageSignature(naclInstance, did, signature, room, nonce
       valid: false,
       error: `Verification failed: ${err.message}`
     };
+  }
+}
+
+/**
+ * Sign a memory record: memoryId|created|text
+ * @param {object} naclInstance
+ * @param {Uint8Array} secretKey (64 bytes)
+ * @param {string} memoryId
+ * @param {string|number} created
+ * @param {string} text
+ * @returns {string} 86-character base64url signature
+ */
+export function signMemory(naclInstance, secretKey, memoryId, created, text) {
+  const sweptText = sweepSingleLine(text);
+  const payload = `${memoryId}|${created}|${sweptText}`;
+  const encoder = new TextEncoder();
+  const payloadBytes = encoder.encode(payload);
+  const sigBytes = naclInstance.sign.detached(payloadBytes, secretKey);
+  return encodeBase64Url(sigBytes);
+}
+
+/**
+ * Verify a memory signature locally.
+ * @param {object} naclInstance
+ * @param {string} did
+ * @param {string} signature (base64url 86 chars)
+ * @param {string} memoryId
+ * @param {string|number} created
+ * @param {string} text
+ * @returns {{ valid: boolean, error?: string }}
+ */
+export function verifyMemorySignature(naclInstance, did, signature, memoryId, created, text) {
+  try {
+    if (!did || !signature || !memoryId || created === undefined || created === null) {
+      return { valid: false, error: 'All fields (did:key, signature, memory id, created, and text) are required.' };
+    }
+
+    let publicKey;
+    try {
+      publicKey = parseDidKey(did.trim());
+    } catch {
+      return { valid: false, error: 'The did:key identifier is malformed or invalid.' };
+    }
+
+    let sigBytes;
+    try {
+      sigBytes = decodeBase64Url(signature.trim());
+      if (sigBytes.length !== 64) {
+        return { valid: false, error: 'The signature must be a 64 byte Ed25519 signature in unpadded base64url format.' };
+      }
+    } catch {
+      return { valid: false, error: 'The signature string is not valid base64url.' };
+    }
+
+    const sweptText = sweepSingleLine(text || '');
+    const payload = `${memoryId}|${created}|${sweptText}`;
+    const encoder = new TextEncoder();
+    const payloadBytes = encoder.encode(payload);
+
+    const isValid = naclInstance.sign.detached.verify(payloadBytes, sigBytes, publicKey);
+    return isValid
+      ? { valid: true }
+      : { valid: false, error: 'The signature does not match this memory record.' };
+  } catch (err) {
+    return { valid: false, error: `Verification failed: ${err.message}` };
   }
 }
