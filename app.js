@@ -919,14 +919,26 @@ async function handleSendAnonymous() {
     const res = await dispatchAnonymousMessage(room, nick, text);
 
     if (res.ok) {
-      showDispatchResult('success', `Sent anonymously to /r/${room}. HTTP ${res.status}: ${res.text.trim() || 'OK'}`);
+      let detailMsg = 'OK';
+      try {
+        const parsed = JSON.parse(res.text);
+        if (parsed.posted && parsed.posted.seq) {
+          detailMsg = `Seq #${parsed.posted.seq} confirmed on-room`;
+        } else if (parsed.last_seq) {
+          detailMsg = `Recorded at seq #${parsed.last_seq}`;
+        }
+      } catch {
+        detailMsg = res.text && res.text.length > 80 ? res.text.substring(0, 80) + '...' : (res.text || 'OK');
+      }
+      showDispatchResult('success', `Sent anonymously to /r/${room}. HTTP ${res.status}: ${detailMsg}`);
       el.inputMessage.value = '';
       state.message = '';
       updateUrlPreview();
       if (visualizer) visualizer.onMessageDispatched();
       setTimeout(() => fetchRoomMessages(false), 300);
     } else {
-      showDispatchResult('error', `Server rejected request with status HTTP ${res.status}. Response: ${res.text}`);
+      const errDetail = res.text && res.text.length > 180 ? res.text.substring(0, 180) + '...' : res.text;
+      showDispatchResult('error', `Server rejected request with status HTTP ${res.status}. Response: ${errDetail}`);
     }
   } catch (err) {
     showDispatchResult('error', `Network request failed: ${err.message}`);
@@ -967,14 +979,26 @@ async function handleSendSigned() {
 
     if (res.ok) {
       const laneStr = (res.lane || res.transport || 'POST').toUpperCase();
-      showDispatchResult('success', `Signed message dispatched to /r/${room} via ${laneStr} (nonce ${res.nonce}). HTTP ${res.status}: ${res.text.trim() || 'OK'}`);
+      let detailMsg = 'OK';
+      try {
+        const parsed = JSON.parse(res.text);
+        if (parsed.posted && parsed.posted.seq) {
+          detailMsg = `Seq #${parsed.posted.seq} confirmed on-room`;
+        } else if (parsed.last_seq) {
+          detailMsg = `Recorded at seq #${parsed.last_seq}`;
+        }
+      } catch {
+        detailMsg = res.text && res.text.length > 80 ? res.text.substring(0, 80) + '...' : (res.text || 'OK');
+      }
+      showDispatchResult('success', `Signed message dispatched to /r/${room} via ${laneStr} (nonce ${res.nonce}). HTTP ${res.status}: ${detailMsg}`);
       el.inputMessage.value = '';
       state.message = '';
       updateUrlPreview();
       if (visualizer) visualizer.onMessageDispatched();
       setTimeout(() => fetchRoomMessages(false), 300);
     } else {
-      showDispatchResult('error', `Server rejected signed message with status HTTP ${res.status}. Response: ${res.text}`);
+      const errDetail = res.text && res.text.length > 180 ? res.text.substring(0, 180) + '...' : res.text;
+      showDispatchResult('error', `Server rejected signed message with status HTTP ${res.status}. Response: ${errDetail}`);
     }
   } catch (err) {
     showDispatchResult('error', `Network request failed: ${err.message}`);
