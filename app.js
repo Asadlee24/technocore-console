@@ -195,6 +195,8 @@ document.addEventListener('DOMContentLoaded', () => {
   updateUrlPreview();
   updateWizardUI();
   initSonnet();
+  updateQuickHudUI();
+  updateSonnetStepperUI();
   fetchRoomMessages(true);
 });
 
@@ -342,6 +344,31 @@ function cacheElements() {
     vaultImportFile: document.getElementById('vault-import-file'),
     btnVaultImport: document.getElementById('btn-vault-import'),
     vaultRestoreResult: document.getElementById('vault-restore-result'),
+
+    // Quick Status HUD Elements
+    hudDidVal: document.getElementById('hud-did-val'),
+    hudBtnCopyDid: document.getElementById('hud-btn-copy-did'),
+    hudRoleBadge: document.getElementById('hud-role-badge'),
+    hudTeamVal: document.getElementById('hud-team-val'),
+    hudNetText: document.getElementById('hud-net-text'),
+
+    // Sonnet Stepper HUD Elements
+    stepperIcons: [
+      document.getElementById('stepper-icon-1'),
+      document.getElementById('stepper-icon-2'),
+      document.getElementById('stepper-icon-3'),
+      document.getElementById('stepper-icon-4'),
+      document.getElementById('stepper-icon-5'),
+      document.getElementById('stepper-icon-6')
+    ],
+    stepperSteps: [
+      document.getElementById('stepper-step-1'),
+      document.getElementById('stepper-step-2'),
+      document.getElementById('stepper-step-3'),
+      document.getElementById('stepper-step-4'),
+      document.getElementById('stepper-step-5'),
+      document.getElementById('stepper-step-6')
+    ],
 
     // Sonnet Challenge Elements
     sonnetStatRole: document.getElementById('sonnet-stat-role'),
@@ -2356,6 +2383,137 @@ function bindSonnetEvents() {
       renderSonnetReceipts();
     });
   }
+
+  // Quick HUD DID copy
+  if (el.hudBtnCopyDid) {
+    el.hudBtnCopyDid.addEventListener('click', () => {
+      if (state.keypair && state.keypair.did) {
+        copyToClipboard(state.keypair.did, 'Active DID copied to clipboard.');
+      }
+    });
+  }
+
+  // Sonnet 6-Step Stepper interactive smooth-scroll jump
+  document.querySelectorAll('.stepper-step').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-target-card');
+      if (targetId) {
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          targetEl.style.boxShadow = '0 0 25px var(--accent-cyan)';
+          setTimeout(() => { targetEl.style.boxShadow = ''; }, 1600);
+        }
+      }
+    });
+  });
+}
+
+/**
+ * Update Persistent Quick Status HUD (Compact, PC & Mobile)
+ */
+function updateQuickHudUI() {
+  if (!el.hudDidVal) return;
+
+  if (state.keypair) {
+    const fullDid = state.keypair.did;
+    const shortDid = fullDid.length > 20 
+      ? fullDid.slice(0, 14) + '...' + fullDid.slice(-6)
+      : fullDid;
+    el.hudDidVal.textContent = shortDid;
+    el.hudDidVal.className = 'quick-hud-val';
+    el.hudDidVal.title = fullDid;
+    if (el.hudBtnCopyDid) el.hudBtnCopyDid.style.display = 'inline-block';
+  } else {
+    el.hudDidVal.textContent = 'No Identity Loaded';
+    el.hudDidVal.className = 'quick-hud-val empty';
+    el.hudDidVal.title = '';
+    if (el.hudBtnCopyDid) el.hudBtnCopyDid.style.display = 'none';
+  }
+
+  if (el.hudRoleBadge) {
+    if (state.sonnet.registrationAccepted && state.sonnet.roleLocked) {
+      el.hudRoleBadge.textContent = state.sonnet.role.toUpperCase();
+      el.hudRoleBadge.className = 'step-status-pill completed';
+    } else if (state.sonnet.registrationPending) {
+      el.hudRoleBadge.textContent = 'Role Pending';
+      el.hudRoleBadge.className = 'step-status-pill pending';
+    } else {
+      el.hudRoleBadge.textContent = 'Unregistered';
+      el.hudRoleBadge.className = 'step-status-pill';
+    }
+  }
+
+  if (el.hudTeamVal) {
+    el.hudTeamVal.textContent = state.sonnet.gameId || '—';
+  }
+}
+
+/**
+ * Update Interactive 6-Step Sonnet Challenge Stepper HUD
+ */
+function updateSonnetStepperUI() {
+  if (!el.stepperSteps || !el.stepperSteps[0]) return;
+
+  const rawMembers = el.sonnetRosterMembersInput
+    ? el.sonnetRosterMembersInput.value.split('\n').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const stepsConfig = [
+    // Step 1: Register
+    {
+      idx: 0,
+      completed: state.sonnet.registrationAccepted && state.sonnet.roleLocked,
+      pending: state.sonnet.registrationPending
+    },
+    // Step 2: Team Room
+    {
+      idx: 1,
+      completed: Boolean(state.sonnet.allocatedPoemRoom && state.sonnet.roomGeneration !== null),
+      pending: state.sonnet.teamRequestPending
+    },
+    // Step 3: Squad Board
+    {
+      idx: 2,
+      completed: rawMembers.length >= 4,
+      pending: rawMembers.length > 0 && rawMembers.length < 4
+    },
+    // Step 4: Roster Consent
+    {
+      idx: 3,
+      completed: Boolean(state.sonnet.rosterAccepted),
+      pending: Boolean(state.sonnet.lastRosterReqId && !state.sonnet.rosterAccepted)
+    },
+    // Step 5: Write Poem (140 syllables)
+    {
+      idx: 4,
+      completed: Boolean(state.sonnet.poemSha256),
+      pending: Boolean(state.sonnet.words && state.sonnet.words.length > 0 && !state.sonnet.poemSha256)
+    },
+    // Step 6: Submit & Share
+    {
+      idx: 5,
+      completed: Boolean(state.sonnet.submissionAccepted),
+      pending: Boolean(state.sonnet.lastSubmitReqId && !state.sonnet.submissionAccepted)
+    }
+  ];
+
+  stepsConfig.forEach((cfg) => {
+    const stepBtn = el.stepperSteps[cfg.idx];
+    const iconSpan = el.stepperIcons[cfg.idx];
+    if (!stepBtn || !iconSpan) return;
+
+    if (cfg.completed) {
+      stepBtn.className = 'stepper-step completed';
+      iconSpan.textContent = '✓';
+    } else if (cfg.pending) {
+      stepBtn.className = 'stepper-step active';
+      iconSpan.textContent = '⏳';
+    } else {
+      stepBtn.className = 'stepper-step';
+      iconSpan.textContent = '○';
+    }
+  });
 }
 
 /**
@@ -2485,6 +2643,10 @@ function updateSonnetStateUI() {
   // 7. Claim Button: strictly requires authorized winner state
   const payoutAddr = el.sonnetClaimDestination ? el.sonnetClaimDestination.value.trim() : '';
   el.sonnetBtnSendClaim.disabled = !state.sonnet.prizeAuthorized || !payoutAddr || state.sonnet.claimPending;
+
+  // Sync Quick Status HUD and Sonnet 6-Step Stepper
+  updateQuickHudUI();
+  updateSonnetStepperUI();
 }
 
 /**

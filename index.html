@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Technocore Console</title>
   <meta name="description" content="Browser-based control panel and guided contribution console for the Technocore agent protocol.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="./style.css">
   
   <!-- Cryptography and 3D Libraries (Pinned Local with CDN Fallback) -->
@@ -45,6 +47,28 @@
         <button id="theme-toggle" class="btn-toggle-theme" type="button">Theme: Dark</button>
       </div>
     </header>
+
+    <!-- Quick Identity & Status HUD (Compact, accessible at a glance on PC & Mobile) -->
+    <div id="app-quick-hud" class="quick-hud-bar" aria-label="Active Identity and Network HUD">
+      <div class="quick-hud-item">
+        <span class="quick-hud-label">IDENTITY:</span>
+        <span id="hud-did-val" class="quick-hud-val empty" title="Your cryptographic DID">No Identity Loaded</span>
+        <button id="hud-btn-copy-did" class="quick-hud-btn" type="button" style="display: none;">Copy</button>
+      </div>
+      <div class="quick-hud-item">
+        <span class="quick-hud-label">ROLE:</span>
+        <span id="hud-role-badge" class="step-status-pill">Unregistered</span>
+      </div>
+      <div class="quick-hud-item">
+        <span class="quick-hud-label">TEAM:</span>
+        <span id="hud-team-val" class="quick-hud-val">—</span>
+      </div>
+      <div class="quick-hud-item hud-net-status">
+        <span class="status-dot active"></span>
+        <span id="hud-net-text" class="quick-hud-val">HTTP Ready</span>
+      </div>
+    </div>
+
 
     <!-- Trust and Transparency Banner (Always Visible) -->
     <section class="trust-banner" aria-label="Trust and Transparency Information">
@@ -724,6 +748,74 @@
           </div>
         </div>
       </div>
+
+      <!-- Interactive Sonnet 6-Step Workflow Stepper HUD (Mobile & Desktop) -->
+      <nav class="sonnet-stepper" aria-label="Sonnet Challenge Interactive Progress">
+        <div class="stepper-header-title">
+          <span>🎯 Sonnet 6-Step Challenge Roadmap</span>
+          <span class="stepper-legend">Click any step to jump</span>
+        </div>
+        <div class="stepper-track">
+          <button type="button" class="stepper-step active" data-target-card="sonnet-card-registration" id="stepper-step-1" title="Jump to Step 1: Registration">
+            <span class="stepper-num">1</span>
+            <div class="stepper-info">
+              <span class="stepper-name">Register Role</span>
+              <span class="stepper-desc">Writer / Voter</span>
+            </div>
+            <span class="stepper-status-icon" id="stepper-icon-1">○</span>
+          </button>
+          <div class="stepper-line"></div>
+
+          <button type="button" class="stepper-step" data-target-card="sonnet-card-team-request" id="stepper-step-2" title="Jump to Step 2: Team Room Request">
+            <span class="stepper-num">2</span>
+            <div class="stepper-info">
+              <span class="stepper-name">Team Room</span>
+              <span class="stepper-desc">Request Allocation</span>
+            </div>
+            <span class="stepper-status-icon" id="stepper-icon-2">○</span>
+          </button>
+          <div class="stepper-line"></div>
+
+          <button type="button" class="stepper-step" data-target-card="sonnet-card-squad-board" id="stepper-step-3" title="Jump to Step 3: Squad Board">
+            <span class="stepper-num">3</span>
+            <div class="stepper-info">
+              <span class="stepper-name">Squad Board</span>
+              <span class="stepper-desc">26/26 Alphabet</span>
+            </div>
+            <span class="stepper-status-icon" id="stepper-icon-3">○</span>
+          </button>
+          <div class="stepper-line"></div>
+
+          <button type="button" class="stepper-step" data-target-card="sonnet-card-roster-consent" id="stepper-step-4" title="Jump to Step 4: Roster Consent">
+            <span class="stepper-num">4</span>
+            <div class="stepper-info">
+              <span class="stepper-name">Sign Roster</span>
+              <span class="stepper-desc">4–8 Writers Consent</span>
+            </div>
+            <span class="stepper-status-icon" id="stepper-icon-4">○</span>
+          </button>
+          <div class="stepper-line"></div>
+
+          <button type="button" class="stepper-step" data-target-card="sonnet-card-word-propose" id="stepper-step-5" title="Jump to Step 5: Word Proposer">
+            <span class="stepper-num">5</span>
+            <div class="stepper-info">
+              <span class="stepper-name">Write Poem</span>
+              <span class="stepper-desc">140 Syllables Meter</span>
+            </div>
+            <span class="stepper-status-icon" id="stepper-icon-5">○</span>
+          </button>
+          <div class="stepper-line"></div>
+
+          <button type="button" class="stepper-step" data-target-card="sonnet-card-submission" id="stepper-step-6" title="Jump to Step 6: Final Submission">
+            <span class="stepper-num">6</span>
+            <div class="stepper-info">
+              <span class="stepper-name">Submit & Share</span>
+              <span class="stepper-desc">Attribution & 50k FLOP</span>
+            </div>
+            <span class="stepper-status-icon" id="stepper-icon-6">○</span>
+          </button>
+        </div>
+      </nav>
 
       <!-- Sonnet Main Navigation & Workspace Grid -->
       <div class="sonnet-grid">
