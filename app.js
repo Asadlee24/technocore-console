@@ -2520,18 +2520,32 @@ function renderSonnetPoemLines() {
   const poemValidation = validatePoemSyllables(state.sonnet.words);
   let html = '';
 
+  const stanzaTitles = {
+    0: 'Quatrain 1 (Lines 1–4)',
+    4: 'Quatrain 2 (Lines 5–8)',
+    8: 'Quatrain 3 (Lines 9–12)',
+    12: 'Couplet (Lines 13–14)'
+  };
+
   for (let i = 0; i < 14; i++) {
+    if (stanzaTitles[i]) {
+      html += `<div class="stanza-header">${stanzaTitles[i]}</div>`;
+    }
+
     const lineData = poemValidation.lines[i] || { syllables: 0, words: [], valid: true };
     const meterPercent = Math.min(100, Math.round((lineData.syllables / 10) * 100));
-    const isStanzaBreak = (i === 3 || i === 7 || i === 11);
+    const wordsText = lineData.words && lineData.words.length > 0 ? lineData.words.join(' ') : '';
 
     html += `
-      <div class="meter-line-item ${isStanzaBreak ? 'stanza-break' : ''}">
-        <span class="meter-line-num">Line ${i + 1}</span>
-        <div class="meter-bar-container">
-          <div class="meter-bar-fill ${lineData.syllables > 10 ? 'overflow' : ''}" style="width: ${meterPercent}%;"></div>
+      <div class="meter-line-item ${lineData.syllables === 10 ? 'complete-row' : ''}">
+        <span class="meter-line-num">L${i + 1}</span>
+        <div class="meter-line-content">
+          <div class="meter-words">${wordsText ? escapeHtml(wordsText) : '<span class="meter-words-empty">Empty line</span>'}</div>
+          <div class="meter-bar-container">
+            <div class="meter-bar-fill ${lineData.syllables > 10 ? 'overflow' : lineData.syllables === 10 ? 'full' : ''}" style="width: ${meterPercent}%;"></div>
+          </div>
         </div>
-        <span class="meter-line-val ${lineData.syllables === 10 ? 'complete' : ''}">${lineData.syllables} / 10</span>
+        <span class="meter-line-val ${lineData.syllables === 10 ? 'complete' : ''}">${lineData.syllables}/10</span>
       </div>
     `;
   }
