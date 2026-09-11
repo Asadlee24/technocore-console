@@ -1897,6 +1897,32 @@ test('parseWriterFromMessage correctly parses registration and discovery message
   const appWriter = parseWriterFromMessage(appMsg);
   assert.notStrictEqual(appWriter, null);
   assert.strictEqual(appWriter.status, 'Applied to fluxwrites');
+  assert.strictEqual(appWriter.xHandle, ''); // No fake X handle
+
+  // Chat note with @DID mention must NOT create a fake X handle
+  const noteMsg = {
+    seq: 1476,
+    from: 'did:key:z6Mkn5KmNqNDpB4XGUyFLBrS9BykL82gDzZ6P9f9mu7p47TD',
+    text: JSON.stringify({
+      type: 'sonnet.note.v1',
+      contest_id: 'sonnet-1',
+      game_id: 'hugo1',
+      request_id: 'reply-1',
+      text: '@NHGUdDkh hugo1 organizer, re your seat offer seq 1465... SEAT 5 is PROVISIONAL for Purple @USnkpRMy'
+    })
+  };
+  const noteWriter = parseWriterFromMessage(noteMsg);
+  assert.notStrictEqual(noteWriter, null);
+  assert.strictEqual(noteWriter.xHandle, ''); // Must NOT extract @NHGUdDkh or @USnkpRMy as Twitter accounts!
+});
+
+test('normalizeXHandle strictly rejects placeholders and non-existent keywords', () => {
+  assert.strictEqual(normalizeXHandle('https://x.com/your_handle').handle, '');
+  assert.strictEqual(normalizeXHandle('https://x.com/intent').handle, '');
+  assert.strictEqual(normalizeXHandle('https://x.com/share').handle, '');
+  assert.strictEqual(normalizeXHandle('https://x.com/none').handle, '');
+  assert.strictEqual(normalizeXHandle('a').handle, '');
+  assert.strictEqual(normalizeXHandle('https://x.com/michaelsatwork').handle, '@michaelsatwork');
 });
 
 console.log('\n========================================');

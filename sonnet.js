@@ -596,6 +596,12 @@ export function computeRosterLetterCoverage(didList = []) {
   };
 }
 
+const RESERVED_X_HANDLES = new Set([
+  'your_handle', 'username', 'handle', 'twitter', 'x', 'none', 'null', 'undefined',
+  'example', 'test', 'status', 'account', 'intent', 'share', 'post', 'url', 'home',
+  'explore', 'search', 'hashtag', 'login', 'signup', 'tos', 'privacy', 'about', 'help'
+]);
+
 /**
  * Clean and normalize an X (Twitter) handle or URL
  * @param {string} raw
@@ -607,7 +613,9 @@ export function normalizeXHandle(raw) {
     .replace(/^https?:\/\/(?:www\.)?(?:twitter|x)\.com\//i, '')
     .replace(/^@/, '')
     .split(/[/?#\s]/)[0];
-  if (!cleaned) return { handle: '', url: '' };
+  if (!cleaned || cleaned.length < 3 || cleaned.length > 25) return { handle: '', url: '' };
+  if (RESERVED_X_HANDLES.has(cleaned.toLowerCase())) return { handle: '', url: '' };
+  if (!/^[a-zA-Z0-9_]{3,25}$/.test(cleaned)) return { handle: '', url: '' };
   return {
     handle: '@' + cleaned,
     url: `https://x.com/${cleaned}`
@@ -661,15 +669,22 @@ export function parseWriterFromMessage(msg) {
     }
   }
 
-  // Look for X handle in text or payload
+  // Look for explicit X URL in text (e.g. https://x.com/username)
+  // Strictly requires x.com or twitter.com domain to avoid capturing chat mentions of DID snippets
   if (!xAccountUrl && text) {
-    const xMatch = text.match(/(?:https?:\/\/(?:www\.)?(?:twitter|x)\.com\/([a-zA-Z0-9_]+))|@([a-zA-Z0-9_]{2,15})/);
-    if (xMatch) {
-      xAccountUrl = xMatch[1] ? `https://x.com/${xMatch[1]}` : `https://x.com/${xMatch[2]}`;
+    const urlMatch = text.match(/https?:\/\/(?:www\.)?(?:twitter|x)\.com\/([a-zA-Z0-9_]{3,25})/i);
+    if (urlMatch && urlMatch[1]) {
+      xAccountUrl = urlMatch[1];
     }
   }
 
-  const { handle, url } = normalizeXHandle(xAccountUrl);
+  let { handle, url } = normalizeXHandle(xAccountUrl);
+
+  // Invariant: DID hashes must never be treated as X accounts
+  if (handle && did.toLowerCase().endsWith(handle.slice(1).toLowerCase())) {
+    handle = '';
+    url = '';
+  }
 
   if (!isCandidateWriter && !handle) return null;
 
