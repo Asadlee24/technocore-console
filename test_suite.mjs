@@ -47,7 +47,8 @@ import {
   buildBallotPayload,
   buildClaimPayload
 } from './sonnet.js';
-import { DEFAULT_CONTEST, setPinnedReferee, getPinnedReferee } from './contest-config.js';
+import { DEFAULT_CONTEST, setPinnedReferee, getPinnedReferee, isRefereePinned, extractAndPinRefereeFromRules } from './contest-config.js';
+import { RoomPoller } from './transport.js';
 
 // Load tweetnacl for testing in Node.js
 import { createRequire } from 'module';
@@ -64,7 +65,7 @@ function test(name, fn) {
     passedTests++;
   } catch (err) {
     console.error(`  ✗ ${name}`);
-    console.error(`    ${err.message}`);
+    console.error(`    ${err.stack || err.message}`);
     failedTests++;
   }
 }
@@ -76,7 +77,7 @@ async function testAsync(name, fn) {
     passedTests++;
   } catch (err) {
     console.error(`  ✗ ${name}`);
-    console.error(`    ${err.message}`);
+    console.error(`    ${err.stack || err.message}`);
     failedTests++;
   }
 }
@@ -1043,7 +1044,8 @@ test('Regression 3: Invalid referee Ed25519 signature => cannot mutate state', (
   // 1. Message with tampered text
   const tamperedMsg = {
     room: room,
-    seq: 55,
+    seq: 10482,
+    nonce: 55,
     from: refereeKp.did,
     sig: validSig,
     text: payloadText.replace('"version":1', '"version":2')
@@ -1054,10 +1056,11 @@ test('Regression 3: Invalid referee Ed25519 signature => cannot mutate state', (
   assert.strictEqual(tamperedRes.reason, 'Invalid referee cryptographic Ed25519 signature');
   assert.strictEqual(engine.getGameState('sigma'), null);
 
-  // 2. Genuine signature verification succeeds and earns CRYPTOGRAPHICALLY VERIFIED
+  // 2. Genuine signature verification succeeds with msg.nonce and earns CRYPTOGRAPHICALLY VERIFIED
   const validMsg = {
     room: room,
-    seq: 55,
+    seq: 10482,
+    nonce: 55,
     from: refereeKp.did,
     sig: validSig,
     text: payloadText
@@ -1267,6 +1270,496 @@ test('Regression 8: Only exact local request receipt advances local pending acti
 
   assert.strictEqual(localSession.submissionPending, false);
   assert.strictEqual(localSession.submissionAccepted, true);
+});
+
+// ----------------------------------------------------
+// SECTION 13: Exhaustive Protocol Invariants & Live Contest Simulation
+// ----------------------------------------------------
+console.log('\n--- Section 13: Exhaustive Protocol Invariants & Live Contest Simulation ---');
+
+test('Critical Fix 1: RoomPoller constructor accepts both callback function and options object without TypeError', () => {
+  let firedFunc = false;
+  let firedObj = false;
+
+  const pollerFunc = new RoomPoller('room-a', (msgs) => {
+    firedFunc = true;
+  });
+  assert.strictEqual(typeof pollerFunc.onMessages, 'function');
+  pollerFunc.onMessages([{ seq: 1 }]);
+  assert.strictEqual(firedFunc, true);
+
+  const pollerObj = new RoomPoller('room-b', {
+    onMessages: (msgs) => {
+      firedObj = true;
+    },
+    onStatus: (status) => {}
+  });
+  assert.strictEqual(typeof pollerObj.onMessages, 'function');
+  pollerObj.onMessages([{ seq: 2 }]);
+  assert.strictEqual(firedObj, true);
+});
+
+test('Critical Fix 1: RoomPoller long-poll JSON delivery reaches Sonnet pipeline without error', () => {
+  const refereeKp = generateKeypair(nacl);
+  const testEngine = new ReceiptEngine(refereeKp.did, nacl);
+  let deliveredToSonnet = false;
+
+  // Realistic mock server response for ?format=json&since=0&wait=10
+  const mockServerResponse = {
+    room: 'mb-sonnet-1-registration',
+    count: 1,
+    first_seq: 101,
+    last_seq: 101,
+    generation: 1,
+    wait_held: false,
+    messages: [
+      {
+        seq: 101,
+        ts: '2026-09-11T12:00:00.000000Z',
+        from: refereeKp.did,
+        room: 'mb-sonnet-1-registration',
+        nonce: 1726056000000,
+        sig: signMessage(nacl, refereeKp.secretKey, 'mb-sonnet-1-registration', 1726056000000, JSON.stringify({
+          type: 'sonnet.receipt.registration.v1',
+          request_id: 'reg-stream-test',
+          role: 'writer',
+          status: 'accepted'
+        })),
+        text: JSON.stringify({
+          type: 'sonnet.receipt.registration.v1',
+          request_id: 'reg-stream-test',
+          role: 'writer',
+          status: 'accepted'
+        })
+      }
+    ]
+  };
+
+  const poller = new RoomPoller('mb-sonnet-1-registration', {
+    onMessages: (messages) => {
+      for (const msg of messages) {
+        const receipt = testEngine.ingestMessage(msg);
+        if (receipt && !receipt.rejected && receipt.actionStatus === 'ACCEPTED') {
+          deliveredToSonnet = true;
+        }
+      }
+    }
+  });
+
+  // Execute message callback directly as RoomPoller does upon network return
+  poller.onMessages(mockServerResponse.messages);
+  assert.strictEqual(deliveredToSonnet, true);
+});
+
+test('Critical Fix 2: seq != nonce signature verification invariant', () => {
+  const kp = generateKeypair(nacl);
+  const room = 'lobby';
+  const signingNonce = 55;
+  const serverSeq = 10482;
+  const messageText = 'hello world from technocore test';
+
+  // Sender signs strictly over: room|nonce|text
+  const signature = signMessage(nacl, kp.secretKey, room, signingNonce, messageText);
+
+  // Realistic format=json message record from Technocore server
+  const serverMessageRecord = {
+    seq: serverSeq,
+    ts: '2026-09-11T12:00:00.000000Z',
+    from: kp.did,
+    room: room,
+    nonce: signingNonce,
+    sig: signature,
+    text: messageText
+  };
+
+  // 1. Verification with msg.nonce (55) MUST PASS
+  const verifyWithNonce = verifyMessageSignature(
+    nacl,
+    serverMessageRecord.from,
+    serverMessageRecord.sig,
+    serverMessageRecord.room,
+    serverMessageRecord.nonce,
+    serverMessageRecord.text
+  );
+  assert.strictEqual(verifyWithNonce.valid, true);
+
+  // 2. Verification using msg.seq (10482) MUST FAIL
+  const verifyWithSeq = verifyMessageSignature(
+    nacl,
+    serverMessageRecord.from,
+    serverMessageRecord.sig,
+    serverMessageRecord.room,
+    serverMessageRecord.seq,
+    serverMessageRecord.text
+  );
+  assert.strictEqual(verifyWithSeq.valid, false);
+});
+
+test('Critical Fix 3: Unsigned launch announcement in rules room cannot pin referee', () => {
+  setPinnedReferee(null);
+  const unsignedLaunchMsg = {
+    room: 'd-sonnet-1-rules',
+    seq: 1,
+    nonce: 100,
+    from: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    sig: null,
+    text: JSON.stringify({
+      type: 'sonnet.rules.v1',
+      contest_id: 'sonnet-1',
+      rules_version: '0.5'
+    })
+  };
+
+  const pinned = extractAndPinRefereeFromRules([unsignedLaunchMsg], nacl);
+  assert.strictEqual(pinned, null);
+  assert.strictEqual(isRefereePinned(), false);
+});
+
+test('Critical Fix 3: Random message merely containing contest_id cannot pin referee', () => {
+  setPinnedReferee(null);
+  const randomKp = generateKeypair(nacl);
+  const randomText = JSON.stringify({
+    contest_id: 'sonnet-1',
+    note: 'I am a participant in sonnet-1'
+  });
+  const randomSig = signMessage(nacl, randomKp.secretKey, 'd-sonnet-1-rules', 200, randomText);
+
+  const spamMsg = {
+    room: 'd-sonnet-1-rules',
+    seq: 2,
+    nonce: 200,
+    from: randomKp.did,
+    sig: randomSig,
+    text: randomText
+  };
+
+  const pinned = extractAndPinRefereeFromRules([spamMsg], nacl);
+  assert.strictEqual(pinned, null);
+  assert.strictEqual(isRefereePinned(), false);
+});
+
+test('Critical Fix 3: Authentic signed official launch announcement successfully pins referee', () => {
+  setPinnedReferee(null);
+  const officialRefereeKp = generateKeypair(nacl);
+  const launchText = JSON.stringify({
+    type: 'sonnet.rules.v1',
+    contest_id: 'sonnet-1',
+    rules_version: '0.5',
+    title: 'Technocore Sonnet Challenge #1'
+  });
+  const launchSig = signMessage(nacl, officialRefereeKp.secretKey, 'd-sonnet-1-rules', 300, launchText);
+
+  const officialMsg = {
+    room: 'd-sonnet-1-rules',
+    seq: 3,
+    nonce: 300,
+    from: officialRefereeKp.did,
+    sig: launchSig,
+    text: launchText
+  };
+
+  const pinned = extractAndPinRefereeFromRules([officialMsg], nacl);
+  assert.strictEqual(pinned, officialRefereeKp.did);
+  assert.strictEqual(isRefereePinned(), true);
+  assert.strictEqual(getPinnedReferee(), officialRefereeKp.did);
+});
+
+await testAsync('Sonnet Challenge End-to-End 25-step simulated contest lifecycle', async () => {
+  // 1. Load existing DID
+  const writerKp = generateKeypair(nacl);
+  const voterKp = generateKeypair(nacl);
+  const refereeKp = generateKeypair(nacl);
+
+  // 2. Official referee pin
+  setPinnedReferee(refereeKp.did);
+  const engine = new ReceiptEngine(refereeKp.did, nacl);
+  assert.strictEqual(engine.getPinnedReferee(), refereeKp.did);
+
+  // 3. Writer registration dispatch
+  const regReqId = 'reg-sim-1';
+  const regDispatch = engine.recordDispatch({
+    requestId: regReqId,
+    actionType: 'register',
+    authenticatedDid: writerKp.did,
+    room: 'mb-sonnet-1-registration',
+    httpStatus: 200,
+    transportSuccess: true
+  });
+
+  // 4. HTTP 200: registration remains pending and unconfirmed
+  assert.strictEqual(regDispatch.status, 'SENT');
+  assert.strictEqual(regDispatch.refereeAccepted, false);
+
+  // 5. Referee sends registration receipt
+  const regPayload = JSON.stringify({
+    type: 'sonnet.receipt.registration.v1',
+    request_id: regReqId,
+    role: 'writer',
+    status: 'accepted'
+  });
+  const regReceiptMsg = {
+    room: 'mb-sonnet-1-registration',
+    seq: 1001,
+    nonce: 501,
+    from: refereeKp.did,
+    sig: signMessage(nacl, refereeKp.secretKey, 'mb-sonnet-1-registration', 501, regPayload),
+    text: regPayload
+  };
+
+  // 6. Eligibility accepted & role locked
+  const regReceipt = engine.ingestMessage(regReceiptMsg);
+  assert.strictEqual(regReceipt.actionStatus, 'ACCEPTED');
+  assert.strictEqual(regDispatch.refereeAccepted, true);
+  assert.strictEqual(regReceipt.receiptSignatureStatus, 'CRYPTOGRAPHICALLY VERIFIED');
+
+  // 7. Team request dispatch
+  const teamReqId = 'team-sim-1';
+  engine.recordDispatch({
+    requestId: teamReqId,
+    actionType: 'team-request',
+    authenticatedDid: writerKp.did,
+    room: 'mb-sonnet-1-discovery',
+    httpStatus: 200,
+    transportSuccess: true
+  });
+
+  // 8. Referee room allocation receipt
+  const teamPayload = JSON.stringify({
+    type: 'sonnet.receipt.team-request.v1',
+    request_id: teamReqId,
+    game_id: 'alpha',
+    poem_room: 'd-sonnet-1-team-alpha',
+    room_generation: 1,
+    version: 0,
+    state_hash: '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22',
+    status: 'accepted'
+  });
+  const teamReceipt = engine.ingestMessage({
+    room: 'mb-sonnet-1-discovery',
+    seq: 1002,
+    nonce: 502,
+    from: refereeKp.did,
+    sig: signMessage(nacl, refereeKp.secretKey, 'mb-sonnet-1-discovery', 502, teamPayload),
+    text: teamPayload
+  });
+  assert.strictEqual(teamReceipt.actionStatus, 'ACCEPTED');
+  assert.strictEqual(engine.getGameState('alpha').roomGeneration, 1);
+  assert.strictEqual(engine.getGameState('alpha').poemRoom, 'd-sonnet-1-team-alpha');
+
+  // 9. Roster consent dispatch (4 members)
+  const rosterReqId = 'roster-sim-1';
+  engine.recordDispatch({
+    requestId: rosterReqId,
+    actionType: 'roster',
+    authenticatedDid: writerKp.did,
+    room: 'd-sonnet-1-team-alpha',
+    httpStatus: 200,
+    transportSuccess: true
+  });
+
+  // 10. Roster acceptance receipt
+  const rosterPayload = JSON.stringify({
+    type: 'sonnet.receipt.roster.v1',
+    request_id: rosterReqId,
+    game_id: 'alpha',
+    status: 'accepted'
+  });
+  const rosterReceipt = engine.ingestMessage({
+    room: 'd-sonnet-1-team-alpha',
+    seq: 1003,
+    nonce: 503,
+    from: refereeKp.did,
+    sig: signMessage(nacl, refereeKp.secretKey, 'd-sonnet-1-team-alpha', 503, rosterPayload),
+    text: rosterPayload
+  });
+  assert.strictEqual(rosterReceipt.actionStatus, 'ACCEPTED');
+
+  // 11. First word ("the", version 1)
+  const word1Payload = JSON.stringify({
+    type: 'sonnet.receipt.word.v1',
+    request_id: 'w-sim-1',
+    game_id: 'alpha',
+    version: 1,
+    word: 'the',
+    previous_state_hash: '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22',
+    state_hash: '1111111111111111111111111111111111111111111111111111111111111111',
+    status: 'accepted'
+  });
+
+  // 12. Referee word acceptance
+  engine.ingestMessage({
+    room: 'd-sonnet-1-team-alpha',
+    seq: 1004,
+    nonce: 504,
+    from: refereeKp.did,
+    sig: signMessage(nacl, refereeKp.secretKey, 'd-sonnet-1-team-alpha', 504, word1Payload),
+    text: word1Payload
+  });
+  assert.strictEqual(engine.getGameState('alpha').version, 1);
+
+  // 13. Second contributor turn ("world", version 2)
+  const word2Payload = JSON.stringify({
+    type: 'sonnet.receipt.word.v1',
+    request_id: 'w-sim-2',
+    game_id: 'alpha',
+    version: 2,
+    word: 'world',
+    state_hash: '2222222222222222222222222222222222222222222222222222222222222222',
+    status: 'accepted'
+  });
+  engine.ingestMessage({
+    room: 'd-sonnet-1-team-alpha',
+    seq: 1005,
+    nonce: 505,
+    from: refereeKp.did,
+    sig: signMessage(nacl, refereeKp.secretKey, 'd-sonnet-1-team-alpha', 505, word2Payload),
+    text: word2Payload
+  });
+
+  // 14. Repeated word later in poem ("the" repeated at version 3)
+  const word3Payload = JSON.stringify({
+    type: 'sonnet.receipt.word.v1',
+    request_id: 'w-sim-3',
+    game_id: 'alpha',
+    version: 3,
+    word: 'the',
+    state_hash: '3333333333333333333333333333333333333333333333333333333333333333',
+    status: 'accepted'
+  });
+  engine.ingestMessage({
+    room: 'd-sonnet-1-team-alpha',
+    seq: 1006,
+    nonce: 506,
+    from: refereeKp.did,
+    sig: signMessage(nacl, refereeKp.secretKey, 'd-sonnet-1-team-alpha', 506, word3Payload),
+    text: word3Payload
+  });
+
+  // 15. State/version/hash progression and repeated word preserved!
+  const gameState = engine.getGameState('alpha');
+  assert.strictEqual(gameState.version, 3);
+  assert.deepStrictEqual(gameState.words, ['the', 'world', 'the']);
+
+  // 16. Construct valid 14 lines
+  const fullSonnetLines = [
+    'The morning lays its gold upon the stone',
+    'And wakes the fields beneath a silver sky',
+    'I walk the path that once I walked alone',
+    'And watch the last of nights pale shadows die',
+    'Your voice returns within the waking light',
+    'A song the patient river seems to know',
+    'It keeps a little warmth against the night',
+    'And follows where the quiet waters flow',
+    'The years may take the roses from the wall',
+    'And leave the gate to rust beneath the rain',
+    'Yet still I turn whenever sparrows call',
+    'As though your step might cross the path again',
+    'What time has taken words can hold in trust',
+    'A breath of love can rise above the dust'
+  ];
+
+  // 17. Syllable count verification: exactly 10 per line
+  const officialLexicon = parseCmudictLexicon(fs.readFileSync('./cmudict.dict', 'utf8'));
+  const sonnetValidation = validatePoemSyllables(fullSonnetLines, officialLexicon, true);
+  assert.strictEqual(sonnetValidation.valid, true);
+
+  // 18. Poem freeze format
+  const canonicalPoem = formatCanonicalPoem(fullSonnetLines);
+  assert.strictEqual(canonicalPoem.split('\n\n').length, 4);
+
+  // 19. Poem SHA-256
+  const poemSha256 = await computePoemSha256(canonicalPoem);
+  assert.strictEqual(poemSha256.length, 64);
+
+  // 20. Submission dispatch
+  const subReqId = 'sub-sim-1';
+  engine.recordDispatch({
+    requestId: subReqId,
+    actionType: 'submit',
+    authenticatedDid: writerKp.did,
+    room: 'mb-sonnet-1-submissions',
+    stateHash: poemSha256,
+    httpStatus: 200,
+    transportSuccess: true
+  });
+
+  // 21. Referee submission receipt
+  const authoritativeEntryId = 'entry-sonnet-1-alpha-001';
+  const subPayload = JSON.stringify({
+    type: 'sonnet.receipt.submission.v1',
+    request_id: subReqId,
+    game_id: 'alpha',
+    entry_id: authoritativeEntryId,
+    status: 'accepted'
+  });
+  const subReceipt = engine.ingestMessage({
+    room: 'mb-sonnet-1-submissions',
+    seq: 1007,
+    nonce: 507,
+    from: refereeKp.did,
+    sig: signMessage(nacl, refereeKp.secretKey, 'mb-sonnet-1-submissions', 507, subPayload),
+    text: subPayload
+  });
+
+  // 22. Authoritative entry_id verified (never fabricated)
+  assert.strictEqual(subReceipt.actionStatus, 'ACCEPTED');
+  assert.strictEqual(subReceipt.entryId, authoritativeEntryId);
+  assert.notStrictEqual(subReceipt.entryId, 'entry-submitted');
+
+  // 23. Voting ballot dispatch
+  const ballotReqId = 'ballot-sim-1';
+  engine.recordDispatch({
+    requestId: ballotReqId,
+    actionType: 'ballot',
+    authenticatedDid: voterKp.did,
+    room: 'mb-sonnet-1-votes',
+    httpStatus: 200,
+    transportSuccess: true
+  });
+
+  // 24. Ballot receipt acceptance
+  const ballotPayload = JSON.stringify({
+    type: 'sonnet.receipt.ballot.v1',
+    request_id: ballotReqId,
+    entry_id: authoritativeEntryId,
+    status: 'accepted'
+  });
+  const ballotReceipt = engine.ingestMessage({
+    room: 'mb-sonnet-1-votes',
+    seq: 1008,
+    nonce: 508,
+    from: refereeKp.did,
+    sig: signMessage(nacl, refereeKp.secretKey, 'mb-sonnet-1-votes', 508, ballotPayload),
+    text: ballotPayload
+  });
+  assert.strictEqual(ballotReceipt.actionStatus, 'ACCEPTED');
+
+  // 25. Winner prize claim dispatch & acceptance
+  const claimReqId = 'claim-sim-1';
+  engine.recordDispatch({
+    requestId: claimReqId,
+    actionType: 'claim',
+    authenticatedDid: writerKp.did,
+    room: 'mb-sonnet-1-registration',
+    httpStatus: 200,
+    transportSuccess: true
+  });
+
+  const claimPayload = JSON.stringify({
+    type: 'sonnet.receipt.claim.v1',
+    request_id: claimReqId,
+    game_id: 'alpha',
+    status: 'accepted'
+  });
+  const claimReceipt = engine.ingestMessage({
+    room: 'mb-sonnet-1-registration',
+    seq: 1009,
+    nonce: 509,
+    from: refereeKp.did,
+    sig: signMessage(nacl, refereeKp.secretKey, 'mb-sonnet-1-registration', 509, claimPayload),
+    text: claimPayload
+  });
+  assert.strictEqual(claimReceipt.actionStatus, 'ACCEPTED');
 });
 
 console.log('\n========================================');

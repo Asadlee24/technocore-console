@@ -147,13 +147,15 @@ export class ReceiptEngine {
     }
 
     // INVARIANT 4: Offline Cryptographic Ed25519 Signature Verification
+    // CRITICAL PROTOCOL RULE: Technocore signatures cover <room>|<nonce>|<text>.
+    // The server assigns `seq` and `ts` AFTER the message is accepted. `seq` is NOT the signing nonce.
+    // When verifying an existing Technocore JSON record, we MUST use `msg.nonce`, NEVER `msg.seq`.
     const naclInstance = this._nacl || (typeof nacl !== 'undefined' ? nacl : null);
     let receiptSignatureStatus = 'SERVER AUTHENTICATED';
 
-    if (naclInstance && msg.sig && refereeDid && msg.room && (msg.seq !== undefined || msg.nonce !== undefined)) {
-      const nonceVal = msg.seq !== undefined ? msg.seq : msg.nonce;
+    if (naclInstance && msg.sig && refereeDid && msg.room && msg.nonce !== undefined && msg.nonce !== null) {
       const rawText = typeof msg.text === 'string' ? msg.text : JSON.stringify(payload);
-      const check = verifyMessageSignature(naclInstance, refereeDid, msg.sig, msg.room, nonceVal, rawText);
+      const check = verifyMessageSignature(naclInstance, refereeDid, msg.sig, msg.room, msg.nonce, rawText);
       if (!check || !check.valid) {
         return {
           rejected: true,

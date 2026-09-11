@@ -83,40 +83,56 @@ export function isRefereePinned() {
 }
 
 /**
- * Safely parse and pin official referee DID from the contest rules/launch message
+ * Safely parse and pin official referee DID from the contest rules/launch message.
+ * STRICT FAIL-CLOSED INVARIANT:
+ * 1. Must be an official launch announcement with type === 'sonnet.rules.v1' or 'sonnet.launch.v1'.
+ *    A message merely containing contest_id is strictly rejected.
+ * 2. Must be cryptographically signed (msg.sig required).
+ * 3. Must specify msg.nonce (msg.seq is NOT the signing nonce).
+ * 4. Must be cryptographically verified against msg.from using TweetNaCl.
+ * 5. Unsigned or unverified messages can NEVER establish the referee DID.
+ *
  * @param {Array<object>} rulesRoomMessages - Messages polled from d-sonnet-1-rules
- * @param {object} [naclInstance=null] - Optional TweetNaCl instance for local verification
+ * @param {object} naclInstance - TweetNaCl instance required for cryptographic verification
  * @returns {string|null} pinned DID if found, or null
  */
 export function extractAndPinRefereeFromRules(rulesRoomMessages = [], naclInstance = null) {
-  if (!Array.isArray(rulesRoomMessages)) return null;
+  if (!Array.isArray(rulesRoomMessages) || !naclInstance) return null;
+
   for (const msg of rulesRoomMessages) {
-    if (!msg || !msg.from || !msg.from.startsWith('did:key:z6Mk')) continue;
+    if (!msg || typeof msg !== 'object') continue;
+    if (!msg.from || typeof msg.from !== 'string' || !msg.from.startsWith('did:key:z6Mk')) continue;
+    if (!msg.sig || typeof msg.sig !== 'string') continue;
+    if (msg.nonce === undefined || msg.nonce === null) continue;
+
+    let parsed = null;
     try {
-      const parsed = typeof msg.text === 'string' ? JSON.parse(msg.text) : msg.text;
-      if (
-        parsed &&
-        (parsed.type === 'sonnet.rules.v1' ||
-         parsed.type === 'sonnet.launch.v1' ||
-         parsed.contest_id === 'sonnet-1' ||
-         (typeof parsed.contest === 'object' && parsed.contest.contestId === 'sonnet-1'))
-      ) {
-        // If message is signed and nacl is available, verify signature
-        if (msg.sig && naclInstance && msg.room && (msg.seq !== undefined || msg.nonce !== undefined)) {
-          const nonceVal = msg.seq !== undefined ? msg.seq : msg.nonce;
-          const rawText = typeof msg.text === 'string' ? msg.text : JSON.stringify(parsed);
-          const check = verifyMessageSignature(naclInstance, msg.from, msg.sig, msg.room, nonceVal, rawText);
-          if (!check || !check.valid) {
-            continue; // Skip invalid announcement
-          }
-        }
-        setPinnedReferee(msg.from);
-        return msg.from;
-      }
+      parsed = typeof msg.text === 'string' ? JSON.parse(msg.text) : msg.text;
     } catch {
-      // Not JSON or non-rules announcement
+      continue;
+    }
+
+    if (!parsed || typeof parsed !== 'object') continue;
+
+    // Strict structure: Must be official launch/rules announcement for sonnet-1
+    const isOfficialLaunchType = parsed.type === 'sonnet.rules.v1' || parsed.type === 'sonnet.launch.v1';
+    const matchesContest = parsed.contest_id === 'sonnet-1';
+
+    if (!isOfficialLaunchType || !matchesContest) {
+      continue; // Random user messages or messages lacking official type cannot pin referee
+    }
+
+    // Cryptographic Ed25519 verification over <room>|<nonce>|<text>
+    const room = (msg.room || 'd-sonnet-1-rules').trim().toLowerCase();
+    const rawText = typeof msg.text === 'string' ? msg.text : JSON.stringify(parsed);
+    const check = verifyMessageSignature(naclInstance, msg.from, msg.sig, room, msg.nonce, rawText);
+
+    if (check && check.valid) {
+      setPinnedReferee(msg.from);
+      return msg.from;
     }
   }
+
   return null;
 }
 

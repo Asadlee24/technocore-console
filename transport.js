@@ -206,10 +206,18 @@ export async function dispatchAnonymousMessage(arg1, nickParam, textParam) {
  * Incremental Room Poller with AbortController, backoff, and jitter
  */
 export class RoomPoller {
-  constructor(room, onMessages, onStatus) {
+  constructor(room, onMessagesOrOptions, onStatus) {
     this.room = (room || 'lobby').trim().toLowerCase();
-    this.onMessages = onMessages;
-    this.onStatus = onStatus || (() => {});
+    if (typeof onMessagesOrOptions === 'function') {
+      this.onMessages = onMessagesOrOptions;
+      this.onStatus = typeof onStatus === 'function' ? onStatus : (() => {});
+    } else if (onMessagesOrOptions && typeof onMessagesOrOptions === 'object') {
+      this.onMessages = typeof onMessagesOrOptions.onMessages === 'function' ? onMessagesOrOptions.onMessages : (() => {});
+      this.onStatus = typeof onMessagesOrOptions.onStatus === 'function' ? onMessagesOrOptions.onStatus : (typeof onStatus === 'function' ? onStatus : (() => {}));
+    } else {
+      this.onMessages = () => {};
+      this.onStatus = typeof onStatus === 'function' ? onStatus : (() => {});
+    }
     this.lastSeq = 0;
     this.generation = null;
     this.isRunning = false;
