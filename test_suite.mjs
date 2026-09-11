@@ -47,7 +47,7 @@ import {
   buildBallotPayload,
   buildClaimPayload
 } from './sonnet.js';
-import { DEFAULT_CONTEST } from './contest-config.js';
+import { DEFAULT_CONTEST, setPinnedReferee, getPinnedReferee } from './contest-config.js';
 
 // Load tweetnacl for testing in Node.js
 import { createRequire } from 'module';
@@ -510,6 +510,8 @@ test('ReceiptEngine detects stale or out-of-order state updates', () => {
   const staleMsg = {
     room: 'd-sonnet-1-team-game-beta',
     seq: 10,
+    from: 'did:key:z6MkRefereeTestKey12345678901234567890123456789012',
+    sig: 'qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AQ',
     text: JSON.stringify({
       type: 'sonnet.receipt.accepted.v1',
       request_id: 'old-req',
@@ -649,6 +651,313 @@ await testAsync('RoomPoller computes exponential backoff with jitter on 429 and 
 
   const bMax = poller.computeBackoff(10);
   assert.strictEqual(bMax <= 30500, true);
+});
+
+// ----------------------------------------------------
+// SECTION 11: Authoritative State Machine & Anti-Fabrication Invariants
+// ----------------------------------------------------
+console.log('\n--- Section 11: Authoritative State Machine & Anti-Fabrication Invariants ---');
+
+test('Regression: HTTP 200 without referee receipt does NOT lock registration or grant eligibility', () => {
+  const engine = new ReceiptEngine();
+  const dispatch = engine.recordDispatch({
+    requestId: 'reg-req-1',
+    actionType: 'registration',
+    authenticatedDid: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    room: 'mb-sonnet-1-registration',
+    payload: { role: 'writer' },
+    httpStatus: 200,
+    transportSuccess: true
+  });
+
+  // Transport succeeded with HTTP 200
+  assert.strictEqual(dispatch.transportSuccess, true);
+  assert.strictEqual(dispatch.httpStatus, 200);
+
+  // But referee has not accepted yet: role must NOT be locked, eligibility NOT granted
+  assert.strictEqual(dispatch.refereeAccepted, false);
+  assert.strictEqual(dispatch.status, 'SENT');
+  assert.strictEqual(dispatch.refereeReceipt, null);
+});
+
+test('Regression: Team request stays pending without referee receipt', () => {
+  const engine = new ReceiptEngine();
+  const dispatch = engine.recordDispatch({
+    requestId: 'team-req-1',
+    actionType: 'team-request',
+    authenticatedDid: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    room: 'mb-sonnet-1-discovery',
+    payload: { game_id: 'alpha-1' },
+    httpStatus: 200,
+    transportSuccess: true
+  });
+
+  assert.strictEqual(dispatch.status, 'SENT');
+  assert.strictEqual(dispatch.refereeAccepted, false);
+  assert.strictEqual(engine.getGameState('alpha-1'), null);
+});
+
+test('Regression: Word send is impossible without authoritative version/hash/generation', () => {
+  // Missing version throws
+  assert.throws(() => {
+    buildWordProposalPayload({
+      gameId: 'alpha-1',
+      roomGeneration: 1,
+      previousStateHash: '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22',
+      word: 'word',
+      requestId: 'r1'
+    });
+  }, /version must be a non-negative integer/);
+
+  // Missing roomGeneration throws
+  assert.throws(() => {
+    buildWordProposalPayload({
+      gameId: 'alpha-1',
+      version: 1,
+      previousStateHash: '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22',
+      word: 'word',
+      requestId: 'r1'
+    });
+  }, /room_generation must be a non-negative integer/);
+
+  // Missing previousStateHash throws
+  assert.throws(() => {
+    buildWordProposalPayload({
+      gameId: 'alpha-1',
+      roomGeneration: 1,
+      version: 1,
+      word: 'word',
+      requestId: 'r1'
+    });
+  }, /previous_state_hash must be a 64-character SHA-256 hash/);
+});
+
+test('Regression: Submission is impossible without frozen completed poem and authoritative version', () => {
+  // Incomplete poem fails validation
+  const incompletePoem = Array(13).fill('I I I I I I I I I I');
+  const sampleLexicon = new Map([['i', 1]]);
+  const checkIncomplete = validatePoemSyllables(incompletePoem, sampleLexicon, true);
+  assert.strictEqual(checkIncomplete.valid, false);
+
+  // Missing poemSha256 throws
+  assert.throws(() => {
+    buildSubmissionPayload({
+      gameId: 'alpha-1',
+      poemRoom: 'd-sonnet-1-team-alpha-1',
+      roomGeneration: 1,
+      finalVersion: 140,
+      xPostIds: ['12345'],
+      requestId: 'r1'
+    });
+  }, /poem_sha256/);
+
+  // Missing finalVersion throws
+  assert.throws(() => {
+    buildSubmissionPayload({
+      gameId: 'alpha-1',
+      poemRoom: 'd-sonnet-1-team-alpha-1',
+      roomGeneration: 1,
+      poemSha256: '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22',
+      xPostIds: ['12345'],
+      requestId: 'r1'
+    });
+  }, /final_version must be a positive integer/);
+});
+
+test('Regression: Fake/default hashes are strictly rejected (never generated or accepted)', () => {
+  const zeroHash = '0000000000000000000000000000000000000000000000000000000000000000';
+
+  // Zero-filled previous_state_hash is rejected
+  assert.throws(() => {
+    buildWordProposalPayload({
+      gameId: 'alpha-1',
+      roomGeneration: 1,
+      version: 1,
+      previousStateHash: zeroHash,
+      word: 'word',
+      requestId: 'r1'
+    });
+  }, /never invented or zero-filled/);
+
+  // Zero-filled poem_sha256 is rejected
+  assert.throws(() => {
+    buildSubmissionPayload({
+      gameId: 'alpha-1',
+      poemRoom: 'd-sonnet-1-team-alpha-1',
+      roomGeneration: 1,
+      finalVersion: 140,
+      poemSha256: zeroHash,
+      xPostIds: ['12345'],
+      requestId: 'r1'
+    });
+  }, /never zero-filled/);
+});
+
+test('Regression: Fake/default room_generation is strictly rejected (never generated or accepted)', () => {
+  // Undefined room_generation rejected
+  assert.throws(() => {
+    buildWordProposalPayload({
+      gameId: 'alpha-1',
+      roomGeneration: undefined,
+      version: 1,
+      previousStateHash: '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22',
+      word: 'word',
+      requestId: 'r1'
+    });
+  }, /room_generation must be a non-negative integer/);
+
+  // Negative room_generation rejected
+  assert.throws(() => {
+    buildWordProposalPayload({
+      gameId: 'alpha-1',
+      roomGeneration: -1,
+      version: 1,
+      previousStateHash: '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22',
+      word: 'word',
+      requestId: 'r1'
+    });
+  }, /room_generation must be a non-negative integer/);
+});
+
+test('Regression: Date.now is never stored as server sequence', () => {
+  const engine = new ReceiptEngine();
+  const action = engine.recordDispatch({
+    requestId: 'seq-test-1',
+    actionType: 'word',
+    room: 'test-room',
+    payload: { word: 'test' }
+  });
+
+  // Without server response sequence, sequence must be null, NEVER Date.now()
+  assert.strictEqual(action.sequence, null);
+
+  // Ingest message with actual server seq
+  const serverMsg = {
+    room: 'test-room',
+    seq: 789,
+    from: 'did:key:z6MkRefereeTestKey12345678901234567890123456789012',
+    sig: 'qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AQ',
+    text: JSON.stringify({
+      type: 'sonnet.receipt.accepted.v1',
+      request_id: 'seq-test-1',
+      status: 'accepted'
+    })
+  };
+  engine.ingestMessage(serverMsg);
+  assert.strictEqual(action.sequence, 789);
+  assert.notStrictEqual(action.sequence, Date.now());
+});
+
+test('Regression: Invalid/unpinned referee receipts cannot mutate contest or game state', () => {
+  const refereeOfficial = 'did:key:z6MkOfficialRefereeDidForContest12345678901234567890';
+  setPinnedReferee(refereeOfficial);
+
+  const engine = new ReceiptEngine();
+  engine.updateGameState('game-gamma', { version: 10, stateHash: 'hash-10' });
+
+  // 1. Message from unpinned/imposter signer is rejected
+  const imposterMsg = {
+    room: 'd-sonnet-1-team-gamma',
+    seq: 15,
+    from: 'did:key:z6MkImposterHackerSigner98765432109876543210987654',
+    sig: 'qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AQ',
+    text: JSON.stringify({
+      type: 'sonnet.receipt.accepted.v1',
+      request_id: 'hack-req',
+      game_id: 'game-gamma',
+      version: 11,
+      previous_state_hash: 'hacked-hash'
+    })
+  };
+  const resultImposter = engine.ingestMessage(imposterMsg);
+  assert.strictEqual(resultImposter.rejected, true);
+  assert.strictEqual(engine.getGameState('game-gamma').version, 10);
+
+  // 2. Unsigned message is rejected
+  const unsignedMsg = {
+    room: 'd-sonnet-1-team-gamma',
+    seq: 16,
+    from: refereeOfficial,
+    text: JSON.stringify({
+      type: 'sonnet.receipt.accepted.v1',
+      request_id: 'unsigned-req',
+      game_id: 'game-gamma',
+      version: 11,
+      previous_state_hash: 'unsigned-hash'
+    })
+  };
+  const resultUnsigned = engine.ingestMessage(unsignedMsg);
+  assert.strictEqual(resultUnsigned.rejected, true);
+  assert.strictEqual(engine.getGameState('game-gamma').version, 10);
+});
+
+test('Regression: Accepted signed referee receipt from pinned referee correctly advances state and locks role', () => {
+  const refereeOfficial = 'did:key:z6MkOfficialRefereeDidForContest12345678901234567890';
+  setPinnedReferee(refereeOfficial);
+
+  const engine = new ReceiptEngine();
+
+  // Registration flow:
+  const regAction = engine.recordDispatch({
+    requestId: 'reg-flow-1',
+    actionType: 'registration',
+    authenticatedDid: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    room: 'mb-sonnet-1-registration',
+    payload: { role: 'writer' },
+    httpStatus: 200,
+    transportSuccess: true
+  });
+  assert.strictEqual(regAction.status, 'SENT');
+  assert.strictEqual(regAction.refereeAccepted, false);
+
+  // Official referee signs acceptance receipt
+  const regReceiptMsg = {
+    room: 'mb-sonnet-1-registration',
+    seq: 101,
+    from: refereeOfficial,
+    sig: 'qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AQ',
+    text: JSON.stringify({
+      type: 'sonnet.receipt.registration.v1',
+      request_id: 'reg-flow-1',
+      role: 'writer',
+      status: 'accepted'
+    })
+  };
+
+  const receipt = engine.ingestMessage(regReceiptMsg);
+  assert.strictEqual(receipt !== null, true);
+  assert.strictEqual(regAction.refereeAccepted, true);
+  assert.strictEqual(regAction.status, 'ACCEPTED');
+
+  // Game advance flow:
+  const wordAction = engine.recordDispatch({
+    requestId: 'word-flow-1',
+    actionType: 'word',
+    authenticatedDid: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    room: 'd-sonnet-1-team-game-delta',
+    payload: { word: 'test' }
+  });
+
+  const wordReceiptMsg = {
+    room: 'd-sonnet-1-team-game-delta',
+    seq: 102,
+    from: refereeOfficial,
+    sig: 'qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_qU8s9_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AQ',
+    text: JSON.stringify({
+      type: 'sonnet.receipt.accepted.v1',
+      request_id: 'word-flow-1',
+      game_id: 'game-delta',
+      version: 1,
+      previous_state_hash: '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22',
+      status: 'accepted'
+    })
+  };
+
+  engine.ingestMessage(wordReceiptMsg);
+  assert.strictEqual(wordAction.refereeAccepted, true);
+  const gameState = engine.getGameState('game-delta');
+  assert.strictEqual(gameState.version, 1);
+  assert.strictEqual(gameState.stateHash, '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22');
 });
 
 console.log('\n========================================');

@@ -6,6 +6,7 @@
 
 export const DEFAULT_CONTEST = {
   contestId: 'sonnet-1',
+  defaultContestId: 'sonnet-1',
   rulesVersion: '0.5',
   title: 'Technocore Sonnet Challenge #1',
   description: 'Self-formed teams of 4–8 write a 14-line sonnet, one signed word per turn using letters from contributor DIDs, validated against frozen CMUdict.',
@@ -24,7 +25,7 @@ export const DEFAULT_CONTEST = {
     sha256: '81917843c7f44ce2b094ac63873c2c7a4cf802040792c455ba3ca406891c3d22'
   },
 
-  // Room assignments
+  // Official contest room assignments
   rooms: {
     rules: 'd-sonnet-1-rules',
     registration: 'mb-sonnet-1-registration',
@@ -44,9 +45,31 @@ export const DEFAULT_CONTEST = {
     syllablesPerLine: 10,
     exactTenMandatoryAtSubmission: true,
     stanzaDistribution: [4, 4, 4, 2],
-    maxConsecutiveTurnsBySameAuthor: 1 // Agent cannot take consecutive turns
-  }
+    maxConsecutiveTurnsBySameAuthor: 1
+  },
+
+  // Pinned referee DID from official launch announcement
+  pinnedRefereeDid: null
 };
+
+export const SONNET_CONFIG = {
+  ...DEFAULT_CONTEST
+};
+
+let currentPinnedReferee = null;
+
+export function setPinnedReferee(did) {
+  if (did && typeof did === 'string' && did.startsWith('did:key:z6Mk')) {
+    currentPinnedReferee = did;
+    SONNET_CONFIG.pinnedRefereeDid = did;
+    return true;
+  }
+  return false;
+}
+
+export function getPinnedReferee() {
+  return currentPinnedReferee || SONNET_CONFIG.pinnedRefereeDid || null;
+}
 
 /**
  * Get configured contest definition
@@ -54,7 +77,7 @@ export const DEFAULT_CONTEST = {
  */
 export function getContestConfig(contestId = 'sonnet-1') {
   if (contestId === 'sonnet-1') {
-    return DEFAULT_CONTEST;
+    return SONNET_CONFIG;
   }
   return {
     ...DEFAULT_CONTEST,

@@ -1,102 +1,93 @@
 /**
- * Sonnet Challenge Core Logic and Validation Engine for Technocore Console V4
- * Implements candidate word checks, frozen CMUdict syllable calculations,
- * poem state maintenance, and protocol message builders matching official rules.
+ * Technocore Sonnet Challenge Helper & Validator Module (V4)
+ * Official contest mechanics, CMUdict syllable counter, DID letter checker,
+ * single-line protocol message builders with strict anti-fabrication invariants.
  */
 
+import { sha256Hex } from './crypto.js';
 import { DEFAULT_CONTEST } from './contest-config.js';
-import { sha256Hex, formatCanonicalPoem, computePoemSha256 } from './protocol.js';
 
-// Restrict spelling grammar per official sonnet_validate.py
-export const WORD_REGEX = /^[A-Za-z]+(?:'[A-Za-z]+)*$/;
-export const TOKEN_REGEX = /^([A-Za-z]+(?:'[A-Za-z]+)*)[,.;:!?]?$/;
-export const ED25519_DID_REGEX = /^did:key:z6Mk[1-9A-HJ-NP-Za-km-z]{44}$/;
-export const CMUDICT_VOWELS = new Set(['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'OY', 'UH', 'UW']);
+// Word regex: 1–32 lowercase letters per Sonnet rules
+const WORD_REGEX = /^[a-z]{1,32}$/;
 
-// In-memory syllable lexicon map
+// CMUdict vowels set for stress detection
+const CMUDICT_VOWELS = new Set([
+  'AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'B', 'CH', 'D', 'DH',
+  'EH', 'ER', 'EY', 'F', 'G', 'HH', 'IH', 'IY', 'JH', 'K',
+  'L', 'M', 'N', 'NG', 'OW', 'OY', 'P', 'R', 'S', 'SH',
+  'T', 'TH', 'UH', 'UW', 'V', 'W', 'Y', 'Z', 'ZH'
+]);
+
 let _lexicon = null;
-let _lexiconHash = null;
 let _lexiconLoadingPromise = null;
 
 /**
- * Check a candidate word against an authenticated DID's characters locally.
- * Rule: Every alphabetic letter in the word must exist somewhere in the DID string (case-insensitive).
- * Letters may be reused unlimited times. Optional single trailing punctuation [,.;:!?] allowed.
+ * Check if all letters of a word exist in the registered DID (case-insensitive).
  *
- * @param {string} token - Candidate word with optional allowed trailing punctuation
- * @param {string} did - Contributor's exact registered did:key
- * @returns {{
- *   compatible: boolean,
- *   cleanWord: string,
- *   allowedLetters: string[],
- *   missingLetters: string[],
- *   error?: string
- * }}
+ * @param {string} didKey - Contributor's full did:key string
+ * @param {string} word - Candidate word (punctuation stripped)
+ * @returns {{ compatible: boolean, missingLetters: string[], didLetters: Set<string> }}
  */
-export function checkDidLetterCompatibility(token, did) {
-  if (!token || typeof token !== 'string') {
-    return { compatible: false, cleanWord: '', allowedLetters: [], missingLetters: [], error: 'Word cannot be empty' };
+export function checkDidLetterCompatibility(a, b) {
+  let didKey, word;
+  if (typeof a === 'string' && a.startsWith('did:key:')) {
+    didKey = a;
+    word = b;
+  } else if (typeof b === 'string' && b.startsWith('did:key:')) {
+    didKey = b;
+    word = a;
+  } else {
+    didKey = a;
+    word = b;
   }
 
-  const match = token.trim().match(TOKEN_REGEX);
-  if (!match) {
-    return {
-      compatible: false,
-      cleanWord: token,
-      allowedLetters: [],
-      missingLetters: [],
-      error: 'Invalid word format. Must be one English word with optional allowed punctuation (, . ; : ! ?)'
-    };
+  if (!didKey || typeof didKey !== 'string') {
+    return { compatible: false, missingLetters: [], didLetters: new Set() };
+  }
+  if (!word || typeof word !== 'string') {
+    return { compatible: true, missingLetters: [], didLetters: new Set() };
   }
 
-  const cleanWord = match[1].toLowerCase();
-
-  if (!did || typeof did !== 'string' || !ED25519_DID_REGEX.test(did.trim())) {
-    return {
-      compatible: false,
-      cleanWord,
-      allowedLetters: [],
-      missingLetters: [],
-      error: 'Invalid or missing Ed25519 did:key'
-    };
-  }
-
-  // Letters in DID (case-insensitive, includes 'did:key:z6mk...')
-  const allowedSet = new Set();
-  for (const ch of did.trim().toLowerCase()) {
-    if (ch >= 'a' && ch <= 'z') allowedSet.add(ch);
-  }
-
-  // Letters in word token
-  const missingSet = new Set();
-  for (const ch of cleanWord) {
+  // Extract all unique letters [a-z] from DID
+  const didLetters = new Set();
+  const lowerDid = didKey.toLowerCase();
+  for (let i = 0; i < lowerDid.length; i++) {
+    const ch = lowerDid[i];
     if (ch >= 'a' && ch <= 'z') {
-      if (!allowedSet.has(ch)) {
-        missingSet.add(ch);
-      }
+      didLetters.add(ch);
     }
   }
 
-  const missingLetters = Array.from(missingSet).sort();
-  const compatible = missingLetters.length === 0;
+  // Extract all unique letters [a-z] from candidate word
+  const lowerWord = word.toLowerCase().replace(/[^a-z]/g, '');
+  const missingLetters = [];
+
+  for (let i = 0; i < lowerWord.length; i++) {
+    const ch = lowerWord[i];
+    if (!didLetters.has(ch) && !missingLetters.includes(ch)) {
+      missingLetters.push(ch);
+    }
+  }
 
   return {
-    compatible,
-    cleanWord,
-    allowedLetters: Array.from(allowedSet).sort(),
+    compatible: missingLetters.length === 0,
     missingLetters,
-    error: compatible ? undefined : `Letters absent from contributor DID: ${missingLetters.join(', ')}`
+    didLetters
   };
 }
 
 /**
- * Parse CMUdict plaintext into word -> max syllable count map
- * Charges largest listed syllable count per word.
+ * Parse raw CMUdict text into a Map of word -> maximum syllable count
+ * Rule: charges largest listed count per word across variants
  *
- * @param {string} rawText
+ * @param {string} rawText - Uncompressed CMUdict plain text
  * @returns {Map<string, number>}
  */
 export function parseCmudictLexicon(rawText) {
+  if (!rawText || typeof rawText !== 'string') {
+    throw new Error('CMUdict text is required');
+  }
+
   const counts = new Map();
   const lines = rawText.split('\n');
 
@@ -114,9 +105,8 @@ export function parseCmudictLexicon(rawText) {
     let count = 0;
     for (let j = 1; j < fields.length; j++) {
       const phone = fields[j];
-      const phoneme = phone.slice(0, -1);
       const stress = phone.slice(-1);
-      if (CMUDICT_VOWELS.has(phoneme) && (stress === '0' || stress === '1' || stress === '2')) {
+      if (stress === '0' || stress === '1' || stress === '2') {
         count++;
       }
     }
@@ -159,7 +149,6 @@ export async function loadFrozenLexicon(dictUrl = './cmudict.dict') {
       throw new Error(`CMUdict hash mismatch! Expected ${DEFAULT_CONTEST.dictionary.sha256}, got ${computedHash}`);
     }
 
-    _lexiconHash = computedHash;
     const text = new TextDecoder('utf-8').decode(bytes);
     _lexicon = parseCmudictLexicon(text);
     return _lexicon;
@@ -169,101 +158,72 @@ export async function loadFrozenLexicon(dictUrl = './cmudict.dict') {
 }
 
 /**
- * Check syllables for one word token using loaded lexicon
- *
- * @param {string} token
- * @param {Map<string, number>} lexicon
- * @returns {number}
+ * Count syllables of a single word using loaded lexicon
+ * @param {string} word
+ * @param {Map<string, number>} [lexicon]
+ * @returns {number|null} syllable count, or null if word not found
  */
-export function countWordSyllables(token, lexicon) {
-  if (!token || typeof token !== 'string') {
-    throw new Error('Expected word token string');
-  }
-  const match = token.trim().match(TOKEN_REGEX);
-  if (!match) {
-    throw new Error(`Invalid token format: "${token}"`);
-  }
-  const word = match[1].toLowerCase();
-  if (!lexicon.has(word)) {
-    throw new Error(`Word "${word}" is not in the frozen dictionary`);
-  }
-  return lexicon.get(word);
+export function countWordSyllables(word, lexicon = _lexicon) {
+  if (!lexicon) return null;
+  const cleanWord = (word || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (!cleanWord) return 0;
+  const count = lexicon.get(cleanWord);
+  return count !== undefined ? count : null;
 }
 
 /**
- * Validate a candidate word against DID letters AND frozen lexicon
+ * Validate a candidate word for turn proposal
  *
- * @param {string} token
- * @param {string} did
- * @param {Map<string, number>} lexicon
- * @returns {{
- *   valid: boolean,
- *   cleanWord: string,
- *   syllables: number,
- *   compatible: boolean,
- *   inDictionary: boolean,
- *   error?: string
- * }}
+ * @param {string} activeDid
+ * @param {string} word
+ * @param {Map<string, number>} [lexicon]
  */
-export function validateCandidateWord(token, did, lexicon) {
-  const didCheck = checkDidLetterCompatibility(token, did);
-  if (!didCheck.compatible) {
-    return {
-      valid: false,
-      cleanWord: didCheck.cleanWord,
-      syllables: 0,
-      compatible: false,
-      inDictionary: false,
-      error: didCheck.error
-    };
+export function validateCandidateWord(a, b, lexicon = _lexicon) {
+  let activeDid, word;
+  if (typeof a === 'string' && a.startsWith('did:key:')) {
+    activeDid = a;
+    word = b;
+  } else if (typeof b === 'string' && b.startsWith('did:key:')) {
+    activeDid = b;
+    word = a;
+  } else {
+    word = a;
+    activeDid = b;
   }
 
-  try {
-    const syllables = countWordSyllables(token, lexicon);
-    if (syllables < 1 || syllables > 10) {
-      return {
-        valid: false,
-        cleanWord: didCheck.cleanWord,
-        syllables,
-        compatible: true,
-        inDictionary: true,
-        error: `Word has ${syllables} syllables, exceeding the 10-syllable line limit`
-      };
-    }
+  const cleanWord = (word || '').toLowerCase().replace(/[^a-z]/g, '');
+  const letterCheck = checkDidLetterCompatibility(activeDid, cleanWord);
+  const syllables = countWordSyllables(cleanWord, lexicon);
 
-    return {
-      valid: true,
-      cleanWord: didCheck.cleanWord,
-      syllables,
-      compatible: true,
-      inDictionary: true
-    };
-  } catch (err) {
-    return {
-      valid: false,
-      cleanWord: didCheck.cleanWord,
-      syllables: 0,
-      compatible: true,
-      inDictionary: false,
-      error: err.message
-    };
-  }
+  const inDictionary = syllables !== null && syllables > 0;
+  const valid = letterCheck.compatible && inDictionary && cleanWord.length > 0;
+
+  return {
+    word: cleanWord,
+    valid,
+    compatible: letterCheck.compatible,
+    didCompatible: letterCheck.compatible,
+    missingLetters: letterCheck.missingLetters,
+    inDictionary,
+    syllables: syllables || 0,
+    error: !cleanWord
+      ? 'Empty word'
+      : !letterCheck.compatible
+      ? `Letters not in DID: ${letterCheck.missingLetters.join(', ')}`
+      : !inDictionary
+      ? 'Word not found in frozen CMUdict lexicon'
+      : null
+  };
 }
 
 /**
- * Validate full 14-line poem syllables against frozen lexicon
+ * Validate poem lines into 14 lines x 10 syllables
  *
- * @param {string|string[]} poemInput - 14 lines or text
- * @param {Map<string, number>} lexicon
+ * @param {string[]|string} poemInput - Array of 14 lines or multiline poem string
+ * @param {Map<string, number>} [lexicon]
  * @param {boolean} [exactTen=false]
- * @returns {{
- *   valid: boolean,
- *   syllablesPerLine: number[],
- *   totalSyllables: number,
- *   errors: string[]
- * }}
  */
-export function validatePoemSyllables(poemInput, lexicon, exactTen = false) {
+export function validatePoemSyllables(poemInput = [], lexicon = _lexicon, exactTen = false) {
   let lines = [];
   if (Array.isArray(poemInput)) {
     lines = poemInput;
@@ -280,7 +240,7 @@ export function validatePoemSyllables(poemInput, lexicon, exactTen = false) {
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
-    const tokens = lines[i].trim().split(/\s+/).filter(Boolean);
+    const tokens = String(lines[i] || '').trim().split(/\s+/).filter(Boolean);
     if (tokens.length === 0) {
       errors.push(`Line ${lineNum} is empty`);
       syllablesPerLine.push(0);
@@ -291,12 +251,12 @@ export function validatePoemSyllables(poemInput, lexicon, exactTen = false) {
     let lineError = null;
 
     for (const token of tokens) {
-      try {
-        lineSyllables += countWordSyllables(token, lexicon);
-      } catch (err) {
-        lineError = `Line ${lineNum}: ${err.message}`;
+      const syl = countWordSyllables(token, lexicon);
+      if (syl === null) {
+        lineError = `Line ${lineNum}: Word "${token}" not found in CMUdict lexicon`;
         break;
       }
+      lineSyllables += syl;
     }
 
     if (lineError) {
@@ -323,102 +283,107 @@ export function validatePoemSyllables(poemInput, lexicon, exactTen = false) {
 
 // ----------------------------------------------------
 // Sonnet Protocol Message Builders (Single-Line JSON)
+// Strictly enforced anti-fabrication invariants:
+// Throws if required authoritative referee fields are missing.
 // ----------------------------------------------------
 
 /**
  * 1. Build Registration Payload
- * @param {object} params
- * @param {string} params.role - 'writer' | 'voter' | 'organizer'
- * @param {string} [params.xAccountUrl] - required for writer
- * @param {string} params.requestId
- * @param {string} [params.contestId='sonnet-1']
  */
 export function buildRegistrationPayload({ role, xAccountUrl, requestId, contestId = 'sonnet-1' }) {
   const cleanRole = (role || 'writer').toLowerCase();
+  if (cleanRole !== 'writer' && cleanRole !== 'voter' && cleanRole !== 'organizer') {
+    throw new Error('role must be writer, voter, or organizer');
+  }
+
   const payload = {
     type: 'sonnet.register.v1',
     contest_id: contestId,
     role: cleanRole
   };
+
   if (cleanRole === 'writer') {
     if (!xAccountUrl || !xAccountUrl.trim()) {
       throw new Error('Writer registration requires public X account URL');
     }
     payload.x_account_url = xAccountUrl.trim();
   }
-  payload.request_id = requestId || `reg-${Date.now()}`;
+
+  if (!requestId || !requestId.trim()) {
+    throw new Error('request_id is required');
+  }
+  payload.request_id = requestId.trim();
   return JSON.stringify(payload);
 }
 
 /**
  * 2. Build Team Request Payload
- * @param {object} params
- * @param {string} params.gameId - 1-16 chars /^[a-z0-9][a-z0-9_-]{0,15}$/
- * @param {string} params.requestId
- * @param {string} [params.contestId='sonnet-1']
  */
 export function buildTeamRequestPayload({ gameId, requestId, contestId = 'sonnet-1' }) {
   const cleanGameId = (gameId || '').trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9_-]{0,15}$/.test(cleanGameId)) {
     throw new Error('game_id must be 1–16 lowercase letters, digits, hyphens or underscores, starting with letter or digit');
   }
+  if (!requestId || !requestId.trim()) {
+    throw new Error('request_id is required');
+  }
   return JSON.stringify({
     type: 'sonnet.team-request.v1',
     contest_id: contestId,
     game_id: cleanGameId,
-    request_id: requestId || `team-req-${Date.now()}`
+    request_id: requestId.trim()
   });
 }
 
 /**
  * 3. Build Roster Consent Payload
- * @param {object} params
- * @param {string} params.gameId
- * @param {string} params.poemRoom
- * @param {number} params.roomGeneration
- * @param {string[]} params.members - 4 to 8 writer DIDs
- * @param {string} params.requestId
+ * Requires referee-allocated poem room and room_generation.
  */
 export function buildRosterPayload({ gameId, poemRoom, roomGeneration, members, requestId }) {
+  if (!gameId || !gameId.trim()) throw new Error('game_id is required');
+  if (!poemRoom || !poemRoom.trim()) throw new Error('poem_room must be assigned by referee (never guessed)');
+  if (roomGeneration === undefined || roomGeneration === null || isNaN(roomGeneration) || roomGeneration < 0) {
+    throw new Error('room_generation must be a non-negative integer from referee receipt');
+  }
   if (!Array.isArray(members) || members.length < 4 || members.length > 8) {
     throw new Error('Roster requires between 4 and 8 writer DIDs');
   }
+  if (!requestId || !requestId.trim()) throw new Error('request_id is required');
+
   return JSON.stringify({
     type: 'sonnet.roster.v1',
-    game_id: gameId,
-    poem_room: poemRoom,
+    game_id: gameId.trim(),
+    poem_room: poemRoom.trim(),
     room_generation: Number(roomGeneration),
     members: members.map(m => m.trim()),
-    request_id: requestId || `roster-${Date.now()}`
+    request_id: requestId.trim()
   });
 }
 
 /**
  * 4. Build Roster Withdrawal Payload
- * @param {object} params
- * @param {string} params.gameId
- * @param {string} params.requestId
  */
-export function buildWithdrawalPayload({ gameId, requestId }) {
+export function buildWithdrawalPayload({ gameId, poemRoom, roomGeneration, requestId }) {
+  if (!gameId || !gameId.trim()) throw new Error('game_id is required');
+  if (!poemRoom || !poemRoom.trim()) throw new Error('poem_room is required');
+  if (roomGeneration === undefined || roomGeneration === null || isNaN(roomGeneration) || roomGeneration < 0) {
+    throw new Error('room_generation must be a non-negative integer from referee receipt');
+  }
+  if (!requestId || !requestId.trim()) throw new Error('request_id is required');
+
   return JSON.stringify({
     type: 'sonnet.withdraw.v1',
-    game_id: gameId,
-    request_id: requestId || `withdraw-${Date.now()}`
+    game_id: gameId.trim(),
+    poem_room: poemRoom.trim(),
+    room_generation: Number(roomGeneration),
+    request_id: requestId.trim()
   });
 }
 
 /**
  * 5. Build Word Proposal Payload
  * Reads version, previous_state_hash, and room_generation authoritatively from referee receipt.
- *
- * @param {object} params
- * @param {string} params.gameId
- * @param {number} params.roomGeneration
- * @param {number} params.version
- * @param {string} params.previousStateHash
- * @param {string} params.word
- * @param {string} params.requestId
- * @param {string} [params.contestId='sonnet-1']
+ * Strictly prohibits zero-filled hashes or invented fallbacks.
  */
 export function buildWordProposalPayload({
   gameId,
@@ -429,33 +394,39 @@ export function buildWordProposalPayload({
   requestId,
   contestId = 'sonnet-1'
 }) {
-  if (!word || !word.trim()) throw new Error('Word is required');
-  if (previousStateHash === undefined || previousStateHash === null) {
-    throw new Error('previous_state_hash must be read from referee receipt (never invented)');
+  if (!gameId || !gameId.trim()) throw new Error('game_id is required');
+  if (roomGeneration === undefined || roomGeneration === null || isNaN(roomGeneration) || roomGeneration < 0) {
+    throw new Error('room_generation must be a non-negative integer from referee receipt (never invented)');
   }
+  if (version === undefined || version === null || isNaN(version) || version < 0) {
+    throw new Error('version must be a non-negative integer from referee receipt (never invented)');
+  }
+  if (
+    !previousStateHash ||
+    typeof previousStateHash !== 'string' ||
+    previousStateHash.length !== 64 ||
+    previousStateHash === '0000000000000000000000000000000000000000000000000000000000000000'
+  ) {
+    throw new Error('previous_state_hash must be a 64-character SHA-256 hash read from referee receipt (never invented or zero-filled)');
+  }
+  if (!word || !word.trim()) throw new Error('word is required');
+  if (!requestId || !requestId.trim()) throw new Error('request_id is required');
+
   return JSON.stringify({
     type: 'sonnet.word.v1',
     contest_id: contestId,
-    game_id: gameId,
+    game_id: gameId.trim(),
     room_generation: Number(roomGeneration),
     version: Number(version),
-    previous_state_hash: previousStateHash,
+    previous_state_hash: previousStateHash.trim().toLowerCase(),
     word: word.trim(),
-    request_id: requestId || `word-${version}-${Date.now()}`
+    request_id: requestId.trim()
   });
 }
 
 /**
  * 6. Build Submission Payload
- * @param {object} params
- * @param {string} params.gameId
- * @param {string} params.poemRoom
- * @param {number} params.roomGeneration
- * @param {number} params.finalVersion
- * @param {string} params.poemSha256
- * @param {string[]} params.xPostIds
- * @param {string} params.requestId
- * @param {string} [params.contestId='sonnet-1']
+ * Requires frozen completed poem and authoritative final_version.
  */
 export function buildSubmissionPayload({
   gameId,
@@ -467,55 +438,106 @@ export function buildSubmissionPayload({
   requestId,
   contestId = 'sonnet-1'
 }) {
-  if (!poemSha256) throw new Error('poem_sha256 is required');
+  if (!gameId || !gameId.trim()) throw new Error('game_id is required');
+  if (!poemRoom || !poemRoom.trim()) throw new Error('poem_room is required');
+  if (roomGeneration === undefined || roomGeneration === null || isNaN(roomGeneration) || roomGeneration < 0) {
+    throw new Error('room_generation must be a non-negative integer from referee receipt');
+  }
+  if (finalVersion === undefined || finalVersion === null || isNaN(finalVersion) || finalVersion < 1) {
+    throw new Error('final_version must be a positive integer from referee receipt');
+  }
+  if (
+    !poemSha256 ||
+    typeof poemSha256 !== 'string' ||
+    poemSha256.length !== 64 ||
+    poemSha256 === '0000000000000000000000000000000000000000000000000000000000000000'
+  ) {
+    throw new Error('poem_sha256 must be an exact 64-character hash of canonical poem (never zero-filled)');
+  }
   if (!Array.isArray(xPostIds) || xPostIds.length === 0) {
     throw new Error('x_post_ids array with at least 1 post ID is required');
   }
+  if (!requestId || !requestId.trim()) throw new Error('request_id is required');
+
   return JSON.stringify({
     type: 'sonnet.submit.v1',
     contest_id: contestId,
-    game_id: gameId,
-    poem_room: poemRoom,
+    game_id: gameId.trim(),
+    poem_room: poemRoom.trim(),
     room_generation: Number(roomGeneration),
     final_version: Number(finalVersion),
-    poem_sha256: poemSha256,
-    x_post_ids: xPostIds,
-    request_id: requestId || `submit-${Date.now()}`
+    poem_sha256: poemSha256.trim().toLowerCase(),
+    x_post_ids: xPostIds.map(x => String(x).trim()),
+    request_id: requestId.trim()
   });
 }
 
 /**
  * 7. Build Public Ballot Payload
- * @param {object} params
- * @param {string} params.voterDid
- * @param {string} params.entryId
- * @param {string} params.requestId
- * @param {string} [params.contestId='sonnet-1']
  */
 export function buildBallotPayload({ voterDid, entryId, requestId, contestId = 'sonnet-1' }) {
-  if (!voterDid || !entryId) throw new Error('voter_did and entry_id are required');
+  if (!voterDid || !voterDid.trim()) throw new Error('voter_did is required');
+  if (!entryId || !entryId.trim()) throw new Error('entry_id is required (never guessed)');
+  if (!requestId || !requestId.trim()) throw new Error('request_id is required');
+
   return JSON.stringify({
     type: 'sonnet.ballot.v1',
     contest_id: contestId,
     voter_did: voterDid.trim(),
     entry_id: entryId.trim(),
-    request_id: requestId || `ballot-${Date.now()}`
+    request_id: requestId.trim()
   });
 }
 
 /**
  * 8. Build Prize Claim Payload
- * @param {object} params
- * @param {string} params.destination - payment destination (e.g. FLOP wallet)
- * @param {string} params.requestId
- * @param {string} [params.contestId='sonnet-1']
  */
-export function buildClaimPayload({ destination, requestId, contestId = 'sonnet-1' }) {
+export function buildClaimPayload({ contestId = 'sonnet-1', gameId, destination, requestId }) {
+  if (!gameId || !gameId.trim()) throw new Error('game_id is required');
   if (!destination || !destination.trim()) throw new Error('Payment destination is required');
+  if (!requestId || !requestId.trim()) throw new Error('request_id is required');
+
   return JSON.stringify({
     type: 'sonnet.claim.v1',
     contest_id: contestId,
+    game_id: gameId.trim(),
     destination: destination.trim(),
-    request_id: requestId || `claim-${Date.now()}`
+    request_id: requestId.trim()
   });
+}
+
+// ----------------------------------------------------
+// Positional / Named Convenience Aliases for app.js
+// ----------------------------------------------------
+
+export function buildSonnetRegisterPayload(contestId, role, xAccountUrl, requestId) {
+  return buildRegistrationPayload({ contestId, role, xAccountUrl, requestId });
+}
+
+export function buildSonnetTeamRequestPayload(contestId, gameId, requestId) {
+  return buildTeamRequestPayload({ contestId, gameId, requestId });
+}
+
+export function buildSonnetRosterPayload(gameId, poemRoom, roomGeneration, members, requestId) {
+  return buildRosterPayload({ gameId, poemRoom, roomGeneration, members, requestId });
+}
+
+export function buildSonnetWithdrawPayload(gameId, poemRoom, roomGeneration, requestId) {
+  return buildWithdrawalPayload({ gameId, poemRoom, roomGeneration, requestId });
+}
+
+export function buildSonnetWordPayload(contestId, gameId, roomGeneration, version, previousStateHash, word, requestId) {
+  return buildWordProposalPayload({ contestId, gameId, roomGeneration, version, previousStateHash, word, requestId });
+}
+
+export function buildSonnetSubmitPayload(contestId, gameId, poemRoom, roomGeneration, finalVersion, poemSha256, xPostIds, requestId) {
+  return buildSubmissionPayload({ contestId, gameId, poemRoom, roomGeneration, finalVersion, poemSha256, xPostIds, requestId });
+}
+
+export function buildSonnetBallotPayload(contestId, voterDid, entryId, requestId) {
+  return buildBallotPayload({ contestId, voterDid, entryId, requestId });
+}
+
+export function buildSonnetClaimPayload(contestId, gameId, destination, requestId) {
+  return buildClaimPayload({ contestId, gameId, destination, requestId });
 }
