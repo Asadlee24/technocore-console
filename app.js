@@ -542,6 +542,12 @@ function setView(viewName) {
       refreshSquadBoard();
     }
   }
+
+  if (viewName === 'direct') {
+    if (visualizer && typeof visualizer.onResize === 'function') {
+      setTimeout(() => visualizer.onResize(), 60);
+    }
+  }
 }
 
 /**
