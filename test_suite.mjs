@@ -282,6 +282,16 @@ test('NonceManager recovers from server rejection with advancement', () => {
   assert.strictEqual(BigInt(recovered) > BigInt(rejectedNonce), true);
 });
 
+test('NonceManager supports getNextNonce alias and flexible argument order', () => {
+  const nm = new NonceManager();
+  const n1 = nm.getNextNonce('lobby', 'did:key:test');
+  const n2 = nm.nextNonce('did:key:test', 'lobby');
+  const n3 = nm.getNextNonce('did:key:test', 'lobby');
+  assert.strictEqual(typeof nm.getNextNonce, 'function');
+  assert.strictEqual(BigInt(n2) > BigInt(n1), true);
+  assert.strictEqual(BigInt(n3) > BigInt(n2), true);
+});
+
 // ----------------------------------------------------
 // SECTION 5: DID Registry Paths
 // ----------------------------------------------------

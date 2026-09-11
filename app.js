@@ -782,7 +782,7 @@ function updateUrlPreview() {
   let previewUrl = '';
   if (state.keypair) {
     el.previewModeLabel.textContent = 'Signed Request (POST / GET)';
-    const nextNonce = nonceManager.getNextNonce(room, state.keypair.did);
+    const nextNonce = nonceManager.nextNonce(state.keypair.did, room);
     const mockSig = signMessage(nacl, state.keypair.secretKey, room, nextNonce, swept || 'hello');
     previewUrl = `${BASE_URL}/r/${room}/say-signed/${state.keypair.did}/${mockSig}/${nextNonce}/${encodedText}`;
   } else {

@@ -12,12 +12,31 @@ export class NonceManager {
   }
 
   /**
+   * Resolve DID and room regardless of argument order
+   * @private
+   */
+  _resolveDidAndRoom(arg1, arg2) {
+    let did = 'anonymous';
+    let room = 'lobby';
+    if (typeof arg1 === 'string' && (arg1.startsWith('did:key:') || arg1.startsWith('did:'))) {
+      did = arg1.trim();
+      room = (arg2 || 'lobby').trim().toLowerCase();
+    } else if (typeof arg2 === 'string' && (arg2.startsWith('did:key:') || arg2.startsWith('did:'))) {
+      did = arg2.trim();
+      room = (arg1 || 'lobby').trim().toLowerCase();
+    } else {
+      did = (arg1 || 'anonymous').trim();
+      room = (arg2 || 'lobby').trim().toLowerCase();
+    }
+    return { did, room };
+  }
+
+  /**
    * Get composite key
    * @private
    */
   _getKey(did, room) {
-    const cleanDid = (did || 'anonymous').trim();
-    const cleanRoom = (room || 'lobby').trim().toLowerCase();
+    const { did: cleanDid, room: cleanRoom } = this._resolveDidAndRoom(did, room);
     return `${cleanDid}:${cleanRoom}`;
   }
 
@@ -25,12 +44,13 @@ export class NonceManager {
    * Generate the next strictly increasing nonce for this key and room.
    * Format: 1-19 digits decimal string (safe for BigInt and JSON serialization).
    *
-   * @param {string} did
-   * @param {string} room
+   * @param {string} arg1 - DID or room
+   * @param {string} arg2 - room or DID
    * @returns {string} Decimal string of 1-19 digits
    */
-  nextNonce(did, room) {
-    const key = this._getKey(did, room);
+  nextNonce(arg1, arg2) {
+    const { did, room } = this._resolveDidAndRoom(arg1, arg2);
+    const key = `${did}:${room}`;
     const nowMs = BigInt(Date.now());
     const last = this._roomNonces.get(key) || 0n;
 
@@ -39,6 +59,13 @@ export class NonceManager {
 
     this._roomNonces.set(key, next);
     return next.toString();
+  }
+
+  /**
+   * Alias for nextNonce
+   */
+  getNextNonce(arg1, arg2) {
+    return this.nextNonce(arg1, arg2);
   }
 
   /**
