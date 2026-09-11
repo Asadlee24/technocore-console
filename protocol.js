@@ -155,3 +155,13 @@ export function formatCanonicalPoem(lines) {
 export async function computePoemSha256(canonicalPoemText) {
   return await sha256Hex(canonicalPoemText);
 }
+
+// Aliases for compatibility
+export const cleanRoomName = sanitizeRoomName;
+export const calculatePoemSha256 = computePoemSha256;
+export const validateIdentifier = isValidProtocolName;
+export async function deriveLegacyRegistryPath(didKey) {
+  const p = await deriveRegistryPath(didKey);
+  return p.legacyPath;
+}
+

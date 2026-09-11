@@ -438,3 +438,8 @@ export function redactSecrets(str) {
     .replace(/-----BEGIN[^-]+PRIVATE KEY-----[^-]+-----END[^-]+PRIVATE KEY-----/gis, '[REDACTED_PEM_PRIVATE_KEY]')
     .replace(/\b(?:secret|seed|sk)[_a-z0-9]*\s*[:=]\s*["']?([0-9a-fA-F]{64,128})/gi, '$1: [REDACTED_KEY]');
 }
+
+// Aliases for compatibility
+export const wipeBuffer = wipeBytes;
+export const redactSecret = redactSecrets;
+

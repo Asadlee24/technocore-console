@@ -6,6 +6,8 @@
  */
 
 import { sweepSingleLine, isValidProtocolName } from './protocol.js';
+import { signMessage } from './crypto.js';
+import { globalNonceManager } from './nonce.js';
 
 export const BASE_URL = 'https://technocore.chat';
 
@@ -112,7 +114,21 @@ export async function fetchProtocol(pathAndQuery, options = {}) {
  * @param {string} params.text - message text
  * @returns {Promise<{ ok: boolean, status: number, text: string, json?: any, lane: 'POST'|'GET' }>}
  */
-export async function dispatchSignedMessage({ room, did, sig, nonce, text }) {
+export async function dispatchSignedMessage(arg1, keypair, roomName, messageText) {
+  let room, did, sig, nonce, text;
+
+  if (arg1 && typeof arg1 === 'object' && !keypair && (arg1.did || arg1.sig || arg1.nonce)) {
+    ({ room, did, sig, nonce, text } = arg1);
+  } else {
+    // Called as: dispatchSignedMessage(naclInstance, keypair, room, text)
+    const naclInstance = arg1;
+    room = roomName;
+    did = keypair ? keypair.did : '';
+    nonce = globalNonceManager.nextNonce(did, room);
+    sig = signMessage(naclInstance, keypair.secretKey, room, nonce, messageText);
+    text = messageText;
+  }
+
   const cleanRoom = (room || 'lobby').trim().toLowerCase();
   const swept = sweepSingleLine(text);
   const nonceStr = String(nonce).trim();
@@ -151,14 +167,17 @@ export async function dispatchSignedMessage({ room, did, sig, nonce, text }) {
 
 /**
  * Dispatch an anonymous message to a room
- *
- * @param {object} params
- * @param {string} params.room
- * @param {string} params.nick
- * @param {string} params.text
- * @returns {Promise<{ ok: boolean, status: number, text: string, lane: 'POST'|'GET' }>}
  */
-export async function dispatchAnonymousMessage({ room, nick, text }) {
+export async function dispatchAnonymousMessage(arg1, nickParam, textParam) {
+  let room, nick, text;
+  if (arg1 && typeof arg1 === 'object' && !nickParam) {
+    ({ room, nick, text } = arg1);
+  } else {
+    room = arg1;
+    nick = nickParam;
+    text = textParam;
+  }
+
   const cleanRoom = (room || 'lobby').trim().toLowerCase();
   const cleanNick = (nick || 'anon').trim().toLowerCase().slice(0, 48);
   const swept = sweepSingleLine(text);

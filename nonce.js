@@ -115,3 +115,5 @@ export class NonceManager {
 
 // Global default singleton instance
 export const globalNonceManager = new NonceManager();
+export const nonceManager = globalNonceManager;
+
