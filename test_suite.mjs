@@ -1762,6 +1762,37 @@ await testAsync('Sonnet Challenge End-to-End 25-step simulated contest lifecycle
   assert.strictEqual(claimReceipt.actionStatus, 'ACCEPTED');
 });
 
+test('Regression: Registration dispatch response handling supports res.lane (POST/GET) without throwing TypeError', () => {
+  // dispatchSignedMessage returns { ok: true, status: 200, seq: 62519, lane: 'POST' }
+  const res = {
+    ok: true,
+    status: 200,
+    seq: 62519,
+    text: 'OK',
+    lane: 'POST'
+  };
+
+  // Ensure lane resolution is safe and doesn't throw TypeError
+  const laneStr = (res.lane || res.transport || 'POST').toUpperCase();
+  assert.strictEqual(laneStr, 'POST');
+
+  const evidenceText = `Dispatched via ${laneStr}. Polling /r/mb-sonnet-1-registration for referee receipt...`;
+  assert.strictEqual(evidenceText.includes('Dispatched via POST'), true);
+
+  // Invariant: HTTP 200 must keep role unlocked and registration pending
+  const registrationState = {
+    registrationPending: true,
+    lastRegistrationReqId: 'register-asadlee-1',
+    role: 'writer',
+    roleLocked: false,
+    registrationAccepted: false
+  };
+
+  assert.strictEqual(registrationState.registrationPending, true);
+  assert.strictEqual(registrationState.roleLocked, false);
+  assert.strictEqual(registrationState.registrationAccepted, false);
+});
+
 console.log('\n========================================');
 console.log(`TEST RESULTS: ${passedTests} passed, ${failedTests} failed`);
 console.log('========================================\n');

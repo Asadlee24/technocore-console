@@ -886,7 +886,8 @@ async function handleSendSigned() {
     const res = await dispatchSignedMessage(nacl, state.keypair, room, text);
 
     if (res.ok) {
-      showDispatchResult('success', `Signed message dispatched to /r/${room} via ${res.transport.toUpperCase()} (nonce ${res.nonce}). HTTP ${res.status}: ${res.text.trim() || 'OK'}`);
+      const laneStr = (res.lane || res.transport || 'POST').toUpperCase();
+      showDispatchResult('success', `Signed message dispatched to /r/${room} via ${laneStr} (nonce ${res.nonce}). HTTP ${res.status}: ${res.text.trim() || 'OK'}`);
       el.inputMessage.value = '';
       state.message = '';
       updateUrlPreview();
@@ -1278,10 +1279,11 @@ async function handleWizardSendLobby() {
       state.wizard.lobbyTimestamp = new Date().toISOString();
       state.wizard.lobbySeq = res.seq !== undefined ? res.seq : null;
 
+      const laneStr = (res.lane || res.transport || 'POST').toUpperCase();
       el.wizardLobbyResult.className = 'result-callout success';
       el.wizardLobbyResult.innerHTML = `
         <div class="result-title">Lobby Introduction Dispatched</div>
-        <div class="result-body">Message dispatched to /r/lobby via ${res.transport.toUpperCase()}. Proceed to step 4.</div>
+        <div class="result-body">Message dispatched to /r/lobby via ${laneStr}. Proceed to step 4.</div>
       `;
       el.wizardLobbyResult.style.display = 'flex';
 
@@ -2511,7 +2513,8 @@ async function handleSonnetSendRegister() {
       el.sonnetRegLockBadge.className = 'step-status-pill pending';
       el.sonnetEligibilityBadge.textContent = 'Registration Pending';
       el.sonnetEligibilityBadge.className = 'step-status-pill pending';
-      el.sonnetProofEvidence.textContent = `Dispatched via ${res.transport.toUpperCase()}. Polling /r/${targetRoom} for referee receipt...`;
+      const laneStr = (res.lane || res.transport || 'POST').toUpperCase();
+      el.sonnetProofEvidence.textContent = `Dispatched via ${laneStr}. Polling /r/${targetRoom} for referee receipt...`;
       el.sonnetProofRole.textContent = `${role.toUpperCase()} (Pending)`;
 
       showSonnetRegResult('info', `Registration dispatched (HTTP ${res.status}). Transport success != referee accepted. Awaiting authoritative referee receipt.`);

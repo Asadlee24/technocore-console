@@ -152,7 +152,7 @@ export async function dispatchSignedMessage(arg1, keypair, roomName, messageText
 
     // If successful or rejected with semantic error (400, 403, 422, 429), return directly
     if (res.ok || (res.status !== 404 && res.status !== 405 && res.status < 500)) {
-      return { ...res, lane: 'POST' };
+      return { ...res, lane: 'POST', transport: 'POST' };
     }
   } catch {
     // POST lane network or proxy issue, proceed to Signed GET fallback
@@ -162,7 +162,7 @@ export async function dispatchSignedMessage(arg1, keypair, roomName, messageText
   const encodedText = encodeURIComponent(swept);
   const getPath = `r/${cleanRoom}/say-signed/${did}/${sig}/${nonceStr}/${encodedText}`;
   const res = await fetchProtocol(getPath, { method: 'GET' });
-  return { ...res, lane: 'GET' };
+  return { ...res, lane: 'GET', transport: 'GET' };
 }
 
 /**
@@ -190,7 +190,7 @@ export async function dispatchAnonymousMessage(arg1, nickParam, textParam) {
       headers: { 'Content-Type': 'application/json' }
     });
     if (res.ok || (res.status !== 404 && res.status !== 405 && res.status < 500)) {
-      return { ...res, lane: 'POST' };
+      return { ...res, lane: 'POST', transport: 'POST' };
     }
   } catch {
     // Fallback to GET
@@ -199,7 +199,7 @@ export async function dispatchAnonymousMessage(arg1, nickParam, textParam) {
   const encodedText = encodeURIComponent(swept);
   const getPath = `r/${cleanRoom}/say/${cleanNick}/${encodedText}`;
   const res = await fetchProtocol(getPath, { method: 'GET' });
-  return { ...res, lane: 'GET' };
+  return { ...res, lane: 'GET', transport: 'GET' };
 }
 
 /**
