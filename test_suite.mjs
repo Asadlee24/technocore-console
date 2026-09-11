@@ -46,6 +46,9 @@ import {
   buildSubmissionPayload,
   buildBallotPayload,
   buildClaimPayload,
+  buildRecruitPayload,
+  buildSonnetRecruitPayload,
+  formatRecruitMessage,
   extractDidLetters,
   computeRosterLetterCoverage,
   normalizeXHandle,
@@ -1924,6 +1927,48 @@ test('normalizeXHandle strictly rejects placeholders and non-existent keywords',
   assert.strictEqual(normalizeXHandle('a').handle, '');
   assert.strictEqual(normalizeXHandle('https://x.com/michaelsatwork').handle, '@michaelsatwork');
 });
+
+test('buildRecruitPayload formats valid compact sonnet.recruit.v1 JSON', () => {
+  const json = buildRecruitPayload({
+    contestId: 'sonnet-1',
+    gameId: 'team-asad',
+    text: 'Recruiting 4th writer for Team Asad!',
+    requestId: 'recruit-test-1'
+  });
+  const parsed = JSON.parse(json);
+  assert.strictEqual(parsed.type, 'sonnet.recruit.v1');
+  assert.strictEqual(parsed.contest_id, 'sonnet-1');
+  assert.strictEqual(parsed.game_id, 'team-asad');
+  assert.strictEqual(parsed.text, 'Recruiting 4th writer for Team Asad!');
+  assert.strictEqual(parsed.request_id, 'recruit-test-1');
+});
+
+test('formatRecruitMessage formats rich squad recruitment message with letters, quorum, and handles', () => {
+  const writersMap = new Map([
+    ['did:key:z6MkwYrk7Bm6XrU79teci9S2bBNYDx9vgdUdiExeNHGUdDkh', { xHandle: '@Samimi' }],
+    ['did:key:z6Mkn8Jb122XrU79teci9S2bBNYDx9vgdUdiExeArashb12', { xHandle: '@Arash' }]
+  ]);
+
+  const msg = formatRecruitMessage({
+    gameId: 'team-asad',
+    members: [
+      'did:key:z6Mksadlee24Bm6XrU79teci9S2bBNYDx9vgdUdiExeAsad',
+      'did:key:z6MkwYrk7Bm6XrU79teci9S2bBNYDx9vgdUdiExeNHGUdDkh',
+      'did:key:z6Mkn8Jb122XrU79teci9S2bBNYDx9vgdUdiExeArashb12'
+    ],
+    writersMap,
+    myDid: 'did:key:z6Mksadlee24Bm6XrU79teci9S2bBNYDx9vgdUdiExeAsad',
+    myXUrl: 'https://x.com/Asadlee24',
+    seatsNeeded: '1'
+  });
+
+  assert.ok(msg.includes('Team Asad'), 'Should include Team Asad');
+  assert.ok(msg.includes('looking for 4th writer to reach 4-person quorum!'), 'Should include quorum need');
+  assert.ok(msg.includes('We have Asadlee24, Samimi, Arash.'), 'Should list member handles');
+  assert.ok(msg.includes('Letters covered:'), 'Should include letter coverage');
+  assert.ok(msg.includes('DM @Asadlee24 on X to join!'), 'Should include DM call to action');
+});
+
 
 console.log('\n========================================');
 console.log(`TEST RESULTS: ${passedTests} passed, ${failedTests} failed`);

@@ -62,6 +62,8 @@ import {
   buildSonnetSubmitPayload,
   buildSonnetBallotPayload,
   buildSonnetClaimPayload,
+  buildSonnetRecruitPayload,
+  formatRecruitMessage,
   computeRosterLetterCoverage,
   extractDidLetters,
   normalizeXHandle,
@@ -386,6 +388,16 @@ function cacheElements() {
     squadFilterFreeOnly: document.getElementById('squad-filter-free-only'),
     squadFilterSummary: document.getElementById('squad-filter-summary'),
     squadWritersList: document.getElementById('squad-writers-list'),
+    squadBtnToggleRecruit: document.getElementById('squad-btn-toggle-recruit'),
+    squadRecruitTray: document.getElementById('squad-recruit-tray'),
+    squadBtnCloseRecruit: document.getElementById('squad-btn-close-recruit'),
+    squadRecruitGameId: document.getElementById('squad-recruit-game-id'),
+    squadRecruitSeats: document.getElementById('squad-recruit-seats'),
+    squadRecruitMsg: document.getElementById('squad-recruit-msg'),
+    squadBtnGenRecruit: document.getElementById('squad-btn-gen-recruit'),
+    squadRecruitPayloadPreview: document.getElementById('squad-recruit-payload-preview'),
+    squadBtnSendRecruit: document.getElementById('squad-btn-send-recruit'),
+    squadRecruitResult: document.getElementById('squad-recruit-result'),
 
     sonnetRosterFreezeBadge: document.getElementById('sonnet-roster-freeze-badge'),
     sonnetRosterMembersInput: document.getElementById('sonnet-roster-members-input'),
@@ -2166,6 +2178,9 @@ function bindSonnetEvents() {
       updateSonnetStateUI();
       renderSquadBoardCoverage();
       renderSquadBoard();
+      if (el.squadRecruitTray && el.squadRecruitTray.style.display !== 'none') {
+        generateSquadRecruitMessage();
+      }
     });
   }
 
@@ -2203,6 +2218,60 @@ function bindSonnetEvents() {
       renderSquadBoard();
     });
   }
+
+  // Squad Recruit Shoutout Controls
+  if (el.squadBtnToggleRecruit) {
+    el.squadBtnToggleRecruit.addEventListener('click', () => {
+      if (!el.squadRecruitTray) return;
+      const isOpen = el.squadRecruitTray.style.display !== 'none';
+      el.squadRecruitTray.style.display = isOpen ? 'none' : 'block';
+      if (!isOpen) {
+        if (el.squadRecruitGameId && !el.squadRecruitGameId.value.trim()) {
+          el.squadRecruitGameId.value = (state.sonnet.gameId || 'team-asad').trim();
+        }
+        if (!el.squadRecruitMsg.value.trim()) {
+          generateSquadRecruitMessage();
+        } else {
+          updateSquadRecruitPreview();
+        }
+      }
+    });
+  }
+
+  if (el.squadBtnCloseRecruit) {
+    el.squadBtnCloseRecruit.addEventListener('click', () => {
+      if (el.squadRecruitTray) el.squadRecruitTray.style.display = 'none';
+    });
+  }
+
+  if (el.squadBtnGenRecruit) {
+    el.squadBtnGenRecruit.addEventListener('click', () => {
+      generateSquadRecruitMessage();
+    });
+  }
+
+  if (el.squadRecruitGameId) {
+    el.squadRecruitGameId.addEventListener('input', () => {
+      updateSquadRecruitPreview();
+    });
+  }
+
+  if (el.squadRecruitSeats) {
+    el.squadRecruitSeats.addEventListener('change', () => {
+      generateSquadRecruitMessage();
+    });
+  }
+
+  if (el.squadRecruitMsg) {
+    el.squadRecruitMsg.addEventListener('input', () => {
+      updateSquadRecruitPreview();
+    });
+  }
+
+  if (el.squadBtnSendRecruit) {
+    el.squadBtnSendRecruit.addEventListener('click', handleDispatchSquadRecruit);
+  }
+
 
   if (el.sonnetBtnSignRoster) {
     el.sonnetBtnSignRoster.addEventListener('click', handleSonnetSignRoster);
@@ -2535,6 +2604,9 @@ function updateSonnetPreviews() {
       el.sonnetBallotPayloadPreview.textContent = `[${err.message}]`;
     }
   }
+
+  // 6. Squad Recruit Shoutout Preview
+  updateSquadRecruitPreview();
 }
 
 /**
@@ -3394,6 +3466,152 @@ function toggleRosterMember(did) {
   el.sonnetRosterMembersInput.value = currentLines.join('\n');
   el.sonnetRosterMembersInput.dispatchEvent(new Event('input'));
   renderSquadBoard();
+}
+
+/**
+ * Auto-generate recruit pitch message based on current roster and coverage
+ */
+function generateSquadRecruitMessage() {
+  if (!el.squadRecruitMsg) return;
+
+  const rawMembers = (el.sonnetRosterMembersInput?.value || '')
+    .split('\n')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const members = rawMembers.length > 0 
+    ? rawMembers 
+    : (state.keypair ? [state.keypair.did] : []);
+
+  const gameId = (el.squadRecruitGameId?.value || '').trim() || (state.sonnet?.gameId || '').trim() || 'team-asad';
+  const myDid = state.keypair?.did || '';
+  const myXUrl = el.sonnetRegXUrl?.value?.trim() || '';
+  const seatsNeeded = el.squadRecruitSeats?.value || '1';
+  const writersMap = state.sonnet?.squadBoard?.writers || null;
+
+  const text = formatRecruitMessage({
+    gameId,
+    members,
+    writersMap,
+    myDid,
+    myXUrl,
+    seatsNeeded
+  });
+
+  el.squadRecruitMsg.value = text;
+  updateSquadRecruitPreview();
+}
+
+/**
+ * Update single-line JSON payload preview for recruit shoutout
+ */
+function updateSquadRecruitPreview() {
+  if (!el.squadRecruitPayloadPreview) return;
+
+  const contestId = state.sonnet?.contestId || SONNET_CONFIG.defaultContestId;
+  const gameId = (el.squadRecruitGameId?.value || '').trim();
+  const text = (el.squadRecruitMsg?.value || '').trim();
+  const reqId = `recruit-${Date.now()}`;
+
+  let previewStr = '';
+  try {
+    previewStr = buildSonnetRecruitPayload(contestId, gameId, text, reqId);
+  } catch {
+    previewStr = JSON.stringify({
+      type: 'sonnet.recruit.v1',
+      contest_id: contestId,
+      game_id: gameId,
+      request_id: reqId,
+      text
+    });
+  }
+
+  el.squadRecruitPayloadPreview.textContent = previewStr;
+
+  if (el.squadBtnSendRecruit) {
+    el.squadBtnSendRecruit.disabled = !state.keypair || !text;
+    if (!state.keypair) {
+      el.squadBtnSendRecruit.textContent = 'Keypair Required to Sign';
+    } else {
+      el.squadBtnSendRecruit.textContent = 'Dispatch Signed Recruit to Discovery';
+    }
+  }
+}
+
+/**
+ * Dispatch signed recruitment shoutout to /r/mb-sonnet-1-discovery
+ */
+async function handleDispatchSquadRecruit() {
+  if (!state.keypair) {
+    showSquadRecruitResult('error', 'Generate or restore an Ed25519 keypair first.');
+    return;
+  }
+
+  const contestId = state.sonnet?.contestId || SONNET_CONFIG.defaultContestId;
+  const gameId = (el.squadRecruitGameId?.value || '').trim();
+  const text = (el.squadRecruitMsg?.value || '').trim();
+  const reqId = `recruit-${Date.now()}`;
+
+  if (!text) {
+    showSquadRecruitResult('error', 'Please write a recruit message or click "Auto-Generate from Roster".');
+    return;
+  }
+
+  let payload;
+  try {
+    payload = buildSonnetRecruitPayload(contestId, gameId, text, reqId);
+  } catch (err) {
+    showSquadRecruitResult('error', err.message);
+    return;
+  }
+
+  const targetRoom = SONNET_CONFIG.rooms.discovery;
+  el.squadBtnSendRecruit.disabled = true;
+  el.squadBtnSendRecruit.textContent = 'Dispatching Shoutout...';
+
+  try {
+    const res = await dispatchSignedMessage(nacl, state.keypair, targetRoom, payload);
+
+    receiptEngine.recordAction({
+      requestId: reqId,
+      actionType: 'recruit',
+      authenticatedDid: state.keypair.did,
+      room: targetRoom,
+      sequence: res.seq || null,
+      httpStatus: res.status,
+      contestId: contestId,
+      gameId: gameId,
+      actionStatus: res.ok ? 'TRANSPORT SUCCESS' : 'TRANSPORT FAILED'
+    });
+
+    if (res.ok) {
+      showSquadRecruitResult('info', `Recruit shoutout dispatched to /r/${targetRoom} (Seq: #${res.seq || 'pending'})! Free agents can now see your team recruitment.`);
+      
+      // Ingest into local squad board feed immediately
+      ingestSquadBoardMessage({
+        from: state.keypair.did,
+        seq: res.seq || 0,
+        text: payload,
+        timestamp: Date.now()
+      });
+
+      pollSonnetRoom(targetRoom);
+    } else {
+      showSquadRecruitResult('error', `Server rejected shoutout. HTTP ${res.status}: ${res.text}`);
+    }
+    renderSonnetReceipts();
+  } catch (err) {
+    showSquadRecruitResult('error', `Transport error: ${err.message}`);
+  } finally {
+    updateSquadRecruitPreview();
+  }
+}
+
+function showSquadRecruitResult(type, message) {
+  if (!el.squadRecruitResult) return;
+  el.squadRecruitResult.className = `result-callout ${type}`;
+  el.squadRecruitResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
+  el.squadRecruitResult.style.display = 'flex';
 }
 
 /**

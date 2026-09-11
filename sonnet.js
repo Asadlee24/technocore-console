@@ -542,6 +542,116 @@ export function buildSonnetClaimPayload(contestId, gameId, destination, requestI
   return buildClaimPayload({ contestId, gameId, destination, requestId });
 }
 
+/**
+ * 8. Build Team Recruitment Announcement Payload (sonnet.recruit.v1)
+ */
+export function buildRecruitPayload({
+  contestId = 'sonnet-1',
+  gameId = '',
+  text = '',
+  requestId
+}) {
+  if (!requestId || !requestId.trim()) throw new Error('request_id is required');
+  const payload = {
+    type: 'sonnet.recruit.v1',
+    contest_id: contestId
+  };
+  if (gameId && gameId.trim()) {
+    payload.game_id = gameId.trim();
+  }
+  payload.request_id = requestId.trim();
+  if (text && text.trim()) {
+    payload.text = text.trim();
+  }
+  return JSON.stringify(payload);
+}
+
+export function buildSonnetRecruitPayload(contestId, gameId, text, requestId) {
+  return buildRecruitPayload({ contestId, gameId, text, requestId });
+}
+
+/**
+ * 9. Format Human-Readable Recruitment Pitch for Discovery
+ */
+export function formatRecruitMessage({
+  gameId = '',
+  members = [],
+  writersMap = null,
+  myDid = '',
+  myXUrl = '',
+  seatsNeeded = ''
+} = {}) {
+  const cleanGame = (gameId || '').trim();
+  let teamName = 'Team';
+  if (cleanGame) {
+    if (cleanGame.toLowerCase().startsWith('team-')) {
+      const sub = cleanGame.slice(5).trim();
+      teamName = `Team ${sub ? sub.charAt(0).toUpperCase() + sub.slice(1) : cleanGame}`;
+    } else if (cleanGame.toLowerCase().startsWith('team ')) {
+      teamName = cleanGame;
+    } else {
+      teamName = `Team ${cleanGame.charAt(0).toUpperCase() + cleanGame.slice(1)}`;
+    }
+  }
+
+  const cleanMembers = Array.isArray(members) ? members.filter(Boolean) : [];
+
+  let pitch = 'recruiting writers!';
+  if (seatsNeeded === '1' || (!seatsNeeded && cleanMembers.length === 3)) {
+    pitch = 'looking for 4th writer to reach 4-person quorum!';
+  } else if (seatsNeeded === '2' || (!seatsNeeded && cleanMembers.length === 2)) {
+    pitch = 'looking for 2 more writers to reach 4-person quorum!';
+  } else if (seatsNeeded === '3' || (!seatsNeeded && cleanMembers.length === 1)) {
+    pitch = 'looking for 3 more writers to reach 4-person quorum!';
+  } else if (seatsNeeded === 'open') {
+    pitch = 'recruiting active writers for open squad!';
+  } else if (cleanMembers.length >= 4) {
+    pitch = 'recruiting additional writers!';
+  }
+
+  let membersPhrase = '';
+  if (cleanMembers.length > 0) {
+    const names = cleanMembers.map(did => {
+      if (myDid && did.toLowerCase() === myDid.toLowerCase() && myXUrl) {
+        const h = normalizeXHandle(myXUrl).handle;
+        if (h) return h.replace(/^@/, '');
+      }
+      const w = writersMap ? writersMap.get(did) : null;
+      if (w && w.xHandle) return w.xHandle.replace(/^@/, '');
+      return did.length > 12 ? '...' + did.slice(-8) : did;
+    });
+    membersPhrase = `We have ${names.join(', ')}.`;
+  }
+
+  let coveragePhrase = '';
+  if (cleanMembers.length > 0) {
+    const coverage = computeRosterLetterCoverage(cleanMembers);
+    if (coverage.letterCount === 26) {
+      coveragePhrase = 'Letters covered: 26/26 (100% full alphabet!).';
+    } else if (coverage.missingLetters.length <= 5) {
+      coveragePhrase = `Letters covered: ${coverage.letterCount}/26 (${coverage.coveragePercent}%)! Missing: [${coverage.missingLetters.join(', ')}].`;
+    } else {
+      coveragePhrase = `Letters covered: ${coverage.letterCount}/26 (${coverage.coveragePercent}%).`;
+    }
+  }
+
+  let contactHandle = '';
+  if (myXUrl) {
+    contactHandle = normalizeXHandle(myXUrl).handle;
+  }
+  if (!contactHandle && myDid && writersMap) {
+    const me = writersMap.get(myDid);
+    if (me && me.xHandle) contactHandle = me.xHandle;
+  }
+  const cta = contactHandle
+    ? `DM ${contactHandle} on X to join!`
+    : 'Reply here with your DID to join!';
+
+  const parts = [teamName, pitch, membersPhrase, coveragePhrase, cta].filter(Boolean);
+  return parts.join(' ');
+}
+
+
 // ----------------------------------------------------
 // Squad Board & Letter Coverage Utilities
 // ----------------------------------------------------

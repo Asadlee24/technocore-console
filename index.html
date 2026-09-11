@@ -913,9 +913,10 @@
                 <h2 id="sonnet-squad-heading" class="panel-title">Squad Board & Team Finder</h2>
                 <span class="panel-subtitle">Live writers in registration & discovery &bull; 1-Click Roster Assembly</span>
               </div>
-              <div style="display: flex; gap: 8px; align-items: center;">
+              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <span id="squad-writer-count-badge" class="step-status-pill completed">Scanning...</span>
                 <button id="squad-btn-refresh" class="btn btn-secondary" type="button" style="padding: 3px 8px; font-size: 0.75rem;">Refresh Feed</button>
+                <button id="squad-btn-toggle-recruit" class="btn btn-signed" type="button" style="padding: 3px 10px; font-size: 0.75rem;">📢 Post Recruit Shoutout</button>
               </div>
             </div>
             <div class="panel-body">
@@ -946,6 +947,46 @@
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <!-- One-Click Recruit Shoutout Box (Collapsible) -->
+              <div id="squad-recruit-tray" class="squad-recruit-panel" style="display: none;">
+                <div class="squad-recruit-header">
+                  <div class="squad-recruit-title">
+                    <span>📢 Broadcast Team Recruitment to /r/mb-sonnet-1-discovery</span>
+                  </div>
+                  <button id="squad-btn-close-recruit" class="btn-icon-close" type="button" title="Close Tray">&times;</button>
+                </div>
+                <div class="field-row" style="margin-top: 8px;">
+                  <div class="field-group" style="flex: 1;">
+                    <label class="field-label" for="squad-recruit-game-id">Target Game ID</label>
+                    <input id="squad-recruit-game-id" class="input-text" type="text" placeholder="e.g. team-asad" maxlength="16" spellcheck="false">
+                  </div>
+                  <div class="field-group" style="flex: 1;">
+                    <label class="field-label" for="squad-recruit-seats">Seats Needed</label>
+                    <select id="squad-recruit-seats" class="input-text">
+                      <option value="1">Need 1 more writer (reach 4-person quorum)</option>
+                      <option value="2">Need 2 more writers</option>
+                      <option value="3">Need 3 more writers</option>
+                      <option value="open">Open team (recruiting 4–8 writers)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label class="field-label" for="squad-recruit-msg" style="margin-bottom: 0;">Shoutout Message</label>
+                    <button id="squad-btn-gen-recruit" class="btn btn-secondary" type="button" style="padding: 2px 8px; font-size: 0.7rem;">Auto-Generate from Roster</button>
+                  </div>
+                  <textarea id="squad-recruit-msg" class="input-text" rows="3" placeholder="Write recruitment pitch or click auto-generate..." spellcheck="false"></textarea>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Single-Line Payload Preview</label>
+                  <div id="squad-recruit-payload-preview" class="code-preview-box">{"type":"sonnet.recruit.v1","contest_id":"sonnet-1","game_id":"","request_id":"","text":""}</div>
+                </div>
+                <div class="btn-group">
+                  <button id="squad-btn-send-recruit" class="btn btn-signed" type="button" disabled>Dispatch Signed Recruit to Discovery</button>
+                </div>
+                <div id="squad-recruit-result" class="result-callout" style="display: none;"></div>
               </div>
 
               <!-- Search & Filter Controls -->
