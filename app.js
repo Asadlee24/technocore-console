@@ -1905,11 +1905,10 @@ function applyRefereeReceiptToSonnetState(receipt) {
 
   const myDid = state.keypair ? state.keypair.did : null;
 
-  // 1. Role Registration Acceptance (Strictly scoped to our active registration request and DID)
+  // 1. Role Registration Acceptance (Scoped to our active request ID or active DID)
   const isMyRegistration = Boolean(
-    state.sonnet.lastRegistrationReqId &&
-    receipt.requestId === state.sonnet.lastRegistrationReqId &&
-    (!receipt.authenticatedDid || !myDid || receipt.authenticatedDid === myDid)
+    (state.sonnet.lastRegistrationReqId && receipt.requestId === state.sonnet.lastRegistrationReqId) ||
+    (myDid && receipt.authenticatedDid && receipt.authenticatedDid.toLowerCase() === myDid.toLowerCase())
   );
 
   if (isMyRegistration && receipt.role && receipt.actionStatus === 'ACCEPTED') {
