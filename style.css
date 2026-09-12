@@ -304,6 +304,46 @@ html, body {
   border-radius: var(--radius-pill);
 }
 
+.telegram-radar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 5px 13px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(0, 242, 254, 0.18));
+  color: var(--accent-cyan);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.12);
+}
+
+.telegram-radar-badge:hover {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.22), rgba(0, 242, 254, 0.3));
+  border-color: var(--accent-cyan);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 0 18px rgba(0, 242, 254, 0.3);
+}
+
+.telegram-radar-badge .tg-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: pulse-tg 2s infinite ease-in-out;
+}
+
+@keyframes pulse-tg {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
 .btn-toggle-theme {
   font-family: var(--font-mono);
   font-size: 0.75rem;

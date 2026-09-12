@@ -79,6 +79,49 @@ function canSignWord(word, did) {
   };
 }
 
+function countWordSyllables(word) {
+  const w = (word || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (!w) return 0;
+  if (w.length <= 3) return 1;
+
+  const overrides = {
+    'the': 1, 'a': 1, 'an': 1, 'and': 1, 'of': 1, 'to': 1, 'in': 1, 'is': 1, 'you': 1, 'that': 1,
+    'it': 1, 'he': 1, 'was': 1, 'for': 1, 'on': 1, 'are': 1, 'as': 1, 'with': 1, 'his': 1, 'they': 1,
+    'at': 1, 'be': 1, 'this': 1, 'have': 1, 'from': 1, 'or': 1, 'one': 1, 'had': 1, 'by': 1, 'word': 1,
+    'but': 1, 'not': 1, 'what': 1, 'all': 1, 'were': 1, 'we': 1, 'when': 1, 'your': 1, 'can': 1, 'said': 1,
+    'there': 1, 'use': 1, 'each': 1, 'which': 1, 'she': 1, 'do': 1, 'how': 1, 'their': 1, 'if': 1,
+    'will': 1, 'up': 1, 'other': 2, 'about': 2, 'out': 1, 'many': 2, 'then': 1, 'them': 1, 'these': 1,
+    'so': 1, 'some': 1, 'her': 1, 'would': 1, 'make': 1, 'like': 1, 'him': 1, 'into': 2, 'time': 1,
+    'has': 1, 'look': 1, 'two': 1, 'more': 1, 'write': 1, 'go': 1, 'see': 1, 'number': 2, 'no': 1,
+    'way': 1, 'could': 1, 'people': 2, 'my': 1, 'than': 1, 'first': 1, 'water': 2, 'been': 1, 'call': 1,
+    'who': 1, 'oil': 1, 'its': 1, 'now': 1, 'find': 1, 'long': 1, 'down': 1, 'day': 1, 'did': 1,
+    'get': 1, 'come': 1, 'made': 1, 'may': 1, 'part': 1, 'sonnet': 2, 'beauty': 2, 'quiet': 2,
+    'summer': 2, 'compare': 2, 'heaven': 2, 'eternal': 3, 'temperate': 3, 'shining': 2, 'blowing': 2
+  };
+  if (overrides[w]) return overrides[w];
+
+  let text = w;
+  text = text.replace(/(?:[^laeiouy]|ed|es|e)$/, '');
+  text = text.replace(/^y/, '');
+  const matches = text.match(/[aeiouy]{1,2}/g);
+  return matches ? Math.max(1, matches.length) : 1;
+}
+
+function analyzeLineMeter(line) {
+  const words = (line || '').trim().split(/\s+/).filter(Boolean);
+  const breakdown = words.map(w => {
+    const syl = countWordSyllables(w);
+    return { word: w, syllables: syl };
+  });
+  const total = breakdown.reduce((acc, curr) => acc + curr.syllables, 0);
+  return {
+    line: (line || '').trim(),
+    words: breakdown,
+    total,
+    isExactTen: total === 10
+  };
+}
+
 function getCountdown() {
   const deadline = new Date('2026-09-18T12:00:00Z').getTime();
   const now = Date.now();
@@ -127,6 +170,7 @@ export default async function handler(req, res) {
               { command: 'check', description: 'Analyze DID letters & coverage' },
               { command: 'word', description: 'Verify if a DID can sign a specific word' },
               { command: 'pair', description: 'Calculate team letter synergy between 2 DIDs' },
+              { command: 'meter', description: 'Analyze line syllables for exact 10 count' },
               { command: 'teams', description: 'Radar: Live teams seeking 4th writer' },
               { command: 'bounties', description: 'Scan live TCLK bounties & task offers' },
               { command: 'deadline', description: 'Contest closing countdown clock' },
@@ -179,6 +223,7 @@ export default async function handler(req, res) {
           `🔍 <code>/status &lt;DID&gt;</code>\nCheck registration receipt, role (Writer/Organizer/Voter) & verification.\n\n` +
           `🔤 <code>/check &lt;DID&gt;</code>\nAnalyze letter sets, missing letters & dictionary coverage.\n\n` +
           `✍️ <code>/word &lt;WORD&gt; &lt;DID&gt;</code>\nTest if your DID has the letters to legally sign a word.\n\n` +
+          `🎵 <code>/meter &lt;LINE&gt;</code>\nAnalyze line syllables to verify the mandatory exact 10-count.\n\n` +
           `🤝 <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code>\nTest team alphabet synergy & verify dual 'o' coverage.\n\n` +
           `👥 <code>/teams</code>\nLive discovery radar for rosters looking for 4th writers.\n\n` +
           `💰 <code>/bounties</code>\nScan latest FLOP bounties & tasks from <code>tclk-offers</code>.\n\n` +
@@ -213,6 +258,36 @@ export default async function handler(req, res) {
           reply += `❌ <b>CANNOT SIGN THIS WORD!</b>\n` +
             `Missing letters in your DID: <code>${resWord.missingLetters.map(l => l.toUpperCase()).join(' ')}</code>\n\n` +
             `<i>Contest Rule: Proposing words containing letters absent from your DID will cause the referee to reject your turn!</i>`;
+        }
+
+        await sendTelegramMessage(chatId, reply);
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: /meter <line>
+      if (command === '/meter' || command === '/syllables') {
+        const lineText = args.join(' ').trim();
+        if (!lineText) {
+          await sendTelegramMessage(chatId, `⚠️ <b>Usage:</b> <code>/meter &lt;LINE OF POEM&gt;</code>\n\nExample:\n<code>/meter The summer wind is blowing through the trees</code>`);
+          return res.status(200).json({ ok: true });
+        }
+
+        const analysis = analyzeLineMeter(lineText);
+        let reply = `🎵 <b>Syllable & Meter Analysis:</b>\n\n` +
+          `<b>Line:</b> "<i>${analysis.line}</i>"\n\n` +
+          `📊 <b>Total Syllables:</b> <b>${analysis.total}</b> / 10\n\n` +
+          `📝 <b>Word-by-Word Breakdown:</b>\n` +
+          analysis.words.map(w => `• <b>${w.word}</b>: ${w.syllables} ${w.syllables === 1 ? 'syllable' : 'syllables'}`).join('\n') + `\n\n`;
+
+        if (analysis.isExactTen) {
+          reply += `🎉 <b>EXACT 10 SYLLABLES!</b>\n` +
+            `This line meets the mandatory ten-syllable rule for Technocore Sonnet Challenge #2!`;
+        } else if (analysis.total < 10) {
+          reply += `⚠️ <b>TOO SHORT (${analysis.total}/10):</b>\n` +
+            `You need <b>${10 - analysis.total} more syllables</b> to reach the mandatory exact ten!`;
+        } else {
+          reply += `⚠️ <b>TOO LONG (${analysis.total}/10):</b>\n` +
+            `You have <b>${analysis.total - 10} extra syllables</b>. Reduce words to reach exactly ten!`;
         }
 
         await sendTelegramMessage(chatId, reply);
