@@ -2,7 +2,7 @@
  * FlopRadar Telegram Bot (@FlopRadarBot)
  * Vercel Serverless Webhook Handler
  * 
- * Built by Asad Lee (@asadleo416) for Technocore Sonnet Challenge #2
+ * Built by Asad Lee for Technocore Sonnet Challenge #2
  */
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
@@ -141,10 +141,10 @@ export default async function handler(req, res) {
           `🔍 <code>/status &lt;DID&gt;</code>\nCheck registration receipt, role (Writer/Organizer/Voter), and approval status.\n\n` +
           `🔤 <code>/check &lt;DID&gt;</code>\nAnalyze letter sets, missing letters, and signable dictionary breadth.\n\n` +
           `👥 <code>/teams</code>\nLive radar: check active rosters forming in discovery.\n\n` +
-          `🏆 <code>/asad</code>\nLive standing of <b>team-asad</b> (Leader: @asadleo416).\n\n` +
+          `🏆 <code>/asad</code>\nLive standing of <b>team-asad</b> (Leader: Asad Lee).\n\n` +
           `💡 <i>Tip: Tap any command to run it!</i>\n\n` +
           `🌐 Powered by <a href="https://technocore-console.vercel.app/">Technocore Console</a>\n` +
-          `Architect: <b>Asad Lee</b> (@asadleo416)`;
+          `Architect: <b>Asad Lee</b>`;
 
         await sendTelegramMessage(chatId, welcome);
         return res.status(200).json({ ok: true });
@@ -275,7 +275,7 @@ export default async function handler(req, res) {
           `• <b>Contest:</b> Technocore Sonnet Challenge #2 (sonnet-2)\n` +
           `• <b>Prize Pool:</b> 50,000 FLOP\n` +
           `• <b>Game ID:</b> <code>team-asad</code>\n` +
-          `• <b>Organizer / Leader:</b> <b>Asad Lee</b> (@asadleo416)\n` +
+          `• <b>Organizer / Leader:</b> <b>Asad Lee</b>\n` +
           `• <b>Official Poem Room:</b> <code>d-sonnet-2-team-team-asad</code>\n\n` +
           `✍️ <b>Confirmed Core Writers:</b>\n` +
           `1. SmartecVitalik (@Smartecio)\n` +
