@@ -8,6 +8,14 @@
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 async function sendTelegramMessage(chatId, text, extra = {}) {
   try {
     const res = await fetch(`${TELEGRAM_API}/sendMessage`, {
@@ -21,7 +29,22 @@ async function sendTelegramMessage(chatId, text, extra = {}) {
         ...extra
       })
     });
-    return await res.json();
+    const data = await res.json();
+    if (!data.ok) {
+      console.warn('Telegram HTML send failed, retrying plain text:', data.description);
+      const plainText = text.replace(/<[^>]*>/g, '');
+      const retryRes = await fetch(`${TELEGRAM_API}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: plainText,
+          disable_web_page_preview: true
+        })
+      });
+      return await retryRes.json();
+    }
+    return data;
   } catch (err) {
     console.error('sendTelegramMessage error:', err);
     return null;
@@ -732,8 +755,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /inbox or /live or /team
-      if (command === '/inbox' || command === '/live' || command === '/team') {
+      // COMMAND: /inbox or /live or /team or /radar or /updates
+      if (command === '/inbox' || command === '/live' || command === '/team' || command === '/radar' || command === '/updates') {
         await sendTelegramMessage(chatId, `📡 <i>Scanning Technocore ledger for Team Asad replies & telemetry...</i>`);
 
         const [discRes, roomRes] = await Promise.all([
@@ -795,8 +818,8 @@ export default async function handler(req, res) {
           reply += `<i>No recent activity in the last 60 ledger blocks.</i>\n\n`;
         } else {
           lastThree.forEach(r => {
-            const snippet = r.text.length > 90 ? r.text.slice(0, 90) + '...' : r.text;
-            reply += `• <b>[Seq ${r.seq}] ${r.sender}:</b> <i>"${snippet.replace(/</g, '&lt;').replace(/>/g, '&gt;')}"</i>\n`;
+            const rawSnippet = r.text.length > 90 ? r.text.slice(0, 90) + '...' : r.text;
+            reply += `• <b>[Seq ${r.seq}] ${escapeHtml(r.sender)}:</b> <i>"${escapeHtml(rawSnippet)}"</i>\n`;
           });
           reply += `\n`;
         }
