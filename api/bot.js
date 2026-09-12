@@ -189,20 +189,19 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             commands: [
               { command: 'start', description: 'Bot overview & quick guide' },
-              { command: 'inbox', description: '🚨 Live Team Asad inbox & replies radar' },
-              { command: 'live', description: 'Real-time telemetry & on-chain replies' },
-              { command: 'asad', description: 'Team Asad official contest profile' },
-              { command: 'status', description: 'Check DID registration receipt' },
-              { command: 'check', description: 'Analyze DID letters & coverage' },
-              { command: 'word', description: 'Verify if a DID can sign a specific word' },
-              { command: 'pair', description: 'Calculate team letter synergy between 2 DIDs' },
+              { command: 'help', description: 'Complete tools & command list' },
+              { command: 'team', description: 'Radar: Check ANY team (e.g. /team team-asad)' },
+              { command: 'status', description: 'Check your DID registration receipt' },
+              { command: 'check', description: 'Analyze your DID letters & coverage' },
+              { command: 'word', description: 'Verify if a DID can sign a word' },
+              { command: 'pair', description: 'Calculate synergy between 2 DIDs' },
               { command: 'meter', description: 'Analyze line syllables for exact 10 count' },
-              { command: 'teams', description: 'Radar: Live teams seeking 4th writer' },
-              { command: 'bounties', description: 'Scan live TCLK bounties & task offers' },
-              { command: 'deadline', description: 'Contest closing countdown clock' },
+              { command: 'teams', description: 'Radar: Live squads seeking 4th writer' },
+              { command: 'bounties', description: 'Scan live FLOP bounties & tasks' },
               { command: 'stats', description: 'Live contest dashboard & statistics' },
+              { command: 'deadline', description: 'Contest closing countdown clock' },
               { command: 'rules', description: 'Sonnet Challenge #2 official rules' },
-              { command: 'help', description: 'Command list & tips' }
+              { command: 'asad', description: 'Team Asad official contest profile' }
             ]
           })
         });
@@ -243,22 +242,26 @@ export default async function handler(req, res) {
 
       // COMMAND: /start or /help
       if (command === '/start' || command === '/help') {
-        const welcome = `🤖 <b>Welcome to FlopRadar (@FlopRadarBot)!</b>\n\n` +
-          `Your all-in-one companion for <b>Technocore & Sonnet Challenge #2</b> (50,000 FLOP Prize Pool).\n\n` +
-          `🛠 <b>Available Tools & Commands:</b>\n\n` +
-          `🔍 <code>/status &lt;DID&gt;</code>\nCheck registration receipt, role (Writer/Organizer/Voter) & verification.\n\n` +
-          `🔤 <code>/check &lt;DID&gt;</code>\nAnalyze letter sets, missing letters & dictionary coverage.\n\n` +
-          `✍️ <code>/word &lt;WORD&gt; &lt;DID&gt;</code>\nTest if your DID has the letters to legally sign a word.\n\n` +
-          `🎵 <code>/meter &lt;LINE&gt;</code>\nAnalyze line syllables to verify the mandatory exact 10-count.\n\n` +
-          `🤝 <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code>\nTest team alphabet synergy & verify dual 'o' coverage.\n\n` +
-          `👥 <code>/teams</code>\nLive discovery radar for rosters looking for 4th writers.\n\n` +
-          `💰 <code>/bounties</code>\nScan latest FLOP bounties & tasks from <code>tclk-offers</code>.\n\n` +
-          `📊 <code>/stats</code>\nLive contest dashboard: registered squads, finished poems & votes.\n\n` +
-          `⏳ <code>/deadline</code>\nView live contest closing countdown clock.\n\n` +
-          `📜 <code>/rules</code>\nOfficial 7-point Sonnet Challenge #2 cheat sheet.\n\n` +
-          `🏆 <code>/asad</code>\nLive profile of <b>team-asad</b>.\n\n` +
-          `🌐 Powered by <b><a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>)\n` +
-          `Console: <a href="https://technocore-console.vercel.app/">technocore-console.vercel.app</a>`;
+        const welcome = `🤖 <b>Welcome to FlopRadar (@FlopRadarBot)!</b>\n` +
+          `Your universal companion for <b>Technocore & Sonnet Challenge #2</b> (100,000 FLOP Prize Pool).\n\n` +
+          `⚡ <b>Universal Commands & Tools:</b>\n\n` +
+          `🛡️ <b>Squad & Telemetry Radar:</b>\n` +
+          `• <code>/team &lt;team-name&gt;</code> — Live telemetry for ANY squad (e.g. <code>/team team-asad</code>, <code>/team leidream</code>, <code>/team fluxwrites</code>)\n` +
+          `• <code>/teams</code> — Scan active squads seeking 4th writers\n` +
+          `• <code>/stats</code> — Live contest dashboard, registered squads & votes\n` +
+          `• <code>/deadline</code> — Live countdown to contest closing\n` +
+          `• <code>/asad</code> — Official profile & live status of <b>team-asad</b>\n\n` +
+          `🔤 <b>Identity & Letter Validator:</b>\n` +
+          `• <code>/status &lt;DID&gt;</code> — Verify your registration receipt & assigned role\n` +
+          `• <code>/check &lt;DID&gt;</code> — Analyze your letter coverage & dictionary reach\n` +
+          `• <code>/word &lt;WORD&gt; &lt;DID&gt;</code> — Test if your DID can legally sign a word\n` +
+          `• <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code> — Test alphabet synergy between 2 members\n\n` +
+          `🎵 <b>Poetry & Contest Rules:</b>\n` +
+          `• <code>/meter &lt;LINE&gt;</code> — Analyze line syllables for mandatory exact 10-count\n` +
+          `• <code>/rules</code> — Official Sonnet Challenge #2 7-point cheat sheet\n` +
+          `• <code>/bounties</code> — Scan live FLOP bounties from <code>tclk-offers</code>\n\n` +
+          `🌐 <b>Powered by <a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>)\n` +
+          `🖥️ <b>Web Console:</b> <a href="https://technocore-console.vercel.app/">technocore-console.vercel.app</a>`;
 
         await sendTelegramMessage(chatId, welcome);
         return res.status(200).json({ ok: true });
