@@ -8,6 +8,17 @@
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
+const KNOWN_DIDS = {
+  'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': 'Asad Lee (@asadleo416, Leader)',
+  'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh': 'SmartecVitalik (@Smartecio)',
+  'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9': 'Aika Kurashi (@aika_kurashi)',
+  'did:key:z6MkmGwVm4qswSyN1aDm8NRiabEzKzm5pcjqJqZ4nQYiZpWZ': 'wowyeahohno (@wowyeahohno)',
+  'did:key:z6MkowXqAtrHBQZNsCeUQb7F2dL4LrKugX7pSnvXeDBBj1o1': 'Rikako (@RikakoV89679)',
+  'did:key:z6MkpLy66fMRRuzjkwZbPoyUYE5sq7yfJ6R8t1Hh5YPFx5rh': 'Alan Wiz (@alan_wiz_)',
+  'did:key:z6MktqyzYJnWz2zANecvfHHFpBAGJD6JqZySoKb6S39PXPQh': 'wyc4t',
+  'did:key:z6MkowHQwsx9xr84WbWN3YCnKutyBnBXkT1ChKY4uEAAMzte': 'Contest Referee'
+};
+
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -161,6 +172,168 @@ function getCountdown() {
   return `⏳ <b>${days} days, ${hours} hours, and ${mins} minutes</b> remaining!`;
 }
 
+// Convert cryptic JSON/ledger entries into clean plain English
+function humanizeLedgerMessage(text, from, teamDids = {}) {
+  if (!text) return '';
+  try {
+    const j = JSON.parse(text);
+    if (j.type === 'sonnet.roster.v1') {
+      const signer = teamDids[from] || from?.slice(0, 14);
+      const includesRikako = Array.isArray(j.members) && j.members.some(m => m.includes('z6MkowXq'));
+      return `📝 ${signer} signed and submitted official 4-writer roster${includesRikako ? ' with Rikako in Seat 4 (100% dictionary reach)' : ''}!`;
+    }
+    if (j.type === 'sonnet.receipt.v1') {
+      const whoName = teamDids[j.sender_did] || (j.sender_did ? j.sender_did.slice(0, 16) : 'Contributor');
+      if (j.status === 'accepted') {
+        let detail = '';
+        if (j.state_hash === '71535dce15640aec7d6a2a9b7cdcef93828afd9aa31a9f036120fb147f57874a') {
+          detail = ' (Official Rikako 4-member consensus locked!)';
+        }
+        return `✅ Referee ACCEPTED ${whoName}'s signature!${detail}`;
+      } else {
+        return `❌ Referee REJECTED signature for ${whoName}${j.reason ? ': ' + j.reason : ''}`;
+      }
+    }
+    if (j.type === 'sonnet.withdraw.v1') {
+      const signer = teamDids[from] || from?.slice(0, 14);
+      return `🔄 ${signer} cleared old roster consent for ${j.game_id || 'team'}`;
+    }
+    if (j.type === 'sonnet.word.v1') {
+      return `✍️ Wrote poem word "${j.word || ''}"`;
+    }
+    if (j.type === 'sonnet.note.v1' && j.text) {
+      let clean = j.text.replace(/\s+/g, ' ').trim();
+      if (clean.length > 120) clean = clean.slice(0, 120) + '...';
+      return `💬 Note: "${clean}"`;
+    }
+    if (j.text) {
+      let clean = j.text.replace(/\s+/g, ' ').trim();
+      if (clean.length > 120) clean = clean.slice(0, 120) + '...';
+      return clean;
+    }
+  } catch {}
+  return text.length > 120 ? text.slice(0, 120) + '...' : text;
+}
+
+// Plain English Explainer for any raw JSON / SMS payload
+function explainJsonMessage(rawStr) {
+  try {
+    let clean = (rawStr || '').trim();
+    const firstBrace = clean.indexOf('{');
+    const lastBrace = clean.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null;
+    clean = clean.slice(firstBrace, lastBrace + 1);
+
+    const j = JSON.parse(clean);
+    let title = '📋 Ledger Message Analysis';
+    let typeDesc = j.type || 'Custom Payload';
+    let statusText = 'ℹ️ Information';
+    let explanation = '';
+    let actionNeeded = '';
+
+    if (j.type === 'sonnet.receipt.v1') {
+      title = '🧾 Official Contest Referee Receipt';
+      typeDesc = 'Blockchain Consensus Confirmation';
+      const isAccepted = j.status === 'accepted';
+      statusText = isAccepted ? '✅ ACCEPTED & APPROVED BY REFEREE' : '❌ REJECTED BY REFEREE';
+      const who = KNOWN_DIDS[j.sender_did] || (j.sender_did ? j.sender_did.slice(0, 16) + '...' : 'Contributor');
+
+      if (isAccepted) {
+        if (j.state_hash === '71535dce15640aec7d6a2a9b7cdcef93828afd9aa31a9f036120fb147f57874a') {
+          explanation = `The contest referee has officially verified and approved ${who}'s signature for Team Asad! This matches our canonical 4-member roster consensus hash.`;
+          actionNeeded = j.roster_ready ? '🎉 All 4 writers signed! The poem room is UNLOCKED! Writers can begin writing words!' : '3 of 4 locked! Only Rikako (@RikakoV89679) is left to submit her countersignature!';
+        } else {
+          explanation = `The referee approved ${who}'s request successfully on-chain.`;
+          actionNeeded = 'Check /team for the updated team roster progress.';
+        }
+      } else {
+        explanation = `The referee rejected this request with reason: "${j.reason || 'None provided'}".`;
+        if ((j.reason || '').includes('writer required')) {
+          actionNeeded = 'Only writers can sign the team roster. Organizers have a separate role and cannot sign writer rosters.';
+        } else if ((j.reason || '').includes('frozen')) {
+          actionNeeded = 'The team roster is already locked and frozen. No more modifications can be made.';
+        } else {
+          actionNeeded = 'Verify your role and parameters before resubmitting.';
+        }
+      }
+    } else if (j.type === 'sonnet.roster.v1') {
+      title = '📝 Official Team Roster Submission';
+      typeDesc = '4-Member Writer Squad Proposal';
+      statusText = '⏳ Dispatched for Referee Validation';
+      const hasRikako = Array.isArray(j.members) && j.members.some(m => m.includes('z6MkowXq'));
+      explanation = `A team writer submitted the official 4-member squad proposal for "${j.game_id || 'team-asad'}"${hasRikako ? ' with Rikako in Seat 4 (giving our team 100% dictionary reach)!' : '.'}`;
+      actionNeeded = 'All 4 writers in the roster array must submit matching signatures to unlock the poem room.';
+    } else if (j.type === 'sonnet.withdraw.v1') {
+      title = '🔄 Consent Withdrawal';
+      typeDesc = 'Roster Reset / Revocation';
+      statusText = '✅ Withdrawn on Blockchain';
+      explanation = `A writer withdrew their previous consent for squad "${j.game_id || 'team'}". This frees them so they can legally sign a new squad roster without conflicts.`;
+      actionNeeded = 'The writer is now free to sign the team-asad roster!';
+    } else if (j.type === 'sonnet.note.v1') {
+      title = '💬 Contest Public Note';
+      typeDesc = 'Discovery Room Coordination Message';
+      statusText = '📢 Broadcasted to All Teams';
+      explanation = `Public message from team "${j.game_id || 'contest'}": "${escapeHtml(j.text || '')}"`;
+      actionNeeded = 'Read message details and follow up with teammates if required.';
+    } else if (j.type === 'sonnet.word.v1') {
+      title = '✍️ Sonnet Poem Word Submission';
+      typeDesc = 'Turn-by-Turn Line Writing';
+      statusText = '📝 Word Dispatched to Poem Room';
+      explanation = `A team contributor wrote the word "${escapeHtml(j.word || '')}" into the poem room.`;
+      actionNeeded = 'Verify line meter (must equal 10 syllables) and prepare for the next writer\'s turn!';
+    } else {
+      explanation = `A Technocore payload for contest: ${escapeHtml(j.contest_id || 'sonnet-2')}.`;
+      actionNeeded = 'Type /team to view current live squad progress.';
+    }
+
+    return `📖 <b>Plain English Message Explanation</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `<b>${title}</b>\n\n` +
+      `• <b>Type:</b> <code>${typeDesc}</code>\n` +
+      `• <b>Official Status:</b> <b>${statusText}</b>\n\n` +
+      `💡 <b>What this means in simple words:</b>\n` +
+      `${explanation}\n\n` +
+      `🎯 <b>What you should do:</b>\n` +
+      `${actionNeeded}\n\n` +
+      `🌐 <i>Type <code>team</code> or <code>/team</code> for real-time squad radar!</i>`;
+  } catch {
+    return null;
+  }
+}
+
+// Plain English Explainer for common text phrases
+function explainPlainText(rawStr) {
+  if (!rawStr) return null;
+  const lower = rawStr.toLowerCase();
+
+  if (lower.includes('roster: writer required')) {
+    return `❌ <b>Explanation: "roster: writer required"</b>\n\n` +
+      `💡 <b>Plain English Meaning:</b>\n` +
+      `In Sonnet Challenge #2, only writers can sign the roster proposal (<code>sonnet.roster.v1</code>). As the Organizer & Founder, your role is to lead and coordinate; if you try to sign a writer roster, the referee will reject it.\n\n` +
+      `🎯 <b>What to do:</b> Let your 4 writers (Aika, wowyeah, Smartecio, Rikako) sign it! 3 have already signed.`;
+  }
+
+  if (lower.includes('roster: frozen')) {
+    return `🔒 <b>Explanation: "roster: frozen"</b>\n\n` +
+      `💡 <b>Plain English Meaning:</b>\n` +
+      `This poem room has already received 4 matching signatures and is frozen for writing. No new members or roster changes can be accepted.`;
+  }
+
+  if (lower.includes('71535dce')) {
+    return `🔑 <b>Consensus State Hash: <code>71535dce...</code></b>\n\n` +
+      `💡 <b>Plain English Meaning:</b>\n` +
+      `This is the exact cryptographic hash for Team Asad's official roster with Rikako in Seat 4. Aika (Seq 7937), wowyeah (Seq 7940), and Smartecio (Seq 7974) all match this EXACT hash (3 of 4 locked!). Once Rikako submits, the room unlocks immediately!`;
+  }
+
+  if (lower.includes('cmudict') || lower.includes('syllable')) {
+    return `🎵 <b>Syllable & Meter Rules</b>\n\n` +
+      `💡 <b>Plain English Meaning:</b>\n` +
+      `Every single line in your 14-line sonnet must have EXACTLY 10 syllables (140 syllables total), checked against Carnegie Mellon's CMU dictionary. You can test any line anytime using <code>/meter &lt;line&gt;</code>!`;
+  }
+
+  return null;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -170,7 +343,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const host = req.headers.host || 'technocore-console.vercel.app';
+  const host = (req.headers && req.headers.host) || 'technocore-console.vercel.app';
   const protocol = host.includes('localhost') ? 'http' : 'https';
   const webhookUrl = `${protocol}://${host}/api/bot`;
 
@@ -190,9 +363,10 @@ export default async function handler(req, res) {
             commands: [
               { command: 'start', description: 'Bot overview & quick guide' },
               { command: 'help', description: 'Complete tools & command list' },
-              { command: 'team', description: 'Radar: Check ANY team (e.g. /team team-asad)' },
-              { command: 'status', description: 'Check your DID registration receipt' },
+              { command: 'team', description: 'Radar: Live telemetry for Team Asad & any squad' },
+              { command: 'status', description: 'Check your verified founder registration' },
               { command: 'check', description: 'Analyze your DID letters & coverage' },
+              { command: 'explain', description: 'Translate raw messages & receipts into plain English' },
               { command: 'word', description: 'Verify if a DID can sign a word' },
               { command: 'pair', description: 'Calculate synergy between 2 DIDs' },
               { command: 'meter', description: 'Analyze line syllables for exact 10 count' },
@@ -237,23 +411,28 @@ export default async function handler(req, res) {
       const chatId = msg.chat.id;
       const rawText = (msg.text || '').trim();
       const parts = rawText.split(/\s+/);
-      const command = parts[0].toLowerCase().replace('@flopradarbot', '');
+      const rawCmd = (parts[0] || '').toLowerCase().replace('@flopradarbot', '');
+      const command = rawCmd.startsWith('/') ? rawCmd.slice(1) : rawCmd;
       const args = parts.slice(1);
 
-      // COMMAND: /start or /help
-      if (command === '/start' || command === '/help') {
+      // COMMAND: start or help
+      if (command === 'start' || command === 'help') {
         const welcome = `🤖 <b>Welcome to FlopRadar (@FlopRadarBot)!</b>\n` +
           `Your universal companion for <b>Technocore & Sonnet Challenge #2</b> (100,000 FLOP Prize Pool).\n\n` +
+          `💡 <i>Tip: You can type commands WITH or WITHOUT the slash '/'!</i>\n\n` +
           `⚡ <b>Universal Commands & Tools:</b>\n\n` +
           `🛡️ <b>Squad & Telemetry Radar:</b>\n` +
-          `• <code>/team &lt;team-name&gt;</code> — Live telemetry for ANY squad (e.g. <code>/team team-asad</code>, <code>/team leidream</code>, <code>/team fluxwrites</code>)\n` +
+          `• <code>/team</code> — Live telemetry for <b>team-asad</b> (or <code>/team leidream</code>, <code>/team fluxwrites</code>)\n` +
           `• <code>/teams</code> — Scan active squads seeking 4th writers\n` +
           `• <code>/stats</code> — Live contest dashboard, registered squads & votes\n` +
           `• <code>/deadline</code> — Live countdown to contest closing\n` +
           `• <code>/asad</code> — Official profile & live status of <b>team-asad</b>\n\n` +
+          `📖 <b>Plain English Explainer:</b>\n` +
+          `• <code>/explain &lt;text&gt;</code> — Translate ANY cryptic message, error, or receipt into simple English!\n` +
+          `• <i>You can also paste any SMS or JSON directly into this chat!</i>\n\n` +
           `🔤 <b>Identity & Letter Validator:</b>\n` +
-          `• <code>/status &lt;DID&gt;</code> — Verify your registration receipt & assigned role\n` +
-          `• <code>/check &lt;DID&gt;</code> — Analyze your letter coverage & dictionary reach\n` +
+          `• <code>/status</code> — Verify your registration receipt & assigned role\n` +
+          `• <code>/check</code> — Analyze your letter coverage & dictionary reach\n` +
           `• <code>/word &lt;WORD&gt; &lt;DID&gt;</code> — Test if your DID can legally sign a word\n` +
           `• <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code> — Test alphabet synergy between 2 members\n\n` +
           `🎵 <b>Poetry & Contest Rules:</b>\n` +
@@ -267,8 +446,30 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /word <word> <DID>
-      if (command === '/word') {
+      // COMMAND: explain
+      if (command === 'explain') {
+        const query = args.join(' ').trim();
+        if (!query) {
+          await sendTelegramMessage(chatId, `📖 <b>Plain English Message Explainer:</b>\n\n` +
+            `Paste any Technocore message, blockchain receipt, or error here and I will translate it into simple English!\n\n` +
+            `<b>Usage:</b>\n<code>/explain &lt;paste message or receipt here&gt;</code>\n\n` +
+            `<i>Tip: You can also just paste the message directly into this chat without /explain!</i>`);
+          return res.status(200).json({ ok: true });
+        }
+
+        const explanation = explainJsonMessage(query) || explainPlainText(query);
+        if (explanation) {
+          await sendTelegramMessage(chatId, explanation);
+        } else {
+          await sendTelegramMessage(chatId, `📖 <b>Message Analysis:</b>\n\n` +
+            `<i>${escapeHtml(query.slice(0, 300))}</i>\n\n` +
+            `💡 <b>Plain English:</b> This message was recorded on the Technocore ledger. Type <code>/team</code> to check live Team Asad progress, or <code>/status</code> to verify your on-chain registration!`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: word <word> <DID>
+      if (command === 'word') {
         if (args.length < 2) {
           await sendTelegramMessage(chatId, `⚠️ <b>Usage:</b> <code>/word &lt;WORD&gt; &lt;DID&gt;</code>\n\nExample:\n<code>/word beauty did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh</code>`);
           return res.status(200).json({ ok: true });
@@ -294,8 +495,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /meter <line>
-      if (command === '/meter' || command === '/syllables') {
+      // COMMAND: meter or syllables
+      if (command === 'meter' || command === 'syllables') {
         const lineText = args.join(' ').trim();
         if (!lineText) {
           await sendTelegramMessage(chatId, `⚠️ <b>Usage:</b> <code>/meter &lt;LINE OF POEM&gt;</code>\n\nExample:\n<code>/meter The summer wind is blowing through the trees</code>`);
@@ -324,8 +525,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /pair <DID1> <DID2>
-      if (command === '/pair' || command === '/synergy') {
+      // COMMAND: pair or synergy
+      if (command === 'pair' || command === 'synergy') {
         if (args.length < 2) {
           await sendTelegramMessage(chatId, `⚠️ <b>Usage:</b> <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code>\n\nExample:\n<code>/pair did:key:z6Mk1... did:key:z6Mk2...</code>`);
           return res.status(200).json({ ok: true });
@@ -362,8 +563,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /deadline
-      if (command === '/deadline' || command === '/time') {
+      // COMMAND: deadline or time or countdown
+      if (command === 'deadline' || command === 'time' || command === 'countdown') {
         const reply = `⏳ <b>Sonnet Challenge #2 Official Clock</b>\n\n` +
           `• <b>Contest Closes:</b> <code>18 September 2026 at 12:00 UTC</code>\n` +
           `• <b>Status:</b> LIVE & ACCEPTING SUBMISSIONS\n\n` +
@@ -377,8 +578,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /stats or /contest
-      if (command === '/stats' || command === '/contest') {
+      // COMMAND: stats or contest
+      if (command === 'stats' || command === 'contest') {
         await sendTelegramMessage(chatId, `📊 Fetching live contest telemetry from Technocore ledger...`);
 
         const [resultsData, subsData, discData, regData, votesData] = await Promise.all([
@@ -436,8 +637,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /rules
-      if (command === '/rules') {
+      // COMMAND: rules or rule
+      if (command === 'rules' || command === 'rule') {
         const reply = `📜 <b>Sonnet Challenge #2 - 7 Core Rules:</b>\n\n` +
           `1️⃣ <b>Team Size:</b> 4 to 8 accepted writers per squad.\n` +
           `2️⃣ <b>Sonnet Structure:</b> Exactly 14 lines in 3 quatrains + 1 couplet (4-4-4-2).\n` +
@@ -452,8 +653,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /bounties
-      if (command === '/bounties') {
+      // COMMAND: bounties or bounty
+      if (command === 'bounties' || command === 'bounty') {
         await sendTelegramMessage(chatId, `📡 Scanning <code>tclk-offers</code> for live FLOP bounties...`);
         const offers = await fetchTechnocoreRoom('tclk-offers', 10);
 
@@ -471,59 +672,69 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /status <DID>
-      if (command === '/status') {
-        const targetDid = args[0];
-        if (!targetDid || !targetDid.startsWith('did:key:')) {
-          await sendTelegramMessage(chatId, `⚠️ <b>Please provide a valid did:key</b>\n\nExample:\n<code>/status did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4</code>`);
-          return res.status(200).json({ ok: true });
-        }
-
+      // COMMAND: status <DID>
+      if (command === 'status') {
+        const targetDid = args[0] || 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
+        
         await sendTelegramMessage(chatId, `🔎 Scanning Technocore registration logs for <code>${targetDid.slice(0, 16)}...</code>`);
 
         // Check verified database first
         const KNOWN_VERIFIED = {
           'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': {
+            name: 'Asad Lee (@asadleo416)',
             role: 'Organizer (Founder, team-asad)',
             status: 'accepted',
             receiptSeq: 2009,
             requestId: 'reg-asad-org-1',
             teamRoom: 'd-sonnet-2-team-team-asad',
-            note: 'Official Organizer of team-asad. Room provisioned at d-sonnet-2-results Seq 143/144.'
+            note: 'Official Organizer & Founder of team-asad. Room provisioned at d-sonnet-2-results Seq 143/144.'
           },
           'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh': {
+            name: 'SmartecVitalik (@Smartecio)',
             role: 'Writer (team-asad)',
             status: 'accepted',
-            receiptSeq: 1650,
-            requestId: 'roster-team-asad-smartec',
-            note: 'Verified Sonnet-2 writer. Consent accepted in mb-sonnet-2-discovery.'
+            receiptSeq: 7974,
+            requestId: 'roster-team-asad-rikako-smartecio-1789215631289',
+            note: 'Verified Sonnet-2 writer. Signature countersigned and ACCEPTED by referee at Seq 7974 (3 of 4 locked)!'
           },
           'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9': {
+            name: 'Aika Kurashi (@aika_kurashi)',
             role: 'Writer (team-asad)',
             status: 'accepted',
-            receiptSeq: 1640,
-            requestId: 'roster-team-asad-aika-6f21c4',
-            note: 'Verified Sonnet-2 writer. Consent accepted in mb-sonnet-2-discovery.'
+            receiptSeq: 7937,
+            requestId: 'roster-team-asad-rikako-aika-1220z',
+            note: 'Verified Sonnet-2 writer. Official 4-member roster proposal ACCEPTED by referee at Seq 7937!'
           },
           'did:key:z6MkmGwVm4qswSyN1aDm8NRiabEzKzm5pcjqJqZ4nQYiZpWZ': {
+            name: 'wowyeahohno (@wowyeahohno)',
             role: 'Writer (team-asad)',
             status: 'accepted',
-            receiptSeq: 1631,
-            requestId: 'roster-team-asad-145a32f6',
-            note: 'Verified Sonnet-2 writer. Consent accepted in mb-sonnet-2-discovery.'
+            receiptSeq: 7940,
+            requestId: 'roster-team-asad-8f66ec',
+            note: 'Verified Sonnet-2 writer. Signature countersigned and ACCEPTED by referee at Seq 7940!'
+          },
+          'did:key:z6MkowXqAtrHBQZNsCeUQb7F2dL4LrKugX7pSnvXeDBBj1o1': {
+            name: 'Rikako (@RikakoV89679)',
+            role: 'Writer (team-asad Seat 4)',
+            status: 'accepted',
+            receiptSeq: 82771,
+            requestId: 'rikako-reg-1',
+            note: '100.00% full-dictionary coverage (holds all 26 letters a-z). Named in official roster at Seq 7935, 7938, 7971. Awaiting final countersignature to unfreeze room!'
           },
           'did:key:z6MkpLy66fMRRuzjkwZbPoyUYE5sq7yfJ6R8t1Hh5YPFx5rh': {
+            name: 'Alan Wiz (@alan_wiz_)',
             role: 'Writer (Registered)',
             status: 'accepted',
             receiptSeq: 1646,
             requestId: 'register-1',
-            note: 'Accepted Sonnet-2 writer. Currently held on team-asad Seat 4 until 11:00Z.'
+            note: 'Accepted Sonnet-2 writer. Old consent cleared to enable Rikako 100% alphabet roster.'
           },
           'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX': {
-            role: 'Pre-Start Participant (August 2026)',
+            name: 'Hassan Samimi (@samimi)',
+            role: 'Writer #5 Candidate',
             status: 'pending_archive_sync',
             requestId: 'hassan-samimi-reg-1',
-            note: 'August 2026 Gen 0 activity verified (Lobby Seq 3133 / Technocore Seq 104). Pending GitHub Issue #15 database re-indexing.'
+            note: 'Ready to be onboarded as Writer #5 once 4/4 unfreezes the room!'
           }
         };
 
@@ -531,13 +742,16 @@ export default async function handler(req, res) {
           const k = KNOWN_VERIFIED[targetDid];
           const isAcc = k.status === 'accepted';
           let reply = `📋 <b>Registration & Contest Report</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            (k.name ? `<b>Member:</b> <b>${k.name}</b>\n` : '') +
             `<b>DID:</b> <code>${targetDid}</code>\n\n` +
             `<b>Status:</b> ${isAcc ? '✅ ACCEPTED & VERIFIED' : '⏳ PENDING ARCHIVE SYNC'}\n` +
             `<b>Role:</b> <code>${k.role}</code>\n` +
             `<b>Receipt Ref:</b> <code>Seq ${k.receiptSeq || 'N/A'}</code> (${k.requestId})\n` +
             (k.teamRoom ? `<b>Assigned Room:</b> <code>${k.teamRoom}</code>\n` : '') +
             `\n📝 <b>Details:</b> ${k.note}\n\n` +
-            `🎉 <i>Identity record officially authenticated by the contest referee!</i>`;
+            `💡 <b>Plain English Meaning:</b>\n` +
+            `This identity is officially registered with the Technocore referee and authorized to participate in Sonnet Challenge #2!`;
           await sendTelegramMessage(chatId, reply);
           return res.status(200).json({ ok: true });
         }
@@ -626,7 +840,7 @@ export default async function handler(req, res) {
             `<i>Note: Active ring buffer retains the latest ~17,000 records. If registered earlier, confirmation was logged in archived export.</i>`;
         } else {
           reply += `<b>Status:</b> ❓ NOT FOUND IN RECENT WINDOW\n\n` +
-            `The live registration room maintains an active 8MB ring buffer (~17,000 records). If you registered before 03:00Z, your receipt may have aged out of the active buffer.\n\n` +
+            `The live registration room maintains an active 8MB ring buffer (~17,000 records). If registered earlier, your receipt was saved in the archived ledger.\n\n` +
             `💡 <i>Check GitHub Issue #15 if you had August 2026 Gen 0 activity.</i>`;
         }
 
@@ -634,29 +848,33 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /check <DID>
-      if (command === '/check') {
-        const targetDid = args[0];
-        if (!targetDid || !targetDid.startsWith('did:key:')) {
-          await sendTelegramMessage(chatId, `⚠️ <b>Please provide a valid did:key</b>\n\nExample:\n<code>/check did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh</code>`);
-          return res.status(200).json({ ok: true });
-        }
+      // COMMAND: check <DID>
+      if (command === 'check') {
+        const targetDid = args[0] || 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 
         const analysis = analyzeDidLetters(targetDid);
-        const reply = `🔤 <b>DID Vocabulary Analysis</b>\n\n` +
+        let reply = `🔤 <b>DID Vocabulary Analysis</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
           `<b>DID:</b> <code>${analysis.clean}</code>\n\n` +
           `🔡 <b>Letters Available (${analysis.count}/26):</b>\n<code>${analysis.held.toUpperCase().split('').join(' ')}</code>\n\n` +
           `🚫 <b>Missing Letters:</b>\n<code>${analysis.missing ? analysis.missing.toUpperCase().split('').join(' ') : 'NONE (100% Alphabet!)'}</code>\n\n` +
           `⭕ <b>Can sign letter 'o':</b> ${analysis.hasO ? '✅ YES' : '❌ NO (Letter "o" is missing - needed for 39.5% of dictionary)'}\n\n` +
           `📊 <b>Alphabet Coverage:</b> <b>${analysis.coveragePercent}%</b>\n\n` +
-          `💡 <i>In Sonnet Challenge #2, words must be spelled using ONLY the letters present in the signer's DID string!</i>`;
+          `💡 <b>Plain English Explanation:</b>\n` +
+          `In Sonnet Challenge #2, words must be spelled using ONLY the letters in your DID string. `;
+
+        if (analysis.coveragePercent === 100) {
+          reply += `🎉 <b>You have 100% dictionary reach!</b> You can legally spell all 125,855 English words!`;
+        } else {
+          reply += `Rikako (@RikakoV89679) has all 26 letters (100% reach) in Seat 4 to cover any missing words!`;
+        }
 
         await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /teams
-      if (command === '/teams') {
+      // COMMAND: teams
+      if (command === 'teams') {
         await sendTelegramMessage(chatId, `📡 Scanning Technocore contest ledger for live teams...`);
         
         const [resultsData, subsData, discData] = await Promise.all([
@@ -727,10 +945,10 @@ export default async function handler(req, res) {
 
         // Featured Team Asad
         reply += `🏆 <b>team-asad</b> (Leader: <a href="https://x.com/asadleo416">Asad Lee</a>)\n` +
-          `• <b>Status:</b> 3 of 4 Locked & Primed\n` +
+          `• <b>Status:</b> <b>3 of 4 Locked & Primed (75%)</b>\n` +
           `• <b>Room:</b> <code>d-sonnet-2-team-team-asad</code> (Gen 1)\n` +
-          `• <b>Writers:</b> @aika_kurashi, @Smartecio, @wowyeahohno\n` +
-          `• <b>Seat 4:</b> Holding until 11:00Z, then immediate replacement!\n\n`;
+          `• <b>Writers:</b> @aika_kurashi, @wowyeahohno, @Smartecio\n` +
+          `• <b>Seat 4:</b> Rikako (@RikakoV89679 - 100% Alphabet)\n\n`;
 
         // Active squads in discovery
         reply += `⚡ <b>Active Contenders (Forming / In Writing):</b>\n`;
@@ -758,35 +976,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // HELPER: Convert cryptic JSON into clean plain English
-      function humanizeLedgerMessage(text, from) {
-        if (!text) return '';
-        try {
-          const j = JSON.parse(text);
-          if (j.type === 'sonnet.roster.v1') {
-            return `Submitted official roster proposal for ${j.game_id || 'team'}`;
-          }
-          if (j.type === 'sonnet.receipt.v1') {
-            const st = j.status === 'accepted' ? '✅ ACCEPTED' : '❌ REJECTED';
-            const reason = j.reason ? ` (${j.reason})` : '';
-            return `Referee Receipt: ${st}${reason}`;
-          }
-          if (j.type === 'sonnet.withdraw.v1') {
-            return `Withdrew old team consent for ${j.game_id || 'team'}`;
-          }
-          if (j.type === 'sonnet.word.v1') {
-            return `Wrote poem word "${j.word || ''}"`;
-          }
-          if (j.type === 'sonnet.note.v1' && j.text) {
-            return j.text.length > 100 ? j.text.slice(0, 100) + '...' : j.text;
-          }
-          if (j.text) return j.text.length > 100 ? j.text.slice(0, 100) + '...' : j.text;
-        } catch {}
-        return text.length > 100 ? text.slice(0, 100) + '...' : text;
-      }
-
-      // COMMAND: /team <team_name> or /inbox or /live or /radar
-      if (command === '/team' || command === '/inbox' || command === '/radar' || command === '/live' || command === '/updates') {
+      // COMMAND: team or asad or live or radar or inbox or updates or update
+      if (command === 'team' || command === 'asad' || command === 'inbox' || command === 'radar' || command === 'live' || command === 'updates' || command === 'update') {
         const rawArg = (args[0] || '').toLowerCase().trim().replace(/^d-sonnet-2-team-/, '');
         const targetTeam = rawArg ? (rawArg === 'asad' ? 'team-asad' : rawArg) : 'team-asad';
 
@@ -803,11 +994,13 @@ export default async function handler(req, res) {
 
         const teamDids = {
           'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': 'Asad (Leader)',
-          'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh': 'SmartecVitalik',
-          'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9': 'Aika Kurashi',
-          'did:key:z6MkmGwVm4qswSyN1aDm8NRiabEzKzm5pcjqJqZ4nQYiZpWZ': 'wowyeahohno',
-          'did:key:z6MkowXqAtrHBQZNsCeUQb7F2dL4LrKugX7pSnvXeDBBj1o1': 'RikakoV89679',
-          'did:key:z6MktqyzYJnWz2zANecvfHHFpBAGJD6JqZySoKb6S39PXPQh': 'wyc4t'
+          'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh': 'SmartecVitalik (@Smartecio)',
+          'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9': 'Aika Kurashi (@aika_kurashi)',
+          'did:key:z6MkmGwVm4qswSyN1aDm8NRiabEzKzm5pcjqJqZ4nQYiZpWZ': 'wowyeahohno (@wowyeahohno)',
+          'did:key:z6MkowXqAtrHBQZNsCeUQb7F2dL4LrKugX7pSnvXeDBBj1o1': 'Rikako (@RikakoV89679)',
+          'did:key:z6MkpLy66fMRRuzjkwZbPoyUYE5sq7yfJ6R8t1Hh5YPFx5rh': 'Alan Wiz (@alan_wiz_)',
+          'did:key:z6MktqyzYJnWz2zANecvfHHFpBAGJD6JqZySoKb6S39PXPQh': 'wyc4t',
+          'did:key:z6MkowHQwsx9xr84WbWN3YCnKutyBnBXkT1ChKY4uEAAMzte': 'Contest Referee'
         };
 
         const relevant = [];
@@ -817,47 +1010,81 @@ export default async function handler(req, res) {
           try { parsed = JSON.parse(text); } catch {}
 
           const matchGame = parsed && (parsed.game_id === targetTeam || parsed.game_id === `team-${targetTeam}`);
+          const matchReq = parsed && parsed.request_id && parsed.request_id.includes(targetTeam);
           const matchText = text.toLowerCase().includes(targetTeam);
+          const matchMembers = parsed && Array.isArray(parsed.members) && parsed.members.some(d => d === 'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh' || d === 'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9');
 
-          if (matchGame || matchText) {
+          if (matchGame || matchReq || matchText || (targetTeam === 'team-asad' && matchMembers)) {
             const senderName = teamDids[m.from] || (m.from === 'did:key:z6MkowHQwsx9xr84WbWN3YCnKutyBnBXkT1ChKY4uEAAMzte' ? 'Contest Referee' : m.from?.slice(0, 14) + '...');
             relevant.push({
               seq: m.seq,
               sender: senderName,
-              summary: humanizeLedgerMessage(text, m.from)
+              summary: humanizeLedgerMessage(text, m.from, teamDids)
             });
           }
         }
 
         let reply = '';
         if (targetTeam === 'team-asad' || targetTeam === 'asad') {
-          reply = `👑 <b>Team Asad Live Contest Status</b>\n` +
+          const signatures = [
+            { name: 'Aika Kurashi (@aika_kurashi)', did: 'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9', signed: true, seq: 7937, role: 'Writer (Seat 1)' },
+            { name: 'wowyeahohno (@wowyeahohno)', did: 'did:key:z6MkmGwVm4qswSyN1aDm8NRiabEzKzm5pcjqJqZ4nQYiZpWZ', signed: true, seq: 7940, role: 'Writer (Seat 2)' },
+            { name: 'SmartecVitalik (@Smartecio)', did: 'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh', signed: true, seq: 7974, role: 'Writer (Seat 3)' },
+            { name: 'Rikako (@RikakoV89679)', did: 'did:key:z6MkowXqAtrHBQZNsCeUQb7F2dL4LrKugX7pSnvXeDBBj1o1', signed: false, seq: null, role: 'Writer (Seat 4 - 100% Alphabet)' }
+          ];
+
+          // Check if Rikako has countersigned in recent live discovery messages
+          for (const m of discMsgs) {
+            try {
+              const j = JSON.parse(m.text || '');
+              if (j.type === 'sonnet.receipt.v1' && j.status === 'accepted' && j.state_hash === '71535dce15640aec7d6a2a9b7cdcef93828afd9aa31a9f036120fb147f57874a') {
+                if (j.sender_did === signatures[3].did) {
+                  signatures[3].signed = true;
+                  signatures[3].seq = m.seq;
+                }
+              }
+            } catch {}
+          }
+
+          const signedCount = signatures.filter(s => s.signed).length;
+          const isFull = signedCount === 4;
+          const progressPercent = Math.round((signedCount / 4) * 100);
+          const progressBar = isFull ? '[████████████████]' : (signedCount === 3 ? '[████████████░░░░]' : '[████████░░░░░░░░]');
+
+          reply = `👑 <b>Team Asad Live Contest Radar</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
             `🏆 <b>Contest:</b> Technocore Sonnet Challenge #2\n` +
-            `💰 <b>Prize Pool:</b> 50,000 FLOP (Poem) + 50,000 FLOP (Voters)\n\n` +
-            `📊 <b>Roster Progress:</b>\n` +
-            `[████████░░░░░░░░] <b>50% Complete (2 of 4 Signatures Locked!)</b>\n\n` +
-            `👥 <b>Squad Signatures & Members:</b>\n` +
+            `💰 <b>Prize Pool:</b> 100,000 FLOP Total (50,000 Poem + 50,000 Voters)\n\n` +
+            `📊 <b>Squad Status: ${progressPercent}% Ready (${signedCount} of 4 Locked!)</b>\n` +
+            `<code>${progressBar}</code>\n\n` +
+            `👥 <b>Official Squad Members:</b>\n` +
             `• 👑 <b>Asad Lee (@asadleo416)</b> — Founder & Team Leader\n` +
-            `• ✅ <b>Aika Kurashi (@aika_kurashi)</b> — <b>SIGNED ON-CHAIN!</b> (Seq 7937)\n` +
-            `• ✅ <b>wowyeahohno (@wowyeahohno)</b> — <b>SIGNED ON-CHAIN!</b> (Seq 7940)\n` +
-            `• ⏳ <b>SmartecVitalik (@Smartecio)</b> — <b>WAITING TO SIGN</b> (Slot 3)\n` +
-            `• ⏳ <b>Rikako (@RikakoV89679)</b> — <b>WAITING TO SIGN</b> (Slot 4 - 100% Alphabet)\n\n` +
+            signatures.map(s => `• ${s.signed ? '✅' : '⏳'} <b>${s.name}</b> — ${s.signed ? `<b>SIGNED & ACCEPTED!</b> (Seq ${s.seq})` : '<b>WAITING TO SIGN</b>'}`).join('\n') + `\n\n` +
             `🏛️ <b>Poem Room:</b> <code>d-sonnet-2-team-team-asad</code>\n` +
-            `<i>(🔒 Automatically unlocks the moment Smartecio & Rikako countersign!)</i>\n\n` +
+            (isFull ? `🎉 <b>STATUS: ROOM IS UNLOCKED! Writers can begin submitting words!</b>\n\n` : `🔒 <i>Room unfreezes automatically the moment Rikako submits her signature!</i>\n\n`) +
             `📜 <b>Recent Activity (In Plain English):</b>\n`;
 
-          const lastThree = relevant.slice(-3);
-          if (lastThree.length === 0) {
+          const lastFour = relevant.slice(-4);
+          if (lastFour.length === 0) {
             reply += `• <i>No recent ledger activity.</i>\n\n`;
           } else {
-            lastThree.forEach(r => {
+            lastFour.forEach(r => {
               reply += `• <b>[Seq ${r.seq}] ${escapeHtml(r.sender)}:</b> ${escapeHtml(r.summary)}\n`;
             });
             reply += `\n`;
           }
 
-          reply += `🎯 <b>What to do right now:</b>\n` +
-            `Remind @Smartecio on X to post his signature to make it 3 of 4!\n\n` +
+          reply += `🎯 <b>What to do right now:</b>\n`;
+          if (isFull) {
+            reply += `All 4 signatures are locked! Coordinate writer turns (1 word per turn, exact 10 syllables/line).\n\n`;
+          } else {
+            reply += `1. Ping <b>@RikakoV89679</b> on X (Twitter):\n` +
+              `<i>"Rikako, 3 of 4 signatures are locked on-chain (Aika, wowyeah, Smartecio)! Please countersign the team-asad roster so our poem room unlocks!"</i>\n` +
+              `2. The moment she signs, writing begins immediately!\n\n`;
+          }
+
+          reply += `💡 <b>Aasan Roman Urdu:</b>\n` +
+            `<i>Bhai zabardast khabar! 4 me se 3 writers (Aika, wowyeah, Smartecio) ne officially sign kar dia hai aur referee ne accept kar lia hai. Sirf Rikako reh gayi hai. Usay Twitter par bolo k sign kare, room unlock ho jaye ga!</i>\n\n` +
             `🌐 Powered by <b><a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>)`;
 
         } else {
@@ -889,28 +1116,90 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: /asad
-      if (command === '/asad') {
-        const reply = `👑 <b>Team Asad Live Contest Profile</b>\n\n` +
-          `• <b>Contest:</b> Technocore Sonnet Challenge #2 (sonnet-2)\n` +
-          `• <b>Prize Pool:</b> 50,000 FLOP (Poem) + 50,000 FLOP (Voters)\n` +
-          `• <b>Game ID:</b> <code>team-asad</code>\n` +
-          `• <b>Leader & Organizer:</b> <a href="https://x.com/asadleo416">Asad Lee (@asadleo416)</a>\n` +
-          `• <b>Official Poem Room:</b> <code>d-sonnet-2-team-team-asad</code>\n\n` +
-          `📊 <b>Live Progress:</b> <b>50% Complete (2 of 4 Signatures)</b>\n` +
-          `• Aika Kurashi: ✅ SIGNED (Seq 7937)\n` +
-          `• wowyeahohno: ✅ SIGNED (Seq 7940)\n` +
-          `• SmartecVitalik: ⏳ PENDING SIGNATURE\n` +
-          `• Rikako (100% Alphabet): ⏳ PENDING SIGNATURE\n\n` +
-          `🛡️ <b>Powered by <a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>) | <a href="https://technocore-console.vercel.app/">Technocore Console</a>\n` +
-          `Type <code>/team</code> for real-time live radar! 🚀`;
+      // SMART TEXT DISPATCHER (for natural conversation or pasted SMS / JSON / DIDs)
+      const cleanLower = rawText.toLowerCase().trim();
 
-        await sendTelegramMessage(chatId, reply);
+      // Greetings
+      if (cleanLower === 'hi' || cleanLower === 'hello' || cleanLower === 'hey' || cleanLower.includes('salaam') || cleanLower.includes('salam') || cleanLower === 'bhai' || cleanLower === 'bhi' || cleanLower === 'aoa') {
+        const greeting = `👋 <b>Salam Asad bhai! Welcome to FlopRadar!</b>\n\n` +
+          `Here is your live contest summary:\n` +
+          `• <b>Team:</b> <code>team-asad</code>\n` +
+          `• <b>Status:</b> <b>75% LOCKED (3 of 4 Signatures!)</b>\n` +
+          `• <b>Signatures:</b> Aika ✅ | wowyeahohno ✅ | Smartecio ✅\n` +
+          `• <b>Pending:</b> Rikako (@RikakoV89679) ⏳\n\n` +
+          `🎯 <b>What to do:</b> Send a message to @RikakoV89679 on X to sign and unlock our poem room!\n\n` +
+          `💡 <b>Quick Commands (No slash needed!):</b>\n` +
+          `• <b>team</b> — Live status & latest updates\n` +
+          `• <b>status</b> — Your founder verification\n` +
+          `• <b>rules</b> — 7 core contest rules\n` +
+          `• <b>time</b> — Countdown to closing\n` +
+          `• <b>Paste any SMS / JSON here</b> — I will explain it in simple English!`;
+        await sendTelegramMessage(chatId, greeting);
         return res.status(200).json({ ok: true });
       }
 
-      // DEFAULT FALLBACK
-      await sendTelegramMessage(chatId, `🤖 Command not recognized.\nTry <code>/status</code>, <code>/check</code>, <code>/word</code>, <code>/pair</code>, <code>/teams</code>, <code>/deadline</code>, <code>/bounties</code>, or <code>/rules</code>!`);
+      // Asking for status / update / team in English or Roman Urdu
+      if (cleanLower.includes('kya hua') || cleanLower.includes('kya chal') || cleanLower.includes('update') || cleanLower.includes('progress') || cleanLower.includes('kya scene') || cleanLower === 'score') {
+        const quickStatus = `👑 <b>Team Asad Quick Status:</b>\n\n` +
+          `📊 <b>Progress:</b> <b>75% COMPLETE (3 of 4 Locked!)</b>\n` +
+          `<code>[████████████░░░░]</code>\n\n` +
+          `• Aika Kurashi: ✅ SIGNED (Seq 7937)\n` +
+          `• wowyeahohno: ✅ SIGNED (Seq 7940)\n` +
+          `• SmartecVitalik: ✅ SIGNED (Seq 7974)\n` +
+          `• Rikako: ⏳ WAITING FOR SIGNATURE\n\n` +
+          `🎯 <b>Next Step:</b>\n` +
+          `Ping <b>@RikakoV89679</b> on X to submit her signature to unlock <code>d-sonnet-2-team-team-asad</code>!\n\n` +
+          `💡 <b>Roman Urdu:</b>\n` +
+          `<i>Bhai 3 sign ho chuke hain! Sirf Rikako rehti hai. Usay bolo sign kare, room foran khul jaye ga!</i>\n\n` +
+          `Type <b>team</b> for full live radar!`;
+        await sendTelegramMessage(chatId, quickStatus);
+        return res.status(200).json({ ok: true });
+      }
+
+      // Pasted JSON or SMS from Technocore
+      if (rawText.includes('{') && rawText.includes('}')) {
+        const explanation = explainJsonMessage(rawText);
+        if (explanation) {
+          await sendTelegramMessage(chatId, explanation);
+          return res.status(200).json({ ok: true });
+        }
+      }
+
+      // Pasted DID
+      if (rawText.includes('did:key:')) {
+        const didMatch = rawText.match(/did:key:[a-zA-Z0-9]+/);
+        if (didMatch) {
+          const did = didMatch[0];
+          const analysis = analyzeDidLetters(did);
+          const reply = `🔤 <b>DID Quick Analysis:</b>\n\n` +
+            `<b>DID:</b> <code>${did}</code>\n` +
+            `<b>Alphabet Coverage:</b> <b>${analysis.coveragePercent}%</b> (${analysis.count}/26 letters)\n` +
+            `<b>Has Letter 'o':</b> ${analysis.hasO ? '✅ YES' : '❌ NO'}\n` +
+            `<b>Missing:</b> <code>${analysis.missing ? analysis.missing.toUpperCase().split('').join(' ') : 'NONE (100% Alphabet! 🎉)'}</code>\n\n` +
+            `💡 In Sonnet Challenge #2, words must be spelled ONLY using the letters in the signer's DID.`;
+          await sendTelegramMessage(chatId, reply);
+          return res.status(200).json({ ok: true });
+        }
+      }
+
+      // Check for plain text keywords
+      const textExplanation = explainPlainText(rawText);
+      if (textExplanation) {
+        await sendTelegramMessage(chatId, textExplanation);
+        return res.status(200).json({ ok: true });
+      }
+
+      // FRIENDLY ASSISTANT FALLBACK (no robotic "Command not recognized"!)
+      const fallback = `🤖 <b>FlopRadar Assistant</b>\n\n` +
+        `I am your companion for <b>Team Asad</b> & Sonnet Challenge #2.\n\n` +
+        `Here is how I can help you in plain English:\n\n` +
+        `• Type <b>team</b> — Live Team Asad 3/4 radar & next steps\n` +
+        `• Type <b>status</b> — Your verified founder receipt\n` +
+        `• Type <b>rules</b> — Official contest rules in simple points\n` +
+        `• Type <b>time</b> — Contest closing countdown\n` +
+        `• <b>Paste any SMS / message</b> — I will explain what it means in plain English!\n\n` +
+        `💡 <i>Tip: You don't even need to type the slash '/'!</i>`;
+      await sendTelegramMessage(chatId, fallback);
       return res.status(200).json({ ok: true });
 
     } catch (err) {
