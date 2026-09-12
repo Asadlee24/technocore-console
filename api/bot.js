@@ -166,6 +166,9 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             commands: [
               { command: 'start', description: 'Bot overview & quick guide' },
+              { command: 'inbox', description: '🚨 Live Team Asad inbox & replies radar' },
+              { command: 'live', description: 'Real-time telemetry & on-chain replies' },
+              { command: 'asad', description: 'Team Asad official contest profile' },
               { command: 'status', description: 'Check DID registration receipt' },
               { command: 'check', description: 'Analyze DID letters & coverage' },
               { command: 'word', description: 'Verify if a DID can sign a specific word' },
@@ -176,7 +179,6 @@ export default async function handler(req, res) {
               { command: 'deadline', description: 'Contest closing countdown clock' },
               { command: 'stats', description: 'Live contest dashboard & statistics' },
               { command: 'rules', description: 'Sonnet Challenge #2 official rules' },
-              { command: 'asad', description: 'Team Asad official contest profile' },
               { command: 'help', description: 'Command list & tips' }
             ]
           })
@@ -730,6 +732,84 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // COMMAND: /inbox or /live or /team
+      if (command === '/inbox' || command === '/live' || command === '/team') {
+        await sendTelegramMessage(chatId, `📡 <i>Scanning Technocore ledger for Team Asad replies & telemetry...</i>`);
+
+        const [discRes, roomRes] = await Promise.all([
+          fetchTechnocoreRoom('mb-sonnet-2-discovery', 80),
+          fetchTechnocoreRoom('d-sonnet-2-team-team-asad', 10)
+        ]);
+
+        const discMsgs = Array.isArray(discRes.messages) ? discRes.messages : [];
+        const roomMsgs = Array.isArray(roomRes.messages) ? roomRes.messages : [];
+
+        const teamDids = {
+          'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': 'Asad (Leader)',
+          'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh': 'SmartecVitalik (@Smartecio)',
+          'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9': 'Aika Kurashi (@aika_kurashi)',
+          'did:key:z6MkmGwVm4qswSyN1aDm8NRiabEzKzm5pcjqJqZ4nQYiZpWZ': 'wowyeahohno',
+          'did:key:z6MkowXqAtrHBQZNsCeUQb7F2dL4LrKugX7pSnvXeDBBj1o1': 'RikakoV89679 (@RikakoV89679)',
+          'did:key:z6MktqyzYJnWz2zANecvfHHFpBAGJD6JqZySoKb6S39PXPQh': 'wyc4t (@wyc4t)'
+        };
+
+        const relevant = [];
+        for (const m of discMsgs) {
+          const text = m.text || '';
+          let parsed = null;
+          try { parsed = JSON.parse(text); } catch {}
+
+          const isOurMember = teamDids[m.from];
+          const isAboutTeam = parsed && (parsed.game_id === 'team-asad');
+          const mentionsTeam = text.includes('team-asad') || text.includes('asad') || text.includes('Rikako');
+
+          if (isOurMember || isAboutTeam || mentionsTeam) {
+            if (m.from === 'did:key:z6MkowHQwsx9xr84WbWN3YCnKutyBnBXkT1ChKY4uEAAMzte') {
+              if (!text.includes('team-asad') && !Object.keys(teamDids).some(d => text.includes(d))) {
+                continue;
+              }
+            }
+            relevant.push({
+              seq: m.seq,
+              sender: teamDids[m.from] || (m.from ? m.from.slice(0, 14) + '...' : 'Referee'),
+              type: parsed?.type || 'note',
+              text: parsed?.text || parsed?.note || text
+            });
+          }
+        }
+
+        let reply = `👑 <b>Team Asad Live Mobile Radar</b>\n\n` +
+          `• <b>Poem Room:</b> <code>d-sonnet-2-team-team-asad</code> (${roomMsgs.length} messages)\n` +
+          `• <b>Roster Status:</b> 🔓 <b>Alan Consent 100% Cleared!</b>\n\n` +
+          `👥 <b>Core Squad Live Status:</b>\n` +
+          `• <b>Leader:</b> <a href="https://x.com/asadleo416">Asad Lee (@asadleo416)</a> 🟢\n` +
+          `• <b>Writer 1:</b> SmartecVitalik (@Smartecio) 🟢 <i>Ready to countersign</i>\n` +
+          `• <b>Writer 2:</b> Aika Kurashi (@aika_kurashi) 🟢 <i>Alan withdrawn (receipt 7595 accepted)</i>\n` +
+          `• <b>Former Seat:</b> wowyeahohno ⚠️ <i>Joined fluxwrites (seq 7861), slot open!</i>\n` +
+          `• <b>Seat 4 Target:</b> @RikakoV89679 🎯 <i>100% full-alphabet invited (seq 7611/7612)</i>\n` +
+          `• <b>Hot Fallback:</b> @wyc4t ⚡ <i>Active online & verified</i>\n\n`;
+
+        reply += `📜 <b>Recent On-Chain Activity:</b>\n`;
+        const lastThree = relevant.slice(-3);
+        if (lastThree.length === 0) {
+          reply += `<i>No recent activity in the last 60 ledger blocks.</i>\n\n`;
+        } else {
+          lastThree.forEach(r => {
+            const snippet = r.text.length > 90 ? r.text.slice(0, 90) + '...' : r.text;
+            reply += `• <b>[Seq ${r.seq}] ${r.sender}:</b> <i>"${snippet.replace(/</g, '&lt;').replace(/>/g, '&gt;')}"</i>\n`;
+          });
+          reply += `\n`;
+        }
+
+        reply += `💡 <b>Actions on Mobile:</b>\n` +
+          `1. Check Twitter DMs/mentions for @RikakoV89679 & @wyc4t\n` +
+          `2. Open <a href="https://technocore-console.vercel.app/">Technocore Console</a> in your phone browser to post signed notes!\n\n` +
+          `🌐 Powered by <b><a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>)`;
+
+        await sendTelegramMessage(chatId, reply);
+        return res.status(200).json({ ok: true });
+      }
+
       // COMMAND: /asad
       if (command === '/asad') {
         const reply = `👑 <b>Team Asad Official Contest Profile</b>\n\n` +
@@ -739,12 +819,12 @@ export default async function handler(req, res) {
           `• <b>Organizer / Leader:</b> <a href="https://x.com/asadleo416">Asad Lee (@asadleo416)</a>\n` +
           `• <b>Official Poem Room:</b> <code>d-sonnet-2-team-team-asad</code>\n\n` +
           `✍️ <b>Confirmed Core Writers:</b>\n` +
-          `1. SmartecVitalik (@Smartecio)\n` +
-          `2. Aika Kurashi (@aika_kurashi)\n` +
-          `3. wowyeahohno (@wowyeahohno)\n` +
-          `4. Seat 4: Holding until 11:00Z sharp, then locking top standby!\n\n` +
+          `1. SmartecVitalik (@Smartecio) — Ready & unlocked\n` +
+          `2. Aika Kurashi (@aika_kurashi) — Ready & Alan withdrawn\n` +
+          `3. Seat 3: Re-allocation in progress (wowyeah joined fluxwrites)\n` +
+          `4. Seat 4: @RikakoV89679 (100% full-alphabet) / @wyc4t fallback\n\n` +
           `🛡️ <b>Powered by <a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>) | <a href="https://technocore-console.vercel.app/">Technocore Console</a>\n` +
-          `Vote for <b>team-asad</b> in <code>mb-sonnet-2-votes</code> when voting opens! 🚀`;
+          `Try <code>/inbox</code> or <code>/live</code> for real-time ledger intelligence! 🚀`;
 
         await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
