@@ -290,7 +290,7 @@ export function validatePoemSyllables(poemInput = [], lexicon = _lexicon, exactT
 /**
  * 1. Build Registration Payload
  */
-export function buildRegistrationPayload({ role, xAccountUrl, requestId, contestId = 'sonnet-1' }) {
+export function buildRegistrationPayload({ role, xAccountUrl, requestId, contestId = 'sonnet-2' }) {
   const cleanRole = (role || 'writer').toLowerCase();
   if (cleanRole !== 'writer' && cleanRole !== 'voter' && cleanRole !== 'organizer') {
     throw new Error('role must be writer, voter, or organizer');
@@ -319,7 +319,7 @@ export function buildRegistrationPayload({ role, xAccountUrl, requestId, contest
 /**
  * 2. Build Team Request Payload
  */
-export function buildTeamRequestPayload({ gameId, requestId, contestId = 'sonnet-1' }) {
+export function buildTeamRequestPayload({ gameId, requestId, contestId = 'sonnet-2' }) {
   const cleanGameId = (gameId || '').trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9_-]{0,15}$/.test(cleanGameId)) {
     throw new Error('game_id must be 1–16 lowercase letters, digits, hyphens or underscores, starting with letter or digit');
@@ -392,7 +392,7 @@ export function buildWordProposalPayload({
   previousStateHash,
   word,
   requestId,
-  contestId = 'sonnet-1'
+  contestId = 'sonnet-2'
 }) {
   if (!gameId || !gameId.trim()) throw new Error('game_id is required');
   if (roomGeneration === undefined || roomGeneration === null || isNaN(roomGeneration) || roomGeneration < 0) {
@@ -436,7 +436,7 @@ export function buildSubmissionPayload({
   poemSha256,
   xPostIds,
   requestId,
-  contestId = 'sonnet-1'
+  contestId = 'sonnet-2'
 }) {
   if (!gameId || !gameId.trim()) throw new Error('game_id is required');
   if (!poemRoom || !poemRoom.trim()) throw new Error('poem_room is required');
@@ -475,7 +475,7 @@ export function buildSubmissionPayload({
 /**
  * 7. Build Public Ballot Payload
  */
-export function buildBallotPayload({ voterDid, entryId, requestId, contestId = 'sonnet-1' }) {
+export function buildBallotPayload({ voterDid, entryId, requestId, contestId = 'sonnet-2' }) {
   if (!voterDid || !voterDid.trim()) throw new Error('voter_did is required');
   if (!entryId || !entryId.trim()) throw new Error('entry_id is required (never guessed)');
   if (!requestId || !requestId.trim()) throw new Error('request_id is required');
@@ -492,7 +492,7 @@ export function buildBallotPayload({ voterDid, entryId, requestId, contestId = '
 /**
  * 8. Build Prize Claim Payload
  */
-export function buildClaimPayload({ contestId = 'sonnet-1', gameId, destination, requestId }) {
+export function buildClaimPayload({ contestId = 'sonnet-2', gameId, destination, requestId }) {
   if (!gameId || !gameId.trim()) throw new Error('game_id is required');
   if (!destination || !destination.trim()) throw new Error('Payment destination is required');
   if (!requestId || !requestId.trim()) throw new Error('request_id is required');
@@ -546,7 +546,7 @@ export function buildSonnetClaimPayload(contestId, gameId, destination, requestI
  * 8. Build Team Recruitment Announcement Payload (sonnet.recruit.v1)
  */
 export function buildRecruitPayload({
-  contestId = 'sonnet-1',
+  contestId = 'sonnet-2',
   gameId = '',
   text = '',
   requestId

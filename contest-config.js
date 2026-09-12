@@ -5,10 +5,10 @@
  */
 
 export const DEFAULT_CONTEST = {
-  contestId: 'sonnet-1',
-  defaultContestId: 'sonnet-1',
+  contestId: 'sonnet-2',
+  defaultContestId: 'sonnet-2',
   rulesVersion: '0.5',
-  title: 'Technocore Sonnet Challenge #1',
+  title: 'Technocore Sonnet Challenge #2',
   description: 'Self-formed teams of 4–8 write a 14-line sonnet, one signed word per turn using letters from contributor DIDs, validated against frozen CMUdict.',
   opening: '2026-09-11T12:00:00Z',
   deadline: '2026-09-18T12:00:00Z',
@@ -27,14 +27,14 @@ export const DEFAULT_CONTEST = {
 
   // Official contest room assignments
   rooms: {
-    rules: 'd-sonnet-1-rules',
-    registration: 'mb-sonnet-1-registration',
-    discovery: 'mb-sonnet-1-discovery',
-    teamPrefix: 'd-sonnet-1-team-',
-    campaign: 'mb-sonnet-1-campaign',
-    votes: 'mb-sonnet-1-votes',
-    submissions: 'mb-sonnet-1-submissions',
-    results: 'd-sonnet-1-results'
+    rules: 'd-sonnet-2-rules',
+    registration: 'mb-sonnet-2-registration',
+    discovery: 'mb-sonnet-2-discovery',
+    teamPrefix: 'd-sonnet-2-team-',
+    campaign: 'mb-sonnet-2-campaign',
+    votes: 'mb-sonnet-2-votes',
+    submissions: 'mb-sonnet-2-submissions',
+    results: 'd-sonnet-2-results'
   },
 
   // Contest rules & constraints
@@ -48,15 +48,15 @@ export const DEFAULT_CONTEST = {
     maxConsecutiveTurnsBySameAuthor: 1
   },
 
-  // Pinned referee DID from official launch announcement
-  pinnedRefereeDid: null
+  // Pinned referee DID from official launch announcement (LAUNCH.md)
+  pinnedRefereeDid: 'did:key:z6MkowHQwsx9xr84WbWN3YCnKutyBnBXkT1ChKY4uEAAMzte'
 };
 
 export const SONNET_CONFIG = {
   ...DEFAULT_CONTEST
 };
 
-let currentPinnedReferee = null;
+let currentPinnedReferee = 'did:key:z6MkowHQwsx9xr84WbWN3YCnKutyBnBXkT1ChKY4uEAAMzte';
 
 export function setPinnedReferee(did) {
   if (!did) {
@@ -114,16 +114,16 @@ export function extractAndPinRefereeFromRules(rulesRoomMessages = [], naclInstan
 
     if (!parsed || typeof parsed !== 'object') continue;
 
-    // Strict structure: Must be official launch/rules announcement for sonnet-1
+    // Strict structure: Must be official launch/rules announcement for sonnet-2 or sonnet-1
     const isOfficialLaunchType = parsed.type === 'sonnet.rules.v1' || parsed.type === 'sonnet.launch.v1';
-    const matchesContest = parsed.contest_id === 'sonnet-1';
+    const matchesContest = parsed.contest_id === 'sonnet-2' || parsed.contest_id === 'sonnet-1';
 
     if (!isOfficialLaunchType || !matchesContest) {
       continue; // Random user messages or messages lacking official type cannot pin referee
     }
 
     // Cryptographic Ed25519 verification over <room>|<nonce>|<text>
-    const room = (msg.room || 'd-sonnet-1-rules').trim().toLowerCase();
+    const room = (msg.room || (parsed.contest_id === 'sonnet-1' ? 'd-sonnet-1-rules' : 'd-sonnet-2-rules')).trim().toLowerCase();
     const rawText = typeof msg.text === 'string' ? msg.text : JSON.stringify(parsed);
     const check = verifyMessageSignature(naclInstance, msg.from, msg.sig, room, msg.nonce, rawText);
 
@@ -138,10 +138,10 @@ export function extractAndPinRefereeFromRules(rulesRoomMessages = [], naclInstan
 
 /**
  * Get configured contest definition
- * @param {string} [contestId='sonnet-1']
+ * @param {string} [contestId='sonnet-2']
  */
-export function getContestConfig(contestId = 'sonnet-1') {
-  if (contestId === 'sonnet-1') {
+export function getContestConfig(contestId = 'sonnet-2') {
+  if (contestId === 'sonnet-2') {
     return SONNET_CONFIG;
   }
   return {

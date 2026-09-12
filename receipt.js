@@ -107,7 +107,7 @@ export class ReceiptEngine {
 
     const requestId = payload.request_id || (payload.ref && payload.ref.request_id) || null;
     const gameId = payload.game_id || (payload.ref && payload.ref.game_id) || null;
-    const contestId = payload.contest_id || 'sonnet-1';
+    const contestId = payload.contest_id || 'sonnet-2';
 
     // Must reference either a known request or game
     if (!requestId && !gameId) return null;

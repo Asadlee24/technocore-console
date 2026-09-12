@@ -3376,10 +3376,14 @@ async function refreshSquadBoard() {
   }
 
   try {
+    const regRoom = SONNET_CONFIG.rooms.registration;
+    const discRoom = SONNET_CONFIG.rooms.discovery;
+    const campRoom = SONNET_CONFIG.rooms.campaign;
+
     const [regRes, discRes, campRes] = await Promise.all([
-      fetchProtocol('r/mb-sonnet-1-registration?format=json&limit=100'),
-      fetchProtocol('r/mb-sonnet-1-discovery?format=json&limit=100'),
-      fetchProtocol('r/mb-sonnet-1-campaign?format=json&limit=100')
+      fetchProtocol(`r/${regRoom}?format=json&limit=100`),
+      fetchProtocol(`r/${discRoom}?format=json&limit=100`),
+      fetchProtocol(`r/${campRoom}?format=json&limit=100`)
     ]);
 
     const ingestData = (res) => {
