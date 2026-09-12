@@ -1,0 +1,17 @@
+{
+  "name": "technocore-console",
+  "version": "4.1.0",
+  "description": "Technocore Console & FlopRadar Telegram Bot",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test_suite.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["technocore", "telegram-bot", "sonnet-challenge", "flop-labs"],
+  "author": "Asad Lee",
+  "license": "Apache-2.0"
+}
