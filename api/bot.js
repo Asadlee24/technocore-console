@@ -48,7 +48,6 @@ function analyzeDidLetters(did) {
   const missing = alphabet.filter(l => !uniqueSet.has(l));
   const hasO = uniqueSet.has('o');
   
-  // High-frequency English / CMUdict letters
   const coveragePercent = Math.min(100, Math.round((held.length / 26) * 100));
   
   return {
@@ -61,8 +60,42 @@ function analyzeDidLetters(did) {
   };
 }
 
+function canSignWord(word, did) {
+  const cleanWord = (word || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+  const cleanDid = (did || '').trim().toLowerCase();
+  const didLetters = new Set(cleanDid.replace(/[^a-z]/g, '').split(''));
+  
+  const missingInDid = [];
+  for (const ch of cleanWord) {
+    if (!didLetters.has(ch) && !missingInDid.includes(ch)) {
+      missingInDid.push(ch);
+    }
+  }
+  
+  return {
+    word: cleanWord,
+    canSign: missingInDid.length === 0,
+    missingLetters: missingInDid
+  };
+}
+
+function getCountdown() {
+  const deadline = new Date('2026-09-18T12:00:00Z').getTime();
+  const now = Date.now();
+  const diff = deadline - now;
+  
+  if (diff <= 0) {
+    return '🏁 Contest is closed! Voting & judging results underway.';
+  }
+  
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  return `⏳ <b>${days} days, ${hours} hours, and ${mins} minutes</b> remaining!`;
+}
+
 export default async function handler(req, res) {
-  // CORS & Methods
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -83,25 +116,30 @@ export default async function handler(req, res) {
         const hookRes = await fetch(`${TELEGRAM_API}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
         const hookData = await hookRes.json();
 
-        // Set commands menu
+        // Register Telegram Menu Commands
         await fetch(`${TELEGRAM_API}/setMyCommands`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             commands: [
-              { command: 'start', description: 'Bot overview and commands' },
+              { command: 'start', description: 'Bot overview & quick guide' },
               { command: 'status', description: 'Check DID registration receipt' },
               { command: 'check', description: 'Analyze DID letters & coverage' },
+              { command: 'word', description: 'Verify if a DID can sign a specific word' },
+              { command: 'pair', description: 'Calculate team letter synergy between 2 DIDs' },
               { command: 'teams', description: 'Radar: Live teams seeking 4th writer' },
-              { command: 'asad', description: 'Team Asad official contest standing' },
-              { command: 'help', description: 'Help instructions' }
+              { command: 'bounties', description: 'Scan live TCLK bounties & task offers' },
+              { command: 'deadline', description: 'Contest closing countdown clock' },
+              { command: 'rules', description: 'Sonnet Challenge #2 official rules' },
+              { command: 'asad', description: 'Team Asad official contest profile' },
+              { command: 'help', description: 'Command list & tips' }
             ]
           })
         });
 
         return res.status(200).json({
           ok: true,
-          message: 'FlopRadar webhook & menu commands configured successfully!',
+          message: 'FlopRadar webhook & expanded commands configured successfully!',
           webhookUrl,
           telegramResponse: hookData
         });
@@ -131,18 +169,22 @@ export default async function handler(req, res) {
       const rawText = (msg.text || '').trim();
       const parts = rawText.split(/\s+/);
       const command = parts[0].toLowerCase().replace('@flopradarbot', '');
-      const arg = parts.slice(1).join(' ').trim();
+      const args = parts.slice(1);
 
       // COMMAND: /start or /help
       if (command === '/start' || command === '/help') {
         const welcome = `🤖 <b>Welcome to FlopRadar (@FlopRadarBot)!</b>\n\n` +
-          `Your real-time companion for <b>Technocore & Sonnet Challenge #2</b> (50,000 FLOP Prize Pool).\n\n` +
-          `🛠 <b>Available Commands:</b>\n\n` +
-          `🔍 <code>/status &lt;DID&gt;</code>\nCheck registration receipt, role (Writer/Organizer/Voter), and approval status.\n\n` +
-          `🔤 <code>/check &lt;DID&gt;</code>\nAnalyze letter sets, missing letters, and signable dictionary breadth.\n\n` +
-          `👥 <code>/teams</code>\nLive radar: check active rosters forming in discovery.\n\n` +
-          `🏆 <code>/asad</code>\nLive standing of <b>team-asad</b> (Leader: Asad Lee).\n\n` +
-          `💡 <i>Tip: Tap any command to run it!</i>\n\n` +
+          `Your all-in-one companion for <b>Technocore & Sonnet Challenge #2</b> (50,000 FLOP Prize Pool).\n\n` +
+          `🛠 <b>Available Tools & Commands:</b>\n\n` +
+          `🔍 <code>/status &lt;DID&gt;</code>\nCheck registration receipt, role (Writer/Organizer/Voter) & verification.\n\n` +
+          `🔤 <code>/check &lt;DID&gt;</code>\nAnalyze letter sets, missing letters & dictionary coverage.\n\n` +
+          `✍️ <code>/word &lt;WORD&gt; &lt;DID&gt;</code>\nTest if your DID has the letters to legally sign a word.\n\n` +
+          `🤝 <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code>\nTest team alphabet synergy & verify dual 'o' coverage.\n\n` +
+          `👥 <code>/teams</code>\nLive discovery radar for rosters looking for 4th writers.\n\n` +
+          `💰 <code>/bounties</code>\nScan latest FLOP bounties & tasks from <code>tclk-offers</code>.\n\n` +
+          `⏳ <code>/deadline</code>\nView live contest closing countdown clock.\n\n` +
+          `📜 <code>/rules</code>\nOfficial 7-point Sonnet Challenge #2 cheat sheet.\n\n` +
+          `🏆 <code>/asad</code>\nLive profile of <b>team-asad</b>.\n\n` +
           `🌐 Powered by <a href="https://technocore-console.vercel.app/">Technocore Console</a>\n` +
           `Architect: <b>Asad Lee</b>`;
 
@@ -150,17 +192,129 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      // COMMAND: /word <word> <DID>
+      if (command === '/word') {
+        if (args.length < 2) {
+          await sendTelegramMessage(chatId, `⚠️ <b>Usage:</b> <code>/word &lt;WORD&gt; &lt;DID&gt;</code>\n\nExample:\n<code>/word beauty did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh</code>`);
+          return res.status(200).json({ ok: true });
+        }
+
+        const testWord = args[0];
+        const targetDid = args[1];
+        const resWord = canSignWord(testWord, targetDid);
+
+        let reply = `✍️ <b>Word Legality Check</b>\n\n` +
+          `<b>Word:</b> "<code>${resWord.word}</code>"\n` +
+          `<b>Signer DID:</b> <code>${targetDid.slice(0, 20)}...</code>\n\n`;
+
+        if (resWord.canSign) {
+          reply += `✅ <b>100% LEGAL SIGNATURE!</b>\nAll letters in "<code>${resWord.word}</code>" are present in your DID string. You can legally submit this word during your turn!`;
+        } else {
+          reply += `❌ <b>CANNOT SIGN THIS WORD!</b>\n` +
+            `Missing letters in your DID: <code>${resWord.missingLetters.map(l => l.toUpperCase()).join(' ')}</code>\n\n` +
+            `<i>Contest Rule: Proposing words containing letters absent from your DID will cause the referee to reject your turn!</i>`;
+        }
+
+        await sendTelegramMessage(chatId, reply);
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: /pair <DID1> <DID2>
+      if (command === '/pair' || command === '/synergy') {
+        if (args.length < 2) {
+          await sendTelegramMessage(chatId, `⚠️ <b>Usage:</b> <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code>\n\nExample:\n<code>/pair did:key:z6Mk1... did:key:z6Mk2...</code>`);
+          return res.status(200).json({ ok: true });
+        }
+
+        const did1 = args[0].toLowerCase();
+        const did2 = args[1].toLowerCase();
+
+        const l1 = new Set(did1.replace(/[^a-z]/g, '').split(''));
+        const l2 = new Set(did2.replace(/[^a-z]/g, '').split(''));
+
+        const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
+        const union = alphabet.filter(ch => l1.has(ch) || l2.has(ch));
+        const missing = alphabet.filter(ch => !l1.has(ch) && !l2.has(ch));
+
+        const bothHaveO = l1.has('o') && l2.has('o');
+        const oneHasO = l1.has('o') || l2.has('o');
+
+        let reply = `🤝 <b>Team Synergy & Letter Union</b>\n\n` +
+          `<b>Combined Letter Coverage:</b> <b>${union.length}/26</b> (${Math.round((union.length / 26) * 100)}%)\n\n` +
+          `🔡 <b>Joint Alphabet:</b>\n<code>${union.join(' ').toUpperCase()}</code>\n\n` +
+          `🚫 <b>Missing Letters:</b>\n<code>${missing.length > 0 ? missing.join(' ').toUpperCase() : 'NONE (Complete 26/26 Coverage! 🎉)'}</code>\n\n` +
+          `⭕ <b>Crucial 'o' Holder Status:</b>\n`;
+
+        if (bothHaveO) {
+          reply += `✅ <b>SAFE: Both members hold 'o'!</b> Adjacent 'o' words can be sequenced without author turn clashes.`;
+        } else if (oneHasO) {
+          reply += `⚠️ <b>CAUTION: Only ONE member holds 'o'!</b> Words containing 'o' cannot appear back-to-back because consecutive turns by the same author are prohibited.`;
+        } else {
+          reply += `❌ <b>FATAL: Neither member holds 'o'!</b> 39.5% of dictionary words (of, to, you, for, not, love) cannot be written.`;
+        }
+
+        await sendTelegramMessage(chatId, reply);
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: /deadline
+      if (command === '/deadline' || command === '/time') {
+        const reply = `⏳ <b>Sonnet Challenge #2 Official Clock</b>\n\n` +
+          `• <b>Contest Closes:</b> <code>18 September 2026 at 12:00 UTC</code>\n` +
+          `• <b>Status:</b> LIVE & ACCEPTING SUBMISSIONS\n\n` +
+          `${getCountdown()}\n\n` +
+          `💰 <b>Prize Breakdown:</b>\n` +
+          `• <b>Winning Poem:</b> 50,000 FLOP (split equally among team contributors)\n` +
+          `• <b>Voter Pool:</b> 50,000 FLOP (shared by voters who backed the winner)`;
+
+        await sendTelegramMessage(chatId, reply);
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: /rules
+      if (command === '/rules') {
+        const reply = `📜 <b>Sonnet Challenge #2 - 7 Core Rules:</b>\n\n` +
+          `1️⃣ <b>Team Size:</b> 4 to 8 accepted writers per squad.\n` +
+          `2️⃣ <b>Sonnet Structure:</b> Exactly 14 lines in 3 quatrains + 1 couplet (4-4-4-2).\n` +
+          `3️⃣ <b>Meter & Syllables:</b> Exactly 10 syllables per line (140 total) charged against frozen CMUdict.\n` +
+          `4️⃣ <b>Turn Cadence:</b> One signed word per turn. No writer may take two consecutive turns!\n` +
+          `5️⃣ <b>Letter Orthography:</b> Every word must be spelled ONLY using letters from the contributor's DID.\n` +
+          `6️⃣ <b>Publication:</b> Final writer tweets the completed sonnet on X.\n` +
+          `7️⃣ <b>Voting Phase:</b> Public votes in <code>mb-sonnet-2-votes</code> decide the top 3 finalists. Zero-vote entries are eliminated!`;
+
+        await sendTelegramMessage(chatId, reply);
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: /bounties
+      if (command === '/bounties') {
+        await sendTelegramMessage(chatId, `📡 Scanning <code>tclk-offers</code> for live FLOP bounties...`);
+        const offers = await fetchTechnocoreRoom('tclk-offers', 10);
+
+        let reply = `💰 <b>Recent TCLK Tasks & Bounties:</b>\n\n`;
+        if (offers.messages && offers.messages.length > 0) {
+          offers.messages.slice(-4).forEach(m => {
+            reply += `• <b>Seq ${m.seq}:</b> <i>${(m.text || '').slice(0, 120)}...</i>\n\n`;
+          });
+        } else {
+          reply += `No active offers in the immediate buffer. Check room <code>tclk-offers</code> regularly!\n`;
+        }
+        reply += `💡 <i>Connect via Technocore Console to accept contracts!</i>`;
+
+        await sendTelegramMessage(chatId, reply);
+        return res.status(200).json({ ok: true });
+      }
+
       // COMMAND: /status <DID>
       if (command === '/status') {
-        if (!arg || !arg.startsWith('did:key:')) {
+        const targetDid = args[0];
+        if (!targetDid || !targetDid.startsWith('did:key:')) {
           await sendTelegramMessage(chatId, `⚠️ <b>Please provide a valid did:key</b>\n\nExample:\n<code>/status did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4</code>`);
           return res.status(200).json({ ok: true });
         }
 
-        const targetDid = arg.trim();
         await sendTelegramMessage(chatId, `🔎 Scanning Technocore registration logs for <code>${targetDid.slice(0, 16)}...</code>`);
 
-        // Fetch recent registration and discovery messages
         const [regData, discData] = await Promise.all([
           fetchTechnocoreRoom('mb-sonnet-2-registration', 200),
           fetchTechnocoreRoom('mb-sonnet-2-discovery', 100)
@@ -169,7 +323,6 @@ export default async function handler(req, res) {
         let foundReceipt = null;
         let foundApp = null;
 
-        // Search registration room messages
         if (Array.isArray(regData.messages)) {
           for (let i = regData.messages.length - 1; i >= 0; i--) {
             const m = regData.messages[i];
@@ -216,12 +369,13 @@ export default async function handler(req, res) {
 
       // COMMAND: /check <DID>
       if (command === '/check') {
-        if (!arg || !arg.startsWith('did:key:')) {
+        const targetDid = args[0];
+        if (!targetDid || !targetDid.startsWith('did:key:')) {
           await sendTelegramMessage(chatId, `⚠️ <b>Please provide a valid did:key</b>\n\nExample:\n<code>/check did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh</code>`);
           return res.status(200).json({ ok: true });
         }
 
-        const analysis = analyzeDidLetters(arg);
+        const analysis = analyzeDidLetters(targetDid);
         const reply = `🔤 <b>DID Vocabulary Analysis</b>\n\n` +
           `<b>DID:</b> <code>${analysis.clean}</code>\n\n` +
           `🔡 <b>Letters Available (${analysis.count}/26):</b>\n<code>${analysis.held.toUpperCase().split('').join(' ')}</code>\n\n` +
@@ -290,7 +444,7 @@ export default async function handler(req, res) {
       }
 
       // DEFAULT FALLBACK
-      await sendTelegramMessage(chatId, `🤖 Command not recognized.\nTry <code>/status &lt;DID&gt;</code>, <code>/check &lt;DID&gt;</code>, <code>/teams</code>, or <code>/asad</code>!`);
+      await sendTelegramMessage(chatId, `🤖 Command not recognized.\nTry <code>/status</code>, <code>/check</code>, <code>/word</code>, <code>/pair</code>, <code>/teams</code>, <code>/deadline</code>, <code>/bounties</code>, or <code>/rules</code>!`);
       return res.status(200).json({ ok: true });
 
     } catch (err) {
