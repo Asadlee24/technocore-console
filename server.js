@@ -40,7 +40,7 @@ const server = http.createServer(async (req, res) => {
             <div class="status"><div class="dot"></div> 24/7 Active on Railway</div>
             <h1>🤖 FlopRadar Bot</h1>
             <p>Official real-time companion for Technocore Sonnet Challenge #2.</p>
-            <p>Architect: <b>Asad Lee</b></p>
+            <p>Architect: <b><a href="https://x.com/asadleo416" target="_blank" style="color: #38bdf8; text-decoration: underline;">Asad Lee (@asadleo416)</a></b></p>
             <p><a href="https://t.me/FlopRadarBot" target="_blank">👉 Open in Telegram (@FlopRadarBot)</a></p>
             <p><a href="https://technocore-console.vercel.app/" target="_blank">🌐 Technocore Console</a></p>
           </div>

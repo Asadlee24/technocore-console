@@ -232,8 +232,8 @@ export default async function handler(req, res) {
           `⏳ <code>/deadline</code>\nView live contest closing countdown clock.\n\n` +
           `📜 <code>/rules</code>\nOfficial 7-point Sonnet Challenge #2 cheat sheet.\n\n` +
           `🏆 <code>/asad</code>\nLive profile of <b>team-asad</b>.\n\n` +
-          `🌐 Powered by <a href="https://technocore-console.vercel.app/">Technocore Console</a>\n` +
-          `Architect: <b>Asad Lee</b>`;
+          `🌐 Powered by <b><a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>)\n` +
+          `Console: <a href="https://technocore-console.vercel.app/">technocore-console.vercel.app</a>`;
 
         await sendTelegramMessage(chatId, welcome);
         return res.status(200).json({ ok: true });
@@ -342,7 +342,8 @@ export default async function handler(req, res) {
           `${getCountdown()}\n\n` +
           `💰 <b>Prize Breakdown:</b>\n` +
           `• <b>Winning Poem:</b> 50,000 FLOP (split equally among team contributors)\n` +
-          `• <b>Voter Pool:</b> 50,000 FLOP (shared by voters who backed the winner)`;
+          `• <b>Voter Pool:</b> 50,000 FLOP (shared by voters who backed the winner)\n\n` +
+          `🌐 Powered by <b><a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>) | <a href="https://technocore-console.vercel.app/">Technocore Console</a>`;
 
         await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
@@ -400,8 +401,8 @@ export default async function handler(req, res) {
           `📜 <b>Finished Submissions:</b>\n` +
           `<code>technocore, kibblehq, vngalaxy, whale-2, quill, volta-2, aurora-2, love8, tora-fleet, wakeverse, bub, gucci-2...</code>\n\n` +
           `${getCountdown()}\n\n` +
-          `🏆 <b>Featured Team:</b> <b>team-asad</b> (Leader: Asad Lee)\n` +
-          `🌐 Powered by <a href="https://technocore-console.vercel.app/">Technocore Console</a>`;
+          `🏆 <b>Featured Team:</b> <b>team-asad</b> (Leader: <a href="https://x.com/asadleo416">Asad Lee</a>)\n` +
+          `🌐 Powered by <b><a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>) | <a href="https://technocore-console.vercel.app/">Technocore Console</a>`;
 
         await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
@@ -416,7 +417,8 @@ export default async function handler(req, res) {
           `4️⃣ <b>Turn Cadence:</b> One signed word per turn. No writer may take two consecutive turns!\n` +
           `5️⃣ <b>Letter Orthography:</b> Every word must be spelled ONLY using letters from the contributor's DID.\n` +
           `6️⃣ <b>Publication:</b> Final writer tweets the completed sonnet on X.\n` +
-          `7️⃣ <b>Voting Phase:</b> Public votes in <code>mb-sonnet-2-votes</code> decide the top 3 finalists. Zero-vote entries are eliminated!`;
+          `7️⃣ <b>Voting Phase:</b> Public votes in <code>mb-sonnet-2-votes</code> decide the top 3 finalists. Zero-vote entries are eliminated!\n\n` +
+          `🌐 Powered by <b><a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>) | <a href="https://technocore-console.vercel.app/">Technocore Console</a>`;
 
         await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
@@ -696,7 +698,7 @@ export default async function handler(req, res) {
         let reply = `👥 <b>Sonnet-2 Live Teams Radar:</b>\n\n`;
 
         // Featured Team Asad
-        reply += `🏆 <b>team-asad</b> (Leader: Asad Lee)\n` +
+        reply += `🏆 <b>team-asad</b> (Leader: <a href="https://x.com/asadleo416">Asad Lee</a>)\n` +
           `• <b>Status:</b> 3 of 4 Locked & Primed\n` +
           `• <b>Room:</b> <code>d-sonnet-2-team-team-asad</code> (Gen 1)\n` +
           `• <b>Writers:</b> @aika_kurashi, @Smartecio, @wowyeahohno\n` +
@@ -721,7 +723,8 @@ export default async function handler(req, res) {
           `• <b>Poems Submitted:</b> <b>${totalSubmitted}</b>\n` +
           `• <b>Teams in Formation / Writing:</b> <b>${totalTeams - totalSubmitted}</b>\n` +
           `• <b>Prize Pool:</b> <b>50,000 FLOP</b>\n\n` +
-          `🎯 <i>Zero-vote entries are eliminated! Rally your voters!</i>`;
+          `🎯 <i>Zero-vote entries are eliminated! Rally your voters!</i>\n\n` +
+          `🌐 Powered by <b><a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>)`;
 
         await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
@@ -733,14 +736,14 @@ export default async function handler(req, res) {
           `• <b>Contest:</b> Technocore Sonnet Challenge #2 (sonnet-2)\n` +
           `• <b>Prize Pool:</b> 50,000 FLOP\n` +
           `• <b>Game ID:</b> <code>team-asad</code>\n` +
-          `• <b>Organizer / Leader:</b> <b>Asad Lee</b>\n` +
+          `• <b>Organizer / Leader:</b> <a href="https://x.com/asadleo416">Asad Lee (@asadleo416)</a>\n` +
           `• <b>Official Poem Room:</b> <code>d-sonnet-2-team-team-asad</code>\n\n` +
           `✍️ <b>Confirmed Core Writers:</b>\n` +
           `1. SmartecVitalik (@Smartecio)\n` +
           `2. Aika Kurashi (@aika_kurashi)\n` +
           `3. wowyeahohno (@wowyeahohno)\n` +
           `4. Seat 4: Holding until 11:00Z sharp, then locking top standby!\n\n` +
-          `🛡️ <b>Powered By:</b> <a href="https://technocore-console.vercel.app/">Technocore Console</a>\n` +
+          `🛡️ <b>Powered by <a href="https://x.com/asadleo416">Asad Lee</a></b> (<a href="https://x.com/asadleo416">@asadleo416</a>) | <a href="https://technocore-console.vercel.app/">Technocore Console</a>\n` +
           `Vote for <b>team-asad</b> in <code>mb-sonnet-2-votes</code> when voting opens! 🚀`;
 
         await sendTelegramMessage(chatId, reply);
