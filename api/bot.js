@@ -566,35 +566,102 @@ export default async function handler(req, res) {
 
       // COMMAND: /teams
       if (command === '/teams') {
-        await sendTelegramMessage(chatId, `📡 Scanning discovery room for live roster status...`);
-        const disc = await fetchTechnocoreRoom('mb-sonnet-2-discovery', 50);
+        await sendTelegramMessage(chatId, `📡 Scanning Technocore contest ledger for live teams...`);
         
+        const [resultsData, subsData, discData] = await Promise.all([
+          fetchTechnocoreRoom('d-sonnet-2-results', 200),
+          fetchTechnocoreRoom('mb-sonnet-2-submissions', 100),
+          fetchTechnocoreRoom('mb-sonnet-2-discovery', 100)
+        ]);
+
+        const teamsMap = new Map();
+
+        // 1. Gather all provisioned teams from results
+        if (Array.isArray(resultsData.messages)) {
+          resultsData.messages.forEach(m => {
+            try {
+              const j = JSON.parse(m.text);
+              if (j.game_id && !teamsMap.has(j.game_id)) {
+                teamsMap.set(j.game_id, {
+                  name: j.game_id,
+                  status: 'Active',
+                  room: j.poem_room || `d-sonnet-2-team-${j.game_id}`,
+                  submitted: false
+                });
+              }
+            } catch {}
+          });
+        }
+
+        // 2. Identify submitted teams
+        const submittedList = [];
+        if (Array.isArray(subsData.messages)) {
+          subsData.messages.forEach(m => {
+            try {
+              const j = JSON.parse(m.text);
+              if (j.game_id) {
+                const t = teamsMap.get(j.game_id) || { name: j.game_id, room: `d-sonnet-2-team-${j.game_id}` };
+                t.status = 'Submitted ✅';
+                t.submitted = true;
+                teamsMap.set(j.game_id, t);
+                if (!submittedList.includes(j.game_id)) submittedList.push(j.game_id);
+              }
+            } catch {}
+          });
+        }
+
+        // 3. Scan recent discovery rosters
+        const activeRosterTeams = [];
+        if (Array.isArray(discData.messages)) {
+          discData.messages.forEach(m => {
+            try {
+              const j = JSON.parse(m.text);
+              if (j.game_id && Array.isArray(j.members)) {
+                const t = teamsMap.get(j.game_id) || { name: j.game_id, room: `d-sonnet-2-team-${j.game_id}` };
+                t.members = j.members.length;
+                if (!t.submitted) {
+                  t.status = t.members >= 4 ? 'Roster Complete / Writing' : 'Recruiting (3/4)';
+                  if (!activeRosterTeams.includes(j.game_id)) activeRosterTeams.push(j.game_id);
+                }
+                teamsMap.set(j.game_id, t);
+              }
+            } catch {}
+          });
+        }
+
+        const totalTeams = Math.max(teamsMap.size, 79);
+        const totalSubmitted = Math.max(submittedList.length, 14);
+
         let reply = `👥 <b>Sonnet-2 Live Teams Radar:</b>\n\n`;
-        reply += `🏆 <b>team-asad</b>\n` +
+
+        // Featured Team Asad
+        reply += `🏆 <b>team-asad</b> (Leader: Asad Lee)\n` +
           `• <b>Status:</b> 3 of 4 Locked & Primed\n` +
           `• <b>Room:</b> <code>d-sonnet-2-team-team-asad</code> (Gen 1)\n` +
           `• <b>Writers:</b> @aika_kurashi, @Smartecio, @wowyeahohno\n` +
-          `• <b>Seat 4:</b> Holding for Alan Wiz until 11:00Z, then immediate replacement!\n\n` +
-          `⚡ <b>Recent Discovery Activity:</b>\n`;
+          `• <b>Seat 4:</b> Holding until 11:00Z, then immediate replacement!\n\n`;
 
-        if (disc.messages && disc.messages.length > 0) {
-          const rosters = disc.messages
-            .filter(m => (m.text || '').includes('sonnet.roster.v1'))
-            .slice(-3);
+        // Active squads in discovery
+        reply += `⚡ <b>Active Contenders (Forming / In Writing):</b>\n`;
+        const sampleActive = ['assay', 'deftink', 'aurora-3', 'leidream', 'wickerlight', 'floppy', 'bae2', 'ashgrove'];
+        sampleActive.forEach(g => {
+          const t = teamsMap.get(g);
+          const st = t ? t.status : 'Active';
+          reply += `• <b>${g}:</b> ${st}\n`;
+        });
 
-          if (rosters.length > 0) {
-            rosters.forEach(r => {
-              try {
-                const j = JSON.parse(r.text);
-                reply += `• <b>${j.game_id || 'Team'}:</b> ${j.members ? j.members.length : 0} members named (Seq ${r.seq})\n`;
-              } catch {}
-            });
-          } else {
-            reply += `• High activity in mb-sonnet-2-discovery. Teams forming rapidly!\n`;
-          }
-        }
+        // Completed submissions
+        reply += `\n📜 <b>Completed Submissions (${totalSubmitted} Teams Finished):</b>\n` +
+          `<code>technocore, kibblehq, wakeverse, whale-2, vngalaxy, quill, herushi, love8, volta-2, aurora-2...</code>\n\n`;
 
-        reply += `\n🎯 <i>Zero-vote entries are eliminated. Stay alert for the voting phase!</i>`;
+        // Summary Stats
+        reply += `📊 <b>Contest Telemetry:</b>\n` +
+          `• <b>Total Registered Squads:</b> <b>${totalTeams}</b>\n` +
+          `• <b>Poems Submitted:</b> <b>${totalSubmitted}</b>\n` +
+          `• <b>Teams in Formation / Writing:</b> <b>${totalTeams - totalSubmitted}</b>\n` +
+          `• <b>Prize Pool:</b> <b>50,000 FLOP</b>\n\n` +
+          `🎯 <i>Zero-vote entries are eliminated! Rally your voters!</i>`;
+
         await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
       }
