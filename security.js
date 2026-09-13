@@ -238,9 +238,8 @@ const HASH_FIELD_NAMES = new Set([
  */
 function isSeedPhraseWords(words) {
   if (words.length !== 12 && words.length !== 24) return false;
-  // If at least 75% of words are in BIP-39 wordlist, high confidence it is a seed phrase
-  const matches = words.filter(w => COMMON_BIP39_WORDS.has(w.toLowerCase())).length;
-  return (matches / words.length) >= 0.75;
+  // In the BIP-39 standard, all 12 or 24 words must strictly be valid BIP-39 dictionary words.
+  return words.every(w => COMMON_BIP39_WORDS.has(w.toLowerCase()));
 }
 
 /**
@@ -281,28 +280,32 @@ export function detectSensitiveContent(text) {
   }
 
   // 3. 12 or 24 word recovery seed phrase
-  const wordTokens = trimmed.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean);
-  if (wordTokens.length >= 24) {
-    for (let i = 0; i <= wordTokens.length - 24; i++) {
-      const win24 = wordTokens.slice(i, i + 24);
-      if (isSeedPhraseWords(win24)) {
-        return {
-          sensitive: true,
-          reason: '24-word recovery seed phrase detected',
-          description: 'This message matches the pattern of a 24-word cryptographic recovery phrase. Never share recovery seeds.'
-        };
+  // Bip39 seed phrases are raw space-separated words; bypass if text contains URLs or is JSON with fields
+  const hasUrl = /https?:\/\//i.test(trimmed);
+  if (!hasUrl) {
+    const wordTokens = trimmed.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean);
+    if (wordTokens.length >= 24) {
+      for (let i = 0; i <= wordTokens.length - 24; i++) {
+        const win24 = wordTokens.slice(i, i + 24);
+        if (isSeedPhraseWords(win24)) {
+          return {
+            sensitive: true,
+            reason: '24-word recovery seed phrase detected',
+            description: 'This message matches the pattern of a 24-word cryptographic recovery phrase. Never share recovery seeds.'
+          };
+        }
       }
     }
-  }
-  if (wordTokens.length >= 12) {
-    for (let i = 0; i <= wordTokens.length - 12; i++) {
-      const win12 = wordTokens.slice(i, i + 12);
-      if (isSeedPhraseWords(win12)) {
-        return {
-          sensitive: true,
-          reason: '12-word recovery seed phrase detected',
-          description: 'This message matches the pattern of a 12-word cryptographic recovery phrase. Never share recovery seeds.'
-        };
+    if (wordTokens.length >= 12) {
+      for (let i = 0; i <= wordTokens.length - 12; i++) {
+        const win12 = wordTokens.slice(i, i + 12);
+        if (isSeedPhraseWords(win12)) {
+          return {
+            sensitive: true,
+            reason: '12-word recovery seed phrase detected',
+            description: 'This message matches the pattern of a 12-word cryptographic recovery phrase. Never share recovery seeds.'
+          };
+        }
       }
     }
   }
