@@ -230,7 +230,7 @@ function fastRequest(urlStr, options = {}) {
 /**
  * Dispatch Telegram Alert with Zero Lag
  */
-async function notifyTelegram(text) {
+async function notifyTelegram(text, options = {}) {
   try {
     await fastRequest(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
@@ -238,7 +238,8 @@ async function notifyTelegram(text) {
         chat_id: TELEGRAM_CHAT_ID,
         text,
         parse_mode: 'HTML',
-        disable_web_page_preview: true
+        disable_web_page_preview: true,
+        disable_notification: options.silent ?? false
       }
     });
   } catch (err) {
@@ -263,6 +264,7 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
   let totalClaimedFlop = 0;
   let totalBountiesWon = 0;
   let isRunning = true;
+  let lastTelegramAlertTime = 0;
 
   // Single synchronized offer processor
   async function processOffer(offer, seq, streamName) {
@@ -427,16 +429,24 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
         console.log(`   ❌ Accept response (${acceptRes.status}): ${acceptRes.text?.slice(0, 80)}`);
       }
     } else {
-      // Monitor & alert mode (instant Telegram broadcast)
-      console.log(`   📢 Instant Telegram Alert Dispatched!`);
-      await notifyTelegram(
-        `⚡ <b>FAST BOUNTY SNIPED &amp; SOLVED!</b>\n\n` +
-        `💰 <b>Reward:</b> <code>${amount} ${asset}</code>\n` +
-        `📋 <b>Task:</b> <i>${context.slice(0, 100)}...</i>\n` +
-        `💡 <b>Solution:</b> <code>${solution}</code>\n` +
-        `⚡ <b>Solve Speed:</b> ${solveDuration}ms\n\n` +
-        `<i>Target: Asad Lee (${AUTHORIZED_DID.slice(0, 18)}...)</i>`
-      );
+      // Monitor & alert mode: throttle to avoid Telegram notification spam
+      const now = Date.now();
+      const numAmount = parseInt(amount, 10) || 0;
+      if (numAmount >= 500 || now - lastTelegramAlertTime >= 25000) {
+        lastTelegramAlertTime = now;
+        console.log(`   📢 Telegram Alert Dispatched!`);
+        await notifyTelegram(
+          `⚡ <b>FAST BOUNTY SNIPED &amp; SOLVED!</b>\n\n` +
+          `💰 <b>Reward:</b> <code>${amount} ${asset}</code>\n` +
+          `📋 <b>Task:</b> <i>${context.slice(0, 100)}...</i>\n` +
+          `💡 <b>Solution:</b> <code>${solution}</code>\n` +
+          `⚡ <b>Solve Speed:</b> ${solveDuration}ms\n\n` +
+          `<i>Target: Asad Lee (${AUTHORIZED_DID.slice(0, 18)}...)</i>`,
+          { silent: numAmount < 500 }
+        );
+      } else {
+        console.log(`   ⏭️ Minor alert suppressed (prevents Telegram notification flood).`);
+      }
     }
   }
 
