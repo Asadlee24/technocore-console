@@ -13,6 +13,10 @@ permissions:
   actions: write
   contents: read
 
+concurrency:
+  group: bounty-hunter-singleton
+  cancel-in-progress: true
+
 jobs:
   bounty-sniper:
     name: ⚡ High-Frequency Bounty Sniper (Asad Lee)

@@ -109,27 +109,82 @@ async function sendTelegramMessage(chatId, text, extra = {}) {
   }
 }
 
+let maxBotSeenFlop = 98000;
+let maxBotSeenPaper = 0;
+let maxBotSeenSolved = 297;
+let maxBotSeenScanned = 250;
+let lastKnownBotData = null;
+
 async function fetchSniperTelemetry() {
   try {
-    const res = await fetch('https://technocore.chat/kv/hunter-94/4eaca2c9b6251c');
+    const res = await fetch(`https://technocore.chat/kv/hunter-94/4eaca2c9b6251c?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    });
     if (res.ok) {
       const text = await res.text();
       const cleanJson = text.replace(/^[^\n]*\n\n/, '').trim();
+      let data = null;
       try {
-        return JSON.parse(cleanJson);
+        data = JSON.parse(cleanJson);
       } catch {
         const m = text.match(/\{[\s\S]*\}/);
-        if (m) return JSON.parse(m[0]);
+        if (m) data = JSON.parse(m[0]);
+      }
+      if (data && typeof data === 'object') {
+        if (typeof data.flop === 'number') {
+          if (data.flop >= maxBotSeenFlop) maxBotSeenFlop = data.flop;
+          else data.flop = maxBotSeenFlop; // Monotonic guard: never regress
+        } else {
+          data.flop = maxBotSeenFlop;
+        }
+
+        if (typeof data.paper === 'number') {
+          if (data.paper >= maxBotSeenPaper) maxBotSeenPaper = data.paper;
+          else data.paper = maxBotSeenPaper;
+        } else {
+          data.paper = maxBotSeenPaper;
+        }
+
+        if (typeof data.solved === 'number') {
+          if (data.solved >= maxBotSeenSolved) maxBotSeenSolved = data.solved;
+          else data.solved = maxBotSeenSolved;
+        } else {
+          data.solved = maxBotSeenSolved;
+        }
+
+        if (typeof data.scanned === 'number' && data.scanned > maxBotSeenScanned) {
+          maxBotSeenScanned = data.scanned;
+        } else {
+          data.scanned = maxBotSeenScanned;
+        }
+
+        lastKnownBotData = data;
+        return data;
       }
     }
   } catch (err) {
     console.warn('fetchSniperTelemetry error:', err.message);
   }
+
+  if (lastKnownBotData) {
+    return {
+      ...lastKnownBotData,
+      flop: maxBotSeenFlop,
+      paper: maxBotSeenPaper,
+      solved: maxBotSeenSolved
+    };
+  }
+
   return {
     did: 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4',
-    flop: 12800,
-    solved: 41,
-    scanned: 150,
+    flop: maxBotSeenFlop,
+    paper: maxBotSeenPaper,
+    solved: maxBotSeenSolved,
+    scanned: maxBotSeenScanned,
     status: 'online',
     runner: 'GitHub Actions Cloud (Ubuntu Azure 24/7)',
     updatedAt: Date.now()

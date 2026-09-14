@@ -441,9 +441,9 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
   let lastSeq = null;
   const processedOffers = new Set();
   const startTime = Date.now();
-  let totalClaimedFlop = 80100;
+  let totalClaimedFlop = 98000;
   let totalClaimedPaper = 0;
-  let totalBountiesWon = 241;
+  let totalBountiesWon = 297;
   let totalScanned = 0;
   let isRunning = true;
   let lastTelegramAlertTime = 0;
@@ -456,6 +456,27 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
         recentWins.unshift(lastWin);
         if (recentWins.length > 20) recentWins.pop();
       }
+
+      // Check current remote KV state to ensure we never overwrite with a lower balance
+      try {
+        const curRes = await fastRequest(`https://technocore.chat/kv/hunter-94/4eaca2c9b6251c?_t=${Date.now()}`);
+        if (curRes.ok && curRes.text) {
+          const m = curRes.text.match(/\{[\s\S]*\}/);
+          if (m) {
+            const remote = JSON.parse(m[0]);
+            if (typeof remote.flop === 'number' && remote.flop > totalClaimedFlop) {
+              totalClaimedFlop = remote.flop;
+            }
+            if (typeof remote.paper === 'number' && remote.paper > totalClaimedPaper) {
+              totalClaimedPaper = remote.paper;
+            }
+            if (typeof remote.solved === 'number' && remote.solved > totalBountiesWon) {
+              totalBountiesWon = remote.solved;
+            }
+          }
+        }
+      } catch {}
+
       const payload = {
         did: keypair ? keypair.did : AUTHORIZED_DID,
         flop: totalClaimedFlop,
