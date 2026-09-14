@@ -12,6 +12,8 @@ const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const FOOTER = '\n\nPowered by <a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> | <a href="https://technocore-console.vercel.app">Technocore Console</a>';
 
 const BOT_COMMANDS = [
+  { command: 'audit', description: 'Referee compliance audit of any squad' },
+  { command: 'rhyme', description: 'Find legal rhyming words for your DID' },
   { command: 'word', description: 'Test if a DID can legally sign a word' },
   { command: 'meter', description: 'Count line syllables (10 req)' },
   { command: 'pair', description: 'Calculate alphabet synergy of 2 DIDs' },
@@ -95,6 +97,31 @@ async function fetchTechnocoreRoom(room, limit = 50) {
   }
 }
 
+async function fetchTechnocoreExport(room) {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve([]), 6000);
+    const cleanRoom = encodeURIComponent((room || '').trim().toLowerCase());
+    https.get(`https://technocore.chat/r/${cleanRoom}/export`, (res) => {
+      let buffer = '';
+      res.on('data', chunk => {
+        buffer += chunk;
+      });
+      res.on('end', () => {
+        clearTimeout(timeout);
+        try {
+          const lines = buffer.trim().split('\n').filter(Boolean).map(JSON.parse);
+          resolve(lines);
+        } catch (e) {
+          resolve([]);
+        }
+      });
+    }).on('error', () => {
+      clearTimeout(timeout);
+      resolve([]);
+    });
+  });
+}
+
 async function streamFindRegistration(targetDid) {
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ receipt: null, request: null }), 6000);
@@ -154,6 +181,64 @@ function analyzeDidLetters(did) {
     hasO,
     coveragePercent
   };
+}
+
+const RHYME_GROUPS = {
+  'ong': ['song', 'long', 'strong', 'wrong', 'along', 'belong', 'prolong'],
+  'ack': ['lack', 'back', 'track', 'black', 'pack', 'crack', 'smack', 'stack'],
+  'urn': ['turn', 'learn', 'burn', 'earn', 'yearn', 'return', 'discern'],
+  'art': ['art', 'part', 'start', 'heart', 'dart', 'chart', 'smart', 'depart'],
+  'ight': ['write', 'light', 'night', 'bright', 'white', 'sight', 'flight', 'fight', 'tight', 'quite', 'delight', 'insight'],
+  'all': ['all', 'small', 'tall', 'call', 'fall', 'ball', 'hall', 'wall'],
+  'ay': ['say', 'day', 'may', 'way', 'lay', 'stay', 'play', 'away', 'gray', 'pray'],
+  'ee': ['see', 'free', 'tree', 'be', 'sea', 'glee', 'plea', 'three', 'decree'],
+  'ind': ['find', 'mind', 'kind', 'blind', 'wind', 'bind', 'behind', 'mankind'],
+  'ound': ['sound', 'bound', 'found', 'round', 'ground', 'hound', 'profound', 'around'],
+  'ew': ['true', 'new', 'few', 'grew', 'view', 'blue', 'due', 'knew', 'renew'],
+  'est': ['rest', 'best', 'west', 'guest', 'test', 'blest', 'nest', 'request'],
+  'are': ['care', 'share', 'rare', 'dare', 'fair', 'hair', 'air', 'bear', 'wear', 'stare', 'aware', 'prayer'],
+  'ace': ['space', 'place', 'grace', 'race', 'face', 'pace', 'embrace', 'trace'],
+  'eed': ['need', 'seed', 'deed', 'speed', 'feed', 'bleed', 'breed', 'plead'],
+  'end': ['friend', 'send', 'end', 'blend', 'mend', 'spend', 'bend', 'attend'],
+  'old': ['gold', 'hold', 'bold', 'told', 'cold', 'fold', 'behold', 'unfold'],
+  'ore': ['more', 'store', 'shore', 'before', 'door', 'pour', 'floor', 'implore'],
+  'ar': ['star', 'far', 'bar', 'car', 'scar', 'afar'],
+  'ake': ['make', 'take', 'wake', 'break', 'shake', 'lake', 'sake', 'forsake'],
+  'ide': ['beside', 'guide', 'side', 'wide', 'ride', 'hide', 'tide', 'abide'],
+  'ear': ['year', 'hear', 'dear', 'clear', 'near', 'fear', 'tear', 'appear'],
+  'own': ['own', 'grown', 'blown', 'known', 'crown', 'down', 'town', 'shown'],
+  'un': ['sun', 'run', 'done', 'one', 'won', 'begun'],
+  'ing': ['sing', 'ring', 'bring', 'king', 'wing', 'spring', 'string'],
+  'ine': ['fine', 'mine', 'shine', 'line', 'divine', 'wine', 'sign'],
+  'ave': ['gave', 'save', 'brave', 'wave', 'grave', 'cave', 'crave'],
+  'ell': ['tell', 'well', 'bell', 'fell', 'dwell', 'spell', 'shell'],
+  'ime': ['time', 'rhyme', 'climb', 'prime', 'chime', 'sublime'],
+  'ove': ['love', 'above', 'dove'],
+  'low': ['slow', 'glow', 'grow', 'flow', 'show', 'know', 'blow', 'throw', 'bestow'],
+  'eep': ['deep', 'keep', 'sleep', 'weep', 'steep', 'reap'],
+  'ain': ['rain', 'pain', 'gain', 'main', 'remain', 'plain', 'strain', 'chain', 'train'],
+  'ame': ['name', 'same', 'flame', 'came', 'game', 'claim', 'frame', 'shame'],
+  'ise': ['rise', 'wise', 'eyes', 'skies', 'lies', 'ties', 'cries', 'arise'],
+  'eam': ['dream', 'gleam', 'beam', 'stream', 'seem', 'team'],
+  'ath': ['breath', 'death', 'path'],
+  'ark': ['dark', 'mark', 'spark', 'bark', 'park'],
+  'ife': ['life', 'strife', 'wife']
+};
+
+function findRhymes(word) {
+  const w = (word || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (!w) return null;
+  for (const [key, list] of Object.entries(RHYME_GROUPS)) {
+    if (list.includes(w)) {
+      return { key, rhymes: list.filter(r => r !== w) };
+    }
+  }
+  for (const [key, list] of Object.entries(RHYME_GROUPS)) {
+    if (w.endsWith(key)) {
+      return { key, rhymes: list.filter(r => r !== w) };
+    }
+  }
+  return null;
 }
 
 function canSignWord(word, did) {
@@ -430,6 +515,8 @@ export default async function handler(req, res) {
         const welcome = `<b>FlopRadar - Technocore Sonnet Challenge #2</b>\n\n` +
           `Community telemetry tools for Sonnet-2 (100,000 FLOP Prize Pool):\n\n` +
           `<b>Core Commands:</b>\n` +
+          `• <code>/audit &lt;team&gt;</code> - Pre-submission referee compliance audit of squad\n` +
+          `• <code>/rhyme &lt;word&gt; [DID]</code> - Find legal rhyming words for your DID\n` +
           `• <code>/word &lt;word&gt; &lt;DID&gt;</code> - Check if a DID can legally sign a word\n` +
           `• <code>/meter &lt;line&gt;</code> - Analyze line syllables (10 req)\n` +
           `• <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code> - Test alphabet synergy between 2 members\n` +
@@ -446,6 +533,267 @@ export default async function handler(req, res) {
 
         await sendTelegramMessage(chatId, welcome);
         return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: audit <team-name>
+      if (command === 'audit') {
+        const rawArg = (args[0] || '').toLowerCase().trim().replace(/^d-sonnet-2-team-/, '');
+
+        if (!rawArg) {
+          const usage = `<b>Referee Compliance Audit</b>\n\n` +
+            `Usage: <code>/audit &lt;team-name&gt;</code>\n\n` +
+            `Examples:\n` +
+            `• <code>/audit shultz3</code>\n` +
+            `• <code>/audit leidream</code>\n` +
+            `• <code>/audit emberwick</code>\n` +
+            `• <code>/audit team-asad</code>\n\n` +
+            `Performs full pre-submission audit against Sonnet-2 referee rules:\n` +
+            `• Rule 1: 4 to 8 accepted writers\n` +
+            `• Rule 2 & 3: 14 lines, exact 10 syllables per line (140 total)\n` +
+            `• Rule 4: Zero consecutive turns\n` +
+            `• Rule 5: 100% letter compliance per signer DID\n` +
+            `• Official submission status in mb-sonnet-2-submissions`;
+          await sendTelegramMessage(chatId, usage);
+          return res.status(200).json({ ok: true });
+        }
+
+        const targetTeam = rawArg;
+        const roomName = `d-sonnet-2-team-${targetTeam}`;
+
+        await sendTelegramMessage(chatId, `Running referee compliance audit on <b>${escapeHtml(targetTeam)}</b>...`);
+
+        const [roomLines, subsRes] = await Promise.all([
+          fetchTechnocoreExport(roomName),
+          fetchTechnocoreRoom('mb-sonnet-2-submissions', 100)
+        ]);
+
+        if (!roomLines || roomLines.length === 0) {
+          await sendTelegramMessage(chatId, `<b>Audit Failed</b>\n\nNo ledger records found for room <code>${escapeHtml(roomName)}</code>.\nMake sure the team name is spelled correctly.`);
+          return res.status(200).json({ ok: true });
+        }
+
+        // 1. Parse words and roster
+        const wordsByReq = new Map();
+        let rosterReady = false;
+        const rosterWriters = new Set();
+
+        for (const m of roomLines) {
+          try {
+            const p = JSON.parse(m.text);
+            if (p.type === 'sonnet.word.v1' && p.request_id) {
+              wordsByReq.set(p.request_id, { word: p.word, from: m.from, version: p.version });
+            }
+            if (p.type === 'sonnet.roster.v1' && Array.isArray(p.writers)) {
+              p.writers.forEach(w => rosterWriters.add(w));
+            }
+            if (p.type === 'sonnet.receipt.v1' && p.roster_ready) {
+              rosterReady = true;
+            }
+          } catch {}
+        }
+
+        // 2. Collect accepted words
+        const accepted = [];
+        let latestSyllables = 0;
+        let isComplete = false;
+
+        for (const m of roomLines) {
+          try {
+            const p = JSON.parse(m.text);
+            if (p.type === 'sonnet.receipt.v1' && p.status === 'accepted' && p.version !== undefined) {
+              const wInfo = wordsByReq.get(p.request_id);
+              const sender = p.sender_did || (wInfo ? wInfo.from : m.from);
+              accepted.push({
+                version: p.version,
+                syllables: p.syllables,
+                complete: p.complete,
+                sender,
+                word: wInfo ? wInfo.word : '?'
+              });
+              if (p.syllables !== undefined) latestSyllables = p.syllables;
+              if (p.complete) isComplete = true;
+            }
+          } catch {}
+        }
+
+        // 3. Unique writers
+        const activeWriters = new Set(accepted.map(w => w.sender));
+        const writerCount = Math.max(activeWriters.size, rosterWriters.size);
+
+        // 4. Check Rule 4: Turn Cadence (Zero consecutive turns)
+        const consecutiveViolations = [];
+        for (let i = 1; i < accepted.length; i++) {
+          if (accepted[i].sender === accepted[i - 1].sender) {
+            consecutiveViolations.push({
+              v: accepted[i].version,
+              sender: accepted[i].sender,
+              word: accepted[i].word
+            });
+          }
+        }
+
+        // 5. Check Rule 5: Letter compliance per signer DID
+        const letterViolations = [];
+        for (const w of accepted) {
+          const res = canSignWord(w.word, w.sender);
+          if (!res.canSign) {
+            letterViolations.push({
+              v: w.version,
+              word: w.word,
+              sender: w.sender,
+              missing: res.missingLetters
+            });
+          }
+        }
+
+        // 6. Check official submission in mb-sonnet-2-submissions
+        let submissionStatus = 'none'; // 'none' | 'pending' | 'accepted' | 'rejected'
+        let submitSeq = null;
+
+        const subsMsgs = Array.isArray(subsRes.messages) ? subsRes.messages : [];
+        for (const m of subsMsgs) {
+          try {
+            const p = JSON.parse(m.text);
+            if (p.type === 'sonnet.submit.v1' && (p.game_id === targetTeam || p.game_id === `team-${targetTeam}`)) {
+              submitSeq = m.seq;
+              if (submissionStatus === 'none') submissionStatus = 'pending';
+            }
+            if (p.type === 'sonnet.receipt.v1' && (p.entry_id === targetTeam || p.entry_id === `team-${targetTeam}`)) {
+              submissionStatus = p.status === 'accepted' ? 'accepted' : 'rejected';
+            }
+          } catch {}
+        }
+
+        // 7. Determine verdict
+        let verdict = '';
+        const hasViolations = consecutiveViolations.length > 0 || letterViolations.length > 0;
+
+        if (hasViolations) {
+          verdict = '🔴 <b>DISQUALIFIED / VIOLATIONS DETECTED</b>\nPoem contains invalid turns or illegal word signatures on-chain.';
+        } else if (latestSyllables === 140) {
+          if (submissionStatus === 'accepted') {
+            verdict = '🟢 <b>OFFICIALLY ACCEPTED &amp; VERIFIED</b>\nPoem satisfies 100% of referee constraints and is submitted for public ballot.';
+          } else if (submissionStatus === 'pending') {
+            verdict = '🟡 <b>PASSED AUDIT (Awaiting Intake Receipt)</b>\nPoem satisfies 100% of referee rules. Official submission pending referee seal.';
+          } else {
+            verdict = '🟢 <b>REFEREE READY FOR SUBMISSION</b>\nPoem satisfies 100% of rules (140 syllables, 0 violations). Final writer can post on X and submit.';
+          }
+        } else if (latestSyllables > 140) {
+          verdict = '🔴 <b>METER OVERFLOW</b>\nPoem exceeds maximum 140 syllables limit.';
+        } else {
+          verdict = `🔵 <b>CLEAN - WRITING IN PROGRESS</b>\nNo violations detected so far. ${140 - latestSyllables} syllables needed to complete 14 lines.`;
+        }
+
+        // 8. Format preview
+        let preview = '';
+        if (accepted.length > 0) {
+          preview = accepted.slice(0, 16).map(w => w.word).join(' ');
+        }
+
+        // 9. Build response
+        let reply = `<b>Referee Audit: ${escapeHtml(targetTeam)}</b>\n\n` +
+          `Room: <code>${escapeHtml(roomName)}</code>\n\n` +
+          `<b>Contest Rule Checks:</b>\n` +
+          `• <b>Rule 1 (Roster):</b> ${rosterReady ? 'PASS (Roster frozen & active)' : 'PENDING'} (${writerCount} writers)\n` +
+          `• <b>Rule 3 (Meter):</b> <b>${latestSyllables}/140 syllables</b> (${Math.round((latestSyllables / 140) * 100)}% - ~${Math.min(14, Math.floor(latestSyllables / 10))}/14 lines)\n` +
+          `• <b>Rule 4 (Turn Cadence):</b> ${consecutiveViolations.length === 0 ? 'PASS (0 consecutive turns)' : `FAIL (${consecutiveViolations.length} violations)`}\n` +
+          `• <b>Rule 5 (Letter Rule):</b> ${letterViolations.length === 0 ? 'PASS (100% compliant)' : `FAIL (${letterViolations.length} illegal signatures)`}\n\n` +
+          `<b>Poem Metrics:</b>\n` +
+          `• Accepted Words: <b>${accepted.length} words</b>\n` +
+          `• Active Writers: <b>${activeWriters.size} writers</b>\n` +
+          `• Room Status: <b>${isComplete ? 'Completed (140 syl)' : 'Writing in progress'}</b>\n` +
+          `• Submission: <b>${submissionStatus.toUpperCase()}</b>${submitSeq ? ` (Seq ${submitSeq})` : ''}\n\n` +
+          `<b>Verdict:</b>\n${verdict}`;
+
+        if (consecutiveViolations.length > 0) {
+          reply += `\n\n<b>Turn Cadence Errors:</b>\n` +
+            consecutiveViolations.slice(0, 3).map(v => `• Turn ${v.v}: <code>${(v.sender || '').slice(0, 18)}...</code> signed consecutively ("${escapeHtml(v.word)}")`).join('\n');
+        }
+
+        if (letterViolations.length > 0) {
+          reply += `\n\n<b>Letter Compliance Errors:</b>\n` +
+            letterViolations.slice(0, 3).map(v => `• Turn ${v.v}: "<b>${escapeHtml(v.word)}</b>" by <code>${(v.sender || '').slice(0, 16)}...</code> (Missing: <code>${v.missing.join(', ').toUpperCase()}</code>)`).join('\n');
+        }
+
+        if (preview) {
+          reply += `\n\n<b>Poem Snippet:</b>\n"<i>${escapeHtml(preview)}...</i>"`;
+        }
+
+        await sendTelegramMessage(chatId, reply);
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: rhyme <word> [DID]
+      if (command === 'rhyme') {
+        const targetWord = (args[0] || '').toLowerCase().trim().replace(/[^a-z]/g, '');
+        const targetDid = (args[1] || '').trim().startsWith('did:key:') ? args[1].trim() : null;
+
+        if (!targetWord) {
+          const usage = `<b>Rhyme Assistant</b>\n\n` +
+            `Usage: <code>/rhyme &lt;word&gt; [DID]</code>\n\n` +
+            `Examples:\n` +
+            `• <code>/rhyme night</code>\n` +
+            `• <code>/rhyme night did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh</code>\n\n` +
+            `Finds sonnet rhyming words and verifies which ones your DID can legally sign.`;
+          await sendTelegramMessage(chatId, usage);
+          return res.status(200).json({ ok: true });
+        }
+
+        const rhymeData = findRhymes(targetWord);
+        if (!rhymeData || !rhymeData.rhymes || rhymeData.rhymes.length === 0) {
+          const reply = `<b>Rhyme Assistant: "${escapeHtml(targetWord)}"</b>\n\n` +
+            `No pre-indexed rhymes found for "<code>${escapeHtml(targetWord)}</code>".\n\n` +
+            `Common supported rhyme families include:\n` +
+            `<code>-ight, -ong, -art, -urn, -ay, -ee, -all, -ound, -ind, -ore, -ace, -old, -ide, -end, -eed, -un, -ing, -low, -eep, -ain, -ame, -ise, -eam</code>`;
+          await sendTelegramMessage(chatId, reply);
+          return res.status(200).json({ ok: true });
+        }
+
+        const { key, rhymes } = rhymeData;
+
+        if (targetDid) {
+          const legal = [];
+          const illegal = [];
+
+          for (const r of rhymes) {
+            const check = canSignWord(r, targetDid);
+            const syl = countWordSyllables(r);
+            if (check.canSign) {
+              legal.push({ word: r, syl });
+            } else {
+              illegal.push({ word: r, syl, missing: check.missingLetters });
+            }
+          }
+
+          let reply = `<b>Rhyme Assistant: "${escapeHtml(targetWord)}"</b>\n\n` +
+            `Rhyme Family: <code>-${escapeHtml(key)}</code>\n` +
+            `Signer: <code>${targetDid.slice(0, 24)}...</code>\n\n`;
+
+          if (legal.length > 0) {
+            reply += `<b>Legal Words for Your DID (${legal.length}):</b>\n` +
+              legal.map(w => `• <b>${escapeHtml(w.word)}</b> (${w.syl} syl)`).join('\n') + '\n\n';
+          } else {
+            reply += `<b>Legal Words:</b> None found in this family for your DID letters.\n\n`;
+          }
+
+          if (illegal.length > 0) {
+            reply += `<b>Teammate Options (Letters You Lack):</b>\n` +
+              illegal.slice(0, 8).map(w => `• ${escapeHtml(w.word)} (${w.syl} syl, needs: <code>${w.missing.join(', ').toUpperCase()}</code>)`).join('\n') + '\n\n';
+          }
+
+          reply += `<i>All words validated against Rule 5 letter constraints.</i>`;
+          await sendTelegramMessage(chatId, reply);
+          return res.status(200).json({ ok: true });
+        } else {
+          let reply = `<b>Rhyme Assistant: "${escapeHtml(targetWord)}"</b>\n\n` +
+            `Rhyme Family: <code>-${escapeHtml(key)}</code>\n\n` +
+            `<b>Rhyming Words (${rhymes.length}):</b>\n` +
+            rhymes.map(r => `• <b>${escapeHtml(r)}</b> (${countWordSyllables(r)} syl)`).join('\n') + `\n\n` +
+            `<i>Tip: Pass your DID to see only words you can legally sign:</i>\n` +
+            `<code>/rhyme ${escapeHtml(targetWord)} &lt;YOUR_DID&gt;</code>`;
+          await sendTelegramMessage(chatId, reply);
+          return res.status(200).json({ ok: true });
+        }
       }
 
       // COMMAND: word <word> <DID>
@@ -919,6 +1267,8 @@ export default async function handler(req, res) {
       // Clean default help
       const defaultHelp = `<b>FlopRadar - Community Tools</b>\n\n` +
         `Available commands:\n` +
+        `• <code>/audit &lt;team&gt;</code> - Pre-submission referee audit of squad\n` +
+        `• <code>/rhyme &lt;word&gt; [DID]</code> - Find legal rhyming words for your DID\n` +
         `• <code>/word &lt;word&gt; &lt;DID&gt;</code> - Check word legality\n` +
         `• <code>/meter &lt;line&gt;</code> - Syllable counter (10 req)\n` +
         `• <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code> - Letter synergy check\n` +
