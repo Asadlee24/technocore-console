@@ -2761,3 +2761,491 @@ a:hover {
 
 .sonnet-stepper { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-4); }
 .toast-container { position: fixed; bottom: var(--space-6); right: var(--space-6); z-index: 120; display: flex; flex-direction: column; gap: var(--space-2); pointer-events: none; }
+
+
+
+/* ==========================================================================
+   DYNAMIC APP COMPONENTS (SQUAD CARDS, POEM METER, RECEIPTS, VAULT CARDS)
+   ========================================================================== */
+
+/* --- SQUAD BOARD WRITER CARDS & TOOLBAR --- */
+.squad-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  background: var(--surface-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  padding: var(--space-3) var(--space-4);
+}
+
+.squad-toolbar .field-row {
+  display: flex;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.squad-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.squad-card {
+  background: var(--surface-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+}
+
+.squad-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.squad-card.in-roster {
+  border-color: var(--brand-accent);
+  background: var(--accent-subtle);
+  box-shadow: 0 0 0 1px var(--brand-accent);
+}
+
+.squad-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.squad-x-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--brand-accent);
+  text-decoration: none;
+}
+
+.squad-x-link:hover {
+  text-decoration: underline;
+}
+
+.squad-x-none {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.squad-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--surface-raised);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  text-transform: capitalize;
+}
+
+.squad-badge.registered {
+  background-color: var(--color-success-subtle);
+  color: var(--color-success);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.squad-badge.free-agent {
+  background-color: var(--accent-subtle);
+  color: var(--brand-accent);
+  border-color: var(--accent-border);
+}
+
+.squad-badge.recruiting {
+  background-color: var(--color-warning-subtle);
+  color: var(--color-warning);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.squad-did-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  background-color: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  padding: 6px 10px;
+}
+
+.squad-did-text {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+  word-break: break-all;
+}
+
+.squad-btn-copy-mini {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.squad-btn-copy-mini:hover {
+  background: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.squad-letter-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.squad-letter-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.squad-letter-meta strong {
+  color: var(--text-primary);
+}
+
+.squad-vowel-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.squad-vowel-pill {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.squad-vowel-pill.has {
+  background-color: var(--accent-subtle);
+  color: var(--brand-accent);
+  border: 1px solid var(--accent-border);
+}
+
+.squad-vowel-pill.missing {
+  background-color: var(--surface-sunken);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  opacity: 0.5;
+}
+
+.squad-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 2px;
+}
+
+.btn-roster-add {
+  flex: 1;
+  padding: 7px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-control);
+  background-color: var(--accent-subtle);
+  border: 1px solid var(--accent-border);
+  color: var(--brand-accent);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.btn-roster-add:hover {
+  background-color: var(--brand-accent);
+  color: var(--text-on-accent);
+}
+
+.btn-roster-add.in-roster {
+  background-color: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--color-danger);
+}
+
+.btn-roster-add.in-roster:hover {
+  background-color: var(--color-danger);
+  color: #FFFFFF;
+}
+
+.btn-squad-dm {
+  padding: 7px 14px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: var(--radius-control);
+  background-color: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-squad-dm:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+
+/* --- POEM SYLLABLE METER & STANZA LINES --- */
+.stanza-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+.meter-line-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  background-color: var(--surface-main);
+  border: 1px solid var(--border-subtle);
+  transition: border-color var(--transition-fast);
+}
+
+.meter-line-item.complete-row {
+  border-color: rgba(16, 185, 129, 0.4);
+  background-color: rgba(16, 185, 129, 0.03);
+}
+
+.meter-line-num {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 28px;
+}
+
+.meter-line-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.meter-words {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.meter-words-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.75rem;
+}
+
+.meter-bar-container {
+  height: 4px;
+  background-color: var(--surface-sunken);
+  border-radius: 2px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.meter-bar-fill {
+  height: 100%;
+  background-color: var(--brand-accent);
+  transition: width var(--transition-normal);
+}
+
+.meter-bar-fill.complete {
+  background-color: var(--color-success);
+}
+
+.meter-bar-fill.overflow {
+  background-color: var(--color-danger);
+}
+
+.meter-line-val {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 48px;
+  text-align: right;
+}
+
+.meter-line-val.complete {
+  color: var(--color-success);
+}
+
+.meter-line-val.overflow {
+  color: var(--color-danger);
+}
+
+/* --- RECEIPTS LEDGER ITEMS --- */
+.receipt-item {
+  background-color: var(--surface-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color var(--transition-fast);
+}
+
+.receipt-item:hover {
+  border-color: var(--border-strong);
+}
+
+.receipt-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.receipt-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.receipt-badge.accepted {
+  background-color: var(--color-success-subtle);
+  color: var(--color-success);
+}
+
+.receipt-badge.rejected {
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+}
+
+.receipt-badge.pending {
+  background-color: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+
+/* --- MEMORY VAULT CARDS & TIMELINE --- */
+.vault-day-divider {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.vault-memory-card {
+  background-color: var(--surface-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  transition: border-color var(--transition-fast);
+  margin-bottom: var(--space-3);
+}
+
+.vault-memory-card:hover {
+  border-color: var(--border-strong);
+}
+
+.vault-memory-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vault-category-pill {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--accent-subtle);
+  color: var(--brand-accent);
+  border: 1px solid var(--accent-border);
+}
+
+.vault-memory-timestamp {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.vault-memory-body {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.vault-memory-note-path {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.vault-memory-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+
+.vault-verify-badge {
+  font-size: 0.6875rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.vault-verify-badge.valid {
+  background-color: var(--color-success-subtle);
+  color: var(--color-success);
+}
+
+.squad-chip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: var(--radius-pill); font-size: 0.75rem; font-family: var(--font-mono); background-color: var(--surface-raised); border: 1px solid var(--border-subtle); color: var(--text-primary); }
+.badge-accepted { background-color: var(--color-success-subtle); color: var(--color-success); }
+.badge-pending { background-color: var(--color-warning-subtle); color: var(--color-warning); }
+.result-title { font-weight: 600; font-size: 0.8125rem; margin-bottom: 2px; }
+.result-body { font-size: 0.75rem; line-height: 1.4; word-break: break-word; }
+.toast-icon { font-size: 1rem; }
+.toast-msg { font-size: 0.8125rem; color: var(--text-primary); }
+.busy { opacity: 0.6; pointer-events: none; }
