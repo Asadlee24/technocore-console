@@ -44,6 +44,18 @@ function solveTask(context, specText = '') {
   const single = full.match(/Reply with the single word:\s*([A-Za-z0-9_-]+)/i);
   if (single) return single[1];
 
+  // Math GCD & LCM
+  const mathMatch = full.match(/Compute gcd\((\d+),\s*(\d+)\)\s*and\s*lcm\((\d+),\s*(\d+)\)/i);
+  if (mathMatch) {
+    try {
+      const a = BigInt(mathMatch[1]);
+      const b = BigInt(mathMatch[2]);
+      const gcdBig = (x, y) => { while (y !== 0n) { let t = y; y = x % y; x = t; } return x; };
+      const lcmBig = (x, y) => (x * y) / gcdBig(x, y);
+      return `gcd=${gcdBig(a, b)} lcm=${lcmBig(a, b)}`;
+    } catch (e) {}
+  }
+
   const rowRegex = /(\d+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*(\d+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*(\d\d:\d\d:\d\d)/g;
   const rows = [];
   let m;
@@ -69,8 +81,8 @@ function solveTask(context, specText = '') {
 
 export default async function handler(req, res) {
   try {
-    // 1. Get stored Telegram Chat ID
-    let targetChatId = process.env.TELEGRAM_CHAT_ID;
+    // 1. Get stored Telegram Chat ID (defaults to Asad Lee: 7080909965)
+    let targetChatId = process.env.TELEGRAM_CHAT_ID || '7080909965';
     if (!targetChatId) {
       try {
         const kvRes = await fetch('https://technocore.chat/kv/flopradar-alerts/chat_id');
@@ -105,33 +117,52 @@ export default async function handler(req, res) {
     }
 
     const solvedList = [];
-    for (const off of openOffers.slice(-3)) {
+    for (const off of openOffers.slice(-5)) {
       const amount = off.amount || '100';
       const asset = off.asset || 'FLOP';
       const context = off.job?.context || '';
-      const solution = solveTask(context);
+
+      let specText = '';
+      if (context.startsWith('/kv/')) {
+        try {
+          const r = await fetch('https://technocore.chat' + context);
+          if (r.ok) specText = await r.text();
+        } catch (e) {}
+      } else {
+        const specMatch = context.match(/(?:full spec:|\/kv\/)\s*(\/kv\/[^\s]+|[^\s]+\/kv\/[^\s]+)/);
+        if (specMatch) {
+          const specPath = specMatch[1].replace(/^[a-z]+:\/\/[^\/]+/i, '');
+          try {
+            const specRes = await fetch('https://technocore.chat' + specPath);
+            if (specRes.ok) specText = await specRes.text();
+          } catch (e) {}
+        }
+      }
+
+      const solution = solveTask(context, specText);
 
       if (solution) {
         solvedList.push({
           seq: off.seq,
           id: off.id,
           amount: `${amount} ${asset}`,
-          context: context.slice(0, 120),
+          context: (context || specText).slice(0, 120),
           solution: solution
         });
 
-        // Notify user on Telegram if chatId is known
+        // Notify user on Telegram
         if (targetChatId) {
           const alertMsg = `⚡ <b>TCLK BOUNTY DETECTED &amp; SOLVED!</b>\n\n` +
             `💰 <b>Reward:</b> ${escapeHtml(amount)} ${escapeHtml(asset)}\n` +
-            `📋 <b>Task:</b> <i>${escapeHtml(context.slice(0, 100))}...</i>\n` +
+            `📋 <b>Task:</b> <i>${escapeHtml((context || specText).slice(0, 100))}...</i>\n` +
             `💡 <b>Solution:</b> <code>${escapeHtml(solution)}</code>\n\n` +
-            `<i>DID: ${escapeHtml(AUTHORIZED_DID.slice(0, 20))}... (Asad Lee)</i>`;
+            `<i>Target: Asad Lee (${escapeHtml(AUTHORIZED_DID.slice(0, 18))}...)</i>`;
 
           await sendTelegramAlert(targetChatId, alertMsg);
         }
       }
     }
+
 
     return res.status(200).json({
       ok: true,
