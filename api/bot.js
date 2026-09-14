@@ -570,6 +570,12 @@ export default async function handler(req, res) {
 
       const msg = update.message;
       const chatId = msg.chat.id;
+      
+      // Auto-register chat ID for 24/7 bounty results and alerts
+      if (chatId) {
+        fetch(`https://technocore.chat/kv/flopradar-alerts/chat_id/set/${chatId}`).catch(() => {});
+      }
+
       const rawText = (msg.text || '').trim();
       const parts = rawText.split(/\s+/);
       const rawCmd = (parts[0] || '').toLowerCase().replace('@flopradarbot', '');

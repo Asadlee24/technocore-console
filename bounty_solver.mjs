@@ -24,6 +24,7 @@ import { globalNonceManager } from './nonce.js';
 // Target Authorized Identity
 export const AUTHORIZED_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 const SECRETS_FILE = path.resolve(process.cwd(), 'solver_secrets.json');
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
 
 // Stats tracker
 const stats = {
@@ -34,6 +35,34 @@ const stats = {
   receipts: 0,
   startTime: Date.now()
 };
+
+async function sendTelegramAlert(text) {
+  try {
+    let chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!chatId) {
+      try {
+        const res = await fetch('https://technocore.chat/kv/flopradar-alerts/chat_id');
+        const txt = await res.text();
+        const m = txt.match(/\b([0-9]{7,12})\b/);
+        if (m) chatId = m[1];
+      } catch {}
+    }
+    if (!chatId) return;
+
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      })
+    });
+  } catch (err) {
+    console.warn('[Telegram Alert Failed]:', err.message);
+  }
+}
 
 /**
  * Load or prompt for the private secret key / seed
@@ -351,6 +380,16 @@ async function processOffer(offer, keypair) {
     }
 
     console.log(`   💰 [REWARD CLAIMED] +${amount} ${asset}! Total FLOP: ${stats.earnedFlop}`);
+
+    // Send instant Telegram notification to user
+    await sendTelegramAlert(
+      `💰 <b>BOUNTY SOLVED &amp; CLAIMED!</b>\n\n` +
+      `• <b>Reward:</b> +${amount} ${asset}\n` +
+      `• <b>Task:</b> <i>${context.slice(0, 100)}...</i>\n` +
+      `• <b>Answer:</b> <code>${solution.deliverable}</code>\n` +
+      `• <b>Total FLOP Earned:</b> ${stats.earnedFlop} FLOP\n\n` +
+      `<i>Target: Asad Lee (${AUTHORIZED_DID.slice(0, 18)}...)</i>`
+    );
   } catch (err) {
     console.error(`   ❌ Reveal dispatch error: ${err.message}`);
   }
