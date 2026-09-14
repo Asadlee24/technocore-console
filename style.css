@@ -522,6 +522,23 @@ a:hover {
   border-color: var(--border-strong);
 }
 
+.theme-label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Quick HUD Container */
+.app-quick-hud {
+  margin: var(--space-4) var(--space-8) 0;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: 0.8125rem;
+}
+
 /* Main Workspace Area */
 #app-main {
   flex: 1;
@@ -2513,14 +2530,44 @@ a:hover {
   border-color: rgba(239, 68, 68, 0.4);
 }
 
-/* Mobile Reflow and Navigation (<1024px) */
+/* ==========================================================================
+   MOBILE & RESPONSIVE REFLOW ENGINE (Full Multi-Device Protection)
+   Prevents any overflow, clipping, or layout breaks on small screens
+   ========================================================================== */
+
+/* Universal Containment to prevent horizontal scrolling */
+html, body, #app-shell, #app-main {
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Mobile Sidebar Backdrop */
+.mobile-sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 85;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+
+/* Tablet & Mobile Drawer Navigation (<1024px) */
 @media (max-width: 1024px) {
   #app-sidebar {
     position: fixed;
     left: 0;
     top: 0;
     bottom: 0;
+    width: 270px;
+    max-width: 82vw;
+    z-index: 90;
     transform: translateX(-100%);
+    transition: transform var(--transition-panel);
     box-shadow: var(--shadow-overlay);
   }
 
@@ -2528,8 +2575,329 @@ a:hover {
     transform: translateX(0);
   }
 
-  .mobile-menu-toggle {
+  .mobile-sidebar-backdrop.active,
+  #app-sidebar.mobile-open + .mobile-sidebar-backdrop {
     display: block;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Smart Mobile Reflow (<768px) */
+@media (max-width: 768px) {
+  /* Top Bar (Compact & Perfectly Contained) */
+  #global-header {
+    height: 54px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .header-left {
+    gap: 6px;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  .mobile-menu-toggle {
+    width: 34px;
+    height: 34px;
+    padding: 4px;
+    border-radius: var(--radius-control);
+    background-color: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+  }
+
+  .header-title-wrap {
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .header-view-title {
+    font-size: 0.875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 125px;
+  }
+
+  .header-view-subtitle {
+    display: none !important;
+  }
+
+  .header-right {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .connection-pill {
+    padding: 4px 6px;
+    font-size: 0.6875rem;
+    border-radius: var(--radius-pill);
+  }
+
+  #global-status-text {
+    display: none !important; /* Keep only clean live dot */
+  }
+
+  .identity-header-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    max-width: 110px;
+    gap: 4px;
+  }
+
+  #global-identity-did-short {
+    max-width: 65px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .theme-toggle-btn {
+    padding: 4px 6px;
+    min-width: 32px;
+    height: 30px;
+  }
+
+  .theme-label {
+    display: none !important; /* Hide text, show sun/moon icon */
+  }
+
+  /* Quick HUD Bar on Mobile */
+  .app-quick-hud {
+    margin: var(--space-2) var(--space-2) 0;
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.75rem;
+    gap: var(--space-2);
+  }
+
+  .app-quick-hud #hud-did-val {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  /* Main Content Area */
+  .workspace-content {
+    padding: var(--space-3) var(--space-2) var(--space-8);
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+
+  .view-header {
+    margin-bottom: var(--space-4);
+  }
+
+  .view-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .view-title {
+    font-size: 1.25rem;
+  }
+
+  .view-description {
+    font-size: 0.8125rem;
+  }
+
+  /* Layout Grids to Single Column */
+  .main-grid,
+  .vault-grid,
+  .sonnet-grid,
+  .stats-grid,
+  .squad-grid,
+  .rooms-layout {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-3);
+  }
+
+  /* Card and Panel Padding */
+  .card,
+  .panel,
+  .step-card {
+    padding: var(--space-4) var(--space-3);
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Step Card Headers */
+  .step-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .step-status-pill {
+    align-self: flex-start;
+  }
+
+  /* Button Groups */
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-2);
+  }
+
+  .btn-group .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Form Fields */
+  .field-row {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .input-text,
+  .input-textarea,
+  .input-select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 0.875rem;
+    padding: 8px 10px;
+  }
+
+  /* Preformatted Blocks, DIDs, Hashes */
+  pre,
+  .raw-json-pre,
+  .secret-key-box,
+  .readout-box {
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 0.75rem;
+  }
+
+  /* Rooms View on Mobile */
+  .composer-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .composer-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .message-item {
+    padding: var(--space-3);
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Sonnet View on Mobile */
+  .sonnet-subnav-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-bottom: var(--space-3);
+    padding-bottom: 2px;
+  }
+
+  .sonnet-subnav-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sonnet-tab-btn {
+    padding: 8px 12px;
+    font-size: 0.8125rem;
+  }
+
+  .letter-gauge-grid {
+    grid-template-columns: repeat(7, 1fr) !important;
+    gap: 4px;
+  }
+
+  .letter-cell {
+    font-size: 0.6875rem;
+  }
+
+  .poem-line-row {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .poem-line-number {
+    width: 18px;
+    font-size: 0.6875rem;
+  }
+
+  .poem-line-text {
+    font-size: 0.8125rem;
+    min-width: 0;
+  }
+
+  .poem-line-syllables {
+    font-size: 0.6875rem;
+    padding: 1px 6px;
+    flex-shrink: 0;
+  }
+
+  /* Squad Cards */
+  .squad-card {
+    padding: 12px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .squad-card-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .squad-card-actions .btn {
+    width: 100%;
+  }
+}
+
+/* Narrow Mobile Phones (<400px, e.g. iPhone SE, smaller Androids) */
+@media (max-width: 400px) {
+  #global-header {
+    padding: 0 6px;
+    gap: 4px;
+  }
+
+  .header-view-title {
+    max-width: 85px;
+    font-size: 0.8125rem;
+  }
+
+  .identity-header-btn {
+    padding: 4px 6px;
+    max-width: 85px;
+  }
+
+  #global-identity-did-short {
+    max-width: 50px;
+    font-size: 0.6875rem;
+  }
+
+  .connection-pill {
+    padding: 4px 5px;
+  }
+
+  .app-quick-hud #hud-did-val {
+    max-width: 90px;
   }
 }
 

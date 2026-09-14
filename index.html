@@ -131,6 +131,9 @@
       </div>
     </aside>
 
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="mobile-sidebar-backdrop" class="mobile-sidebar-backdrop"></div>
+
     <!-- Main Content Workspace -->
     <div id="app-main">
       
@@ -138,7 +141,7 @@
       <header id="global-header">
         <div class="header-left">
           <button id="mobile-menu-btn" class="mobile-menu-toggle" type="button" aria-label="Toggle Navigation Menu">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="3" y1="6" x2="21" y2="6"></line>
               <line x1="3" y1="18" x2="21" y2="18"></line>
@@ -168,13 +171,13 @@
 
           <!-- Theme Toggle -->
           <button id="theme-toggle" class="theme-toggle-btn" type="button" title="Toggle Theme (Dark/Light)" aria-label="Toggle Theme">
-            Theme: Dark
+            <span class="theme-label">Theme: Dark</span>
           </button>
         </div>
       </header>
 
       <!-- Quick Identity HUD Bar -->
-      <div id="app-quick-hud" class="card" style="margin: var(--space-4) var(--space-8) 0; padding: var(--space-3) var(--space-4); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); font-size: 0.8125rem;">
+      <div id="app-quick-hud" class="card app-quick-hud">
         <div style="display: flex; align-items: center; gap: var(--space-2);">
           <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">IDENTITY:</span>
           <span id="hud-did-val" class="font-mono" style="color: var(--text-primary);">No Identity Loaded</span>

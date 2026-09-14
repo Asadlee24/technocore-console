@@ -524,8 +524,8 @@ function updateThemeButtonText() {
   if (el.themeToggle) {
     const isDark = state.theme === 'dark';
     el.themeToggle.innerHTML = isDark
-      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Theme: Dark`
-      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>Theme: Light`;
+      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span class="theme-label">Theme: Dark</span>`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg><span class="theme-label">Theme: Light</span>`;
   }
 }
 
@@ -624,6 +624,13 @@ function setView(viewName) {
     viewName = 'wizard';
   }
   state.activeView = viewName;
+
+  // Auto-close mobile drawer on navigation
+  if (el.appSidebar) {
+    el.appSidebar.classList.remove('mobile-open');
+    const backdrop = document.getElementById('mobile-sidebar-backdrop');
+    if (backdrop) backdrop.classList.remove('active');
+  }
 
   // Header Title and Description Metadata
   const viewMeta = {
@@ -764,10 +771,19 @@ function bindEvents() {
     });
   }
 
-  // Mobile menu button
+  // Mobile menu toggle & backdrop
+  const mobileBackdrop = document.getElementById('mobile-sidebar-backdrop');
   if (el.mobileMenuBtn && el.appSidebar) {
     el.mobileMenuBtn.addEventListener('click', () => {
-      el.appSidebar.classList.toggle('mobile-open');
+      const isOpen = el.appSidebar.classList.toggle('mobile-open');
+      if (mobileBackdrop) mobileBackdrop.classList.toggle('active', isOpen);
+    });
+  }
+
+  if (mobileBackdrop && el.appSidebar) {
+    mobileBackdrop.addEventListener('click', () => {
+      el.appSidebar.classList.remove('mobile-open');
+      mobileBackdrop.classList.remove('active');
     });
   }
 
