@@ -12,7 +12,6 @@ const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const FOOTER = '\n\nPowered by <a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> | <a href="https://technocore-console.vercel.app">Technocore Console</a>';
 
 const BOT_COMMANDS = [
-  { command: 'vote', description: '50,000 FLOP Voter Pool & ballot tracking' },
   { command: 'word', description: 'Test if a DID can legally sign a word' },
   { command: 'meter', description: 'Count line syllables (10 req)' },
   { command: 'pair', description: 'Calculate alphabet synergy of 2 DIDs' },
@@ -431,7 +430,6 @@ export default async function handler(req, res) {
         const welcome = `<b>FlopRadar - Technocore Sonnet Challenge #2</b>\n\n` +
           `Community telemetry tools for Sonnet-2 (100,000 FLOP Prize Pool):\n\n` +
           `<b>Core Commands:</b>\n` +
-          `• <code>/vote [team|DID]</code> - 50,000 FLOP voter leaderboard & ballot generator\n` +
           `• <code>/word &lt;word&gt; &lt;DID&gt;</code> - Check if a DID can legally sign a word\n` +
           `• <code>/meter &lt;line&gt;</code> - Analyze line syllables (10 req)\n` +
           `• <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code> - Test alphabet synergy between 2 members\n` +
@@ -878,172 +876,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: vote or votes or ballot
-      if (command === 'vote' || command === 'votes' || command === 'ballot') {
-        const targetArg = (args[0] || '').trim();
-
-        await sendTelegramMessage(chatId, `Fetching live ballot telemetry from <code>mb-sonnet-2-votes</code>...`);
-
-        const votesRes = await fetchTechnocoreRoom('mb-sonnet-2-votes', 100);
-        const msgs = Array.isArray(votesRes.messages) ? votesRes.messages : [];
-
-        // Map receipts by request_id
-        const receipts = new Map();
-        for (const m of msgs) {
-          try {
-            const j = JSON.parse(m.text);
-            if (j.type === 'sonnet.receipt.v1') {
-              receipts.set(j.request_id || String(m.seq), j);
-            }
-          } catch {}
-        }
-
-        const tallies = {};
-        let totalBallots = 0;
-        let totalAccepted = 0;
-        const voterHistory = [];
-
-        for (const m of msgs) {
-          try {
-            const j = JSON.parse(m.text);
-            if (j.type === 'sonnet.ballot.v1' && j.entry_id) {
-              const rec = receipts.get(j.request_id);
-              const isAccepted = rec ? rec.status === 'accepted' : true;
-              const reason = rec ? rec.reason : '';
-
-              if (!tallies[j.entry_id]) {
-                tallies[j.entry_id] = { total: 0, accepted: 0, rejected: 0, voters: [] };
-              }
-              tallies[j.entry_id].total++;
-              totalBallots++;
-              if (isAccepted) {
-                tallies[j.entry_id].accepted++;
-                totalAccepted++;
-              } else {
-                tallies[j.entry_id].rejected++;
-              }
-
-              tallies[j.entry_id].voters.push({
-                did: j.voter_did,
-                status: isAccepted ? 'accepted' : 'rejected',
-                reason,
-                seq: m.seq
-              });
-
-              voterHistory.push({
-                did: j.voter_did,
-                entry_id: j.entry_id,
-                status: isAccepted ? 'accepted' : 'rejected',
-                reason,
-                request_id: j.request_id,
-                seq: m.seq
-              });
-            }
-          } catch {}
-        }
-
-        // Subcase 1: Check specific DID: /vote did:key:...
-        if (targetArg.startsWith('did:key:')) {
-          const didRecords = voterHistory.filter(v => (v.did || '').toLowerCase() === targetArg.toLowerCase());
-          const regRes = await fetchTechnocoreRoom('mb-sonnet-2-registration', 150);
-          let regRole = 'Not found';
-          if (Array.isArray(regRes.messages)) {
-            for (let i = regRes.messages.length - 1; i >= 0; i--) {
-              if ((regRes.messages[i].text || '').includes(targetArg)) {
-                try {
-                  const r = JSON.parse(regRes.messages[i].text);
-                  regRole = r.role || 'registered';
-                  break;
-                } catch {}
-              }
-            }
-          }
-
-          let reply = `<b>Voter Ballot Status</b>\n\n` +
-            `DID: <code>${escapeHtml(targetArg)}</code>\n` +
-            `Registration Role: <b>${escapeHtml(regRole.toUpperCase())}</b>\n`;
-
-          if (regRole.toLowerCase() !== 'voter' && regRole !== 'Not found') {
-            reply += `Eligibility: <b>INELIGIBLE TO VOTE</b> (Rule 7: only 'voter' role can vote; writers/organizers cannot cast ballots).\n\n`;
-          } else {
-            reply += `Eligibility: <b>ELIGIBLE (Voter)</b>\n\n`;
-          }
-
-          if (didRecords.length > 0) {
-            const latest = didRecords[didRecords.length - 1];
-            reply += `Latest Ballot:\n` +
-              `• Backed Entry: <b>${escapeHtml(latest.entry_id)}</b>\n` +
-              `• Status: <b>${latest.status.toUpperCase()}</b>\n` +
-              `• Seq: <code>${latest.seq}</code>\n` +
-              (latest.reason ? `• Reason: <i>${escapeHtml(latest.reason)}</i>\n` : '') +
-              `• Total ballots submitted by this DID: ${didRecords.length}\n`;
-          } else {
-            reply += `Ballot Record: <b>NO BALLOT SUBMITTED YET</b>\n\n` +
-              `To cast your vote for a squad (e.g. <code>shultz3</code>), send a signed <code>sonnet.ballot.v1</code> into room <code>mb-sonnet-2-votes</code>.`;
-          }
-
-          await sendTelegramMessage(chatId, reply);
-          return res.status(200).json({ ok: true });
-        }
-
-        // Subcase 2: Check specific Team: /vote <team_name>
-        if (targetArg) {
-          const teamClean = targetArg.toLowerCase().replace(/^d-sonnet-2-team-/, '');
-          const teamStats = tallies[teamClean] || { total: 0, accepted: 0, rejected: 0, voters: [] };
-
-          const reqId = `ballot-${teamClean}-${Date.now()}`;
-          const sampleJson = JSON.stringify({
-            type: "sonnet.ballot.v1",
-            contest_id: "sonnet-2",
-            voter_did: "YOUR_REGISTERED_VOTER_DID",
-            entry_id: teamClean,
-            request_id: reqId
-          }, null, 2);
-
-          let reply = `<b>Ballot Telemetry: ${escapeHtml(teamClean)}</b>\n\n` +
-            `• Accepted Votes: <b>${teamStats.accepted}</b>\n` +
-            `• Total Ballots in Buffer: <b>${teamStats.total}</b>\n\n` +
-            `<b>Ready-to-Sign Ballot Payload:</b>\n` +
-            `<pre>${escapeHtml(sampleJson)}</pre>\n\n` +
-            `<b>How to Cast:</b>\n` +
-            `1. Sign with your verified <code>voter</code> private key.\n` +
-            `2. Dispatch to room: <code>mb-sonnet-2-votes</code>\n` +
-            `3. Qualify for a share of the <b>50,000 FLOP Voter Pool</b> when ${escapeHtml(teamClean)} wins!`;
-
-          await sendTelegramMessage(chatId, reply);
-          return res.status(200).json({ ok: true });
-        }
-
-        // Subcase 3: No arg -> Leaderboard & Overview
-        const sortedEntries = Object.entries(tallies)
-          .sort((a, b) => b[1].accepted - a[1].accepted);
-
-        let reply = `<b>Sonnet-2 Voter Pool Leaderboard</b>\n\n` +
-          `Voter Prize Pool: <b>50,000 FLOP</b>\n` +
-          `Active Ledger Room: <code>mb-sonnet-2-votes</code>\n` +
-          `Total Recent Ballots: <b>${totalBallots}</b> (${totalAccepted} accepted)\n\n` +
-          `<b>Top Voted Squads (Recent Window):</b>\n`;
-
-        if (sortedEntries.length > 0) {
-          sortedEntries.slice(0, 5).forEach(([entry, data], idx) => {
-            reply += `${idx + 1}. <b>${escapeHtml(entry)}</b>: <b>${data.accepted}</b> accepted votes (${data.total} total)\n`;
-          });
-        } else {
-          reply += `No ballots recorded in the current active window.\n`;
-        }
-
-        reply += `\n<b>Voter Rules:</b>\n` +
-          `• Only DIDs registered as <code>voter</code> can vote (writers & organizers cannot).\n` +
-          `• Voters share 50,000 FLOP if their backed squad wins the final judging.\n` +
-          `• You can change/replace your vote until deadline.\n\n` +
-          `<b>Commands:</b>\n` +
-          `• <code>/vote &lt;team&gt;</code> - View votes & get ballot JSON (e.g. <code>/vote shultz3</code>)\n` +
-          `• <code>/vote &lt;DID&gt;</code> - Check your ballot status & eligibility`;
-
-        await sendTelegramMessage(chatId, reply);
-        return res.status(200).json({ ok: true });
-      }
-
       // COMMAND: explain
       if (command === 'explain') {
         const query = args.join(' ').trim();
@@ -1087,7 +919,6 @@ export default async function handler(req, res) {
       // Clean default help
       const defaultHelp = `<b>FlopRadar - Community Tools</b>\n\n` +
         `Available commands:\n` +
-        `• <code>/vote [team|DID]</code> - 50,000 FLOP voter leaderboard & ballot generator\n` +
         `• <code>/word &lt;word&gt; &lt;DID&gt;</code> - Check word legality\n` +
         `• <code>/meter &lt;line&gt;</code> - Syllable counter (10 req)\n` +
         `• <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code> - Letter synergy check\n` +
