@@ -20,6 +20,7 @@ const nacl = globalThis.nacl;
 import { restoreKeypair, parseDidKey, signMessage } from './crypto.js';
 import { dispatchSignedMessage, fetchProtocol } from './transport.js';
 import { globalNonceManager } from './nonce.js';
+import { computeContractId, dealRoomName, stateNotePath, paperNotePath, ensureDidNotePublished } from './sniper.mjs';
 
 // Target Authorized Identity
 export const AUTHORIZED_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
@@ -293,20 +294,34 @@ async function processOffer(offer, keypair) {
 
   console.log(`   💡 Solved [${solution.type}]: "${solution.deliverable}"`);
 
-  // Build statement = 0x + sha256(deliverable)
-  const statement = '0x' + crypto.createHash('sha256').update(solution.deliverable, 'utf8').digest('hex');
+  // Mint 32-byte secret preimage & derive HTLC statement
+  const preimageBytes = crypto.randomBytes(32);
+  const secret = '0x' + preimageBytes.toString('hex');
+  const statement = '0x' + crypto.createHash('sha256').update(preimageBytes).digest('hex');
   const acceptNonce = crypto.randomBytes(8).toString('hex');
+
+  const acceptCore = {
+    from: keypair.did,
+    ref: offerId,
+    statement,
+    nonce: acceptNonce
+  };
+  const contract = computeContractId(offer, acceptCore);
+  const dealRoom = dealRoomName(contract);
+  const { ns: sNs, key: sKey } = stateNotePath(contract);
+  const { ns: pNs, key: pKey } = paperNotePath(contract);
 
   const acceptFrame = {
     type: 'accept',
     from: keypair.did,
     ref: offerId,
-    statement: statement,
+    statement,
+    contract,
     nonce: acceptNonce
   };
 
   const acceptText = `tclk1 ${JSON.stringify(acceptFrame)}`;
-  console.log(`   📤 Posting accept frame to tclk-offers...`);
+  console.log(`   📤 Posting canonical accept frame (contract: ${contract.slice(0, 18)}...)...`);
 
   try {
     const acceptRes = await dispatchSignedMessage(nacl, keypair, 'tclk-offers', acceptText);
@@ -314,62 +329,107 @@ async function processOffer(offer, keypair) {
       console.log(`   ❌ Accept failed (${acceptRes.status}): ${acceptRes.text?.slice(0, 100)}`);
       return;
     }
-    console.log(`   ✅ Accept posted successfully! Waiting for payer lock...`);
+    console.log(`   ✅ Accept posted successfully! Derived deal room: ${dealRoom}`);
   } catch (err) {
     console.error(`   ❌ Dispatch error: ${err.message}`);
     return;
   }
 
-  // Wait for lock frame in tclk-offers (up to 30 seconds)
+  // Deliver solution text to deal room
+  try {
+    await dispatchSignedMessage(nacl, keypair, dealRoom, solution.deliverable);
+    console.log(`   📬 Sent solution deliverable to deal room: ${dealRoom}`);
+  } catch (e) {}
+
+  // Wait for lock frame in deal room and public board (up to 30 seconds)
   const lockWaitDeadline = Date.now() + 30000;
-  let contractId = null;
+  let lockConfirmed = false;
+  let lockRailRef = contract;
 
   while (Date.now() < lockWaitDeadline) {
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 500));
     try {
-      const checkRes = await fetchProtocol('r/tclk-offers?format=json&limit=15');
-      if (checkRes.ok && checkRes.json?.messages) {
-        for (const msg of checkRes.json.messages) {
-          if (msg.text && msg.text.includes('"type":"lock"') && msg.text.includes(offerId)) {
+      const [drCheck, boardCheck, noteCheck] = await Promise.all([
+        fetchProtocol(`r/${dealRoom}?format=json&limit=10`).catch(() => null),
+        fetchProtocol('r/tclk-offers?format=json&limit=15').catch(() => null),
+        fetchProtocol(`kv/${sNs}/${sKey}`).catch(() => null)
+      ]);
+
+      if (noteCheck?.ok && noteCheck.text?.startsWith('locked')) {
+        lockConfirmed = true;
+        break;
+      }
+
+      if (drCheck?.ok && drCheck.json?.messages) {
+        for (const msg of drCheck.json.messages) {
+          if (msg.text && msg.text.includes('"type":"lock"') && msg.text.includes(contract)) {
             try {
               const parsed = JSON.parse(msg.text.replace(/^tclk1\s+/, ''));
-              contractId = parsed.contract || parsed.ref || offerId;
-              console.log(`   🔒 Lock detected from payer! Contract: ${contractId.slice(0, 18)}...`);
-              break;
-            } catch (e) {}
+              if (parsed.ref) lockRailRef = parsed.ref;
+            } catch {}
+            lockConfirmed = true;
+            break;
           }
         }
       }
-    } catch (e) {}
+      if (lockConfirmed) break;
 
-    if (contractId) break;
+      if (boardCheck?.ok && boardCheck.json?.messages) {
+        for (const msg of boardCheck.json.messages) {
+          if (msg.text && msg.text.includes('"type":"lock"') && msg.text.includes(contract)) {
+            try {
+              const parsed = JSON.parse(msg.text.replace(/^tclk1\s+/, ''));
+              if (parsed.ref) lockRailRef = parsed.ref;
+            } catch {}
+            lockConfirmed = true;
+            break;
+          }
+        }
+      }
+      if (lockConfirmed) break;
+    } catch (e) {}
   }
 
-  if (!contractId) {
+  if (!lockConfirmed) {
     console.log(`   ⏳ Payer did not lock within timeout (likely another bot won the race).`);
     return;
   }
 
+  console.log(`   🔒 Lock verified from payer! Fulfilling claim...`);
+
   // Deliver the secret (reveal)
-  console.log(`   🔓 Posting reveal frame with deliverable...`);
   const revealFrame = {
     type: 'reveal',
     from: keypair.did,
-    contract: contractId,
-    secret: solution.deliverable
+    contract,
+    secret
   };
   const revealText = `tclk1 ${JSON.stringify(revealFrame)}`;
 
   try {
-    const revealRes = await dispatchSignedMessage(nacl, keypair, 'tclk-offers', revealText);
-    console.log(`   🎉 Reveal posted! Result: ${revealRes.status}`);
+    await Promise.allSettled([
+      dispatchSignedMessage(nacl, keypair, 'tclk-offers', revealText),
+      dispatchSignedMessage(nacl, keypair, dealRoom, revealText)
+    ]);
+    console.log(`   🎉 Reveal posted to public board and deal room!`);
 
-    // If deal room specified, send delivery message there too
-    const dealRoom = `mb-p-tclk-${contractId.replace(/^0x/, '').slice(0, 16)}`;
-    try {
-      await dispatchSignedMessage(nacl, keypair, dealRoom, solution.deliverable);
-      console.log(`   📬 Sent delivery to deal room: ${dealRoom}`);
-    } catch (e) {}
+    // Receipt frame
+    const receiptFrame = {
+      type: 'receipt',
+      from: keypair.did,
+      contract,
+      outcome: 'claimed',
+      rail: 'paper',
+      ref: lockRailRef
+    };
+    const receiptText = `tclk1 ${JSON.stringify(receiptFrame)}`;
+    dispatchSignedMessage(nacl, keypair, 'tclk-offers', receiptText).catch(() => {});
+    dispatchSignedMessage(nacl, keypair, dealRoom, receiptText).catch(() => {});
+
+    // Update CAS state note
+    fetchProtocol(`kv/${sNs}/${sKey}/set/claimed`).catch(() => {});
+    fetchProtocol(`kv/${pNs}/${pKey}/set/${encodeURIComponent(JSON.stringify({ status: 'claimed', secret }))}`).catch(() => {});
+  } catch (e) {}
 
     // Update stats
     stats.solvedTasks++;

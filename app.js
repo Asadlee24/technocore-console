@@ -4658,20 +4658,45 @@ async function processBrowserBountyOffer(offer) {
 
   appendBountyLog(`Solved [${solution.type}]: <code>${escapeHtml(solution.deliverable)}</code>`, 'success');
 
-  const hash = await sha256Hex(solution.deliverable);
-  const statement = '0x' + hash;
+  // Mint 32-byte secret preimage & derive HTLC statement
+  const preimageBytes = new Uint8Array(32);
+  (window.crypto || crypto).getRandomValues(preimageBytes);
+  const secret = '0x' + Array.from(preimageBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  const statement = '0x' + await sha256Hex(preimageBytes);
   const nonce = Math.floor(Math.random() * 1e12).toString(16);
+
+  function canonicalJson(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+    const record = value;
+    return `{${Object.keys(record).sort().filter((k) => record[k] !== undefined).map((k) => `${JSON.stringify(k)}:${canonicalJson(record[k])}`).join(',')}}`;
+  }
+  function toAscii(json) {
+    return json.replace(/[\u0080-\uffff]/g, (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`);
+  }
+
+  const acceptCore = {
+    from: state.keypair.did,
+    ref: offerId,
+    statement,
+    nonce
+  };
+  const contract = '0x' + await sha256Hex(`FLOP::tclk::v1|contract|${toAscii(canonicalJson({ offer, accept: acceptCore }))}`);
+  const dealRoom = `mb-p-tclk-${contract.slice(2, 18)}`;
+  const sNs = `tclk-${contract.slice(2, 4)}`;
+  const sKey = contract.slice(4, 18);
 
   const acceptFrame = {
     type: 'accept',
     from: state.keypair.did,
     ref: offerId,
     statement,
+    contract,
     nonce
   };
   const acceptText = `tclk1 ${JSON.stringify(acceptFrame)}`;
 
-  appendBountyLog(`Posting signed accept to /r/tclk-offers...`, 'info');
+  appendBountyLog(`Posting canonical accept to /r/tclk-offers (contract: ${escapeHtml(contract.slice(0, 16))}...)...`, 'info');
   bountyStats.active++;
   if (el.bountyStatActive) el.bountyStatActive.textContent = String(bountyStats.active);
 
@@ -4683,7 +4708,7 @@ async function processBrowserBountyOffer(offer) {
       if (el.bountyStatActive) el.bountyStatActive.textContent = String(bountyStats.active);
       return;
     }
-    appendBountyLog(`Accept posted! Awaiting payer lock frame...`, 'info');
+    appendBountyLog(`Accept posted! Derived deal room: <code>${dealRoom}</code>. Sniping lock...`, 'info');
   } catch (err) {
     appendBountyLog(`Dispatch error: ${err.message}`, 'error');
     bountyStats.active = Math.max(0, bountyStats.active - 1);
@@ -4691,54 +4716,99 @@ async function processBrowserBountyOffer(offer) {
     return;
   }
 
+  // Deliver solution text to deal room immediately
+  try {
+    await dispatchSignedMessage(window.nacl || nacl, state.keypair, dealRoom, solution.deliverable);
+    appendBountyLog(`Delivered task solution to <code>${dealRoom}</code>`, 'info');
+  } catch {}
+
   const deadline = Date.now() + 25000;
-  let contractId = null;
+  let lockConfirmed = false;
+  let lockRailRef = contract;
 
   while (Date.now() < deadline && isBountyHunting) {
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 600));
     try {
-      const checkRes = await fetchProtocol('r/tclk-offers?format=json&limit=15');
-      if (checkRes.ok && checkRes.json?.messages) {
-        for (const msg of checkRes.json.messages) {
-          if (msg.text && msg.text.includes('"type":"lock"') && msg.text.includes(offerId)) {
+      const [drCheck, boardCheck, noteCheck] = await Promise.all([
+        fetchProtocol(`r/${dealRoom}?format=json&limit=10`).catch(() => null),
+        fetchProtocol('r/tclk-offers?format=json&limit=15').catch(() => null),
+        fetchProtocol(`kv/${sNs}/${sKey}`).catch(() => null)
+      ]);
+
+      if (noteCheck?.ok && noteCheck.text?.startsWith('locked')) {
+        lockConfirmed = true;
+        break;
+      }
+
+      if (drCheck?.ok && drCheck.json?.messages) {
+        for (const msg of drCheck.json.messages) {
+          if (msg.text && msg.text.includes('"type":"lock"') && msg.text.includes(contract)) {
             try {
               const parsed = JSON.parse(msg.text.replace(/^tclk1\s+/, ''));
-              contractId = parsed.contract || parsed.ref || offerId;
-              appendBountyLog(`Payer lock verified! Contract: ${escapeHtml(contractId.slice(0, 16))}...`, 'success');
-              break;
+              if (parsed.ref) lockRailRef = parsed.ref;
             } catch {}
+            lockConfirmed = true;
+            break;
           }
         }
       }
+      if (lockConfirmed) break;
+
+      if (boardCheck?.ok && boardCheck.json?.messages) {
+        for (const msg of boardCheck.json.messages) {
+          if (msg.text && msg.text.includes('"type":"lock"') && msg.text.includes(contract)) {
+            try {
+              const parsed = JSON.parse(msg.text.replace(/^tclk1\s+/, ''));
+              if (parsed.ref) lockRailRef = parsed.ref;
+            } catch {}
+            lockConfirmed = true;
+            break;
+          }
+        }
+      }
+      if (lockConfirmed) break;
     } catch {}
-    if (contractId) break;
   }
 
   bountyStats.active = Math.max(0, bountyStats.active - 1);
   if (el.bountyStatActive) el.bountyStatActive.textContent = String(bountyStats.active);
 
-  if (!contractId) {
-    appendBountyLog(`Payer lock timeout (another bot accepted first).`, 'warn');
+  if (!lockConfirmed) {
+    appendBountyLog(`Payer lock timeout (another bot locked first or timed out).`, 'warn');
     return;
   }
 
-  appendBountyLog(`Posting reveal frame to claim reward...`, 'info');
+  appendBountyLog(`🔒 Payer lock verified! Posting reveal & receipt...`, 'success');
   const revealFrame = {
     type: 'reveal',
     from: state.keypair.did,
-    contract: contractId,
-    secret: solution.deliverable
+    contract,
+    secret
   };
   const revealText = `tclk1 ${JSON.stringify(revealFrame)}`;
 
   try {
-    const revRes = await dispatchSignedMessage(window.nacl || nacl, state.keypair, 'tclk-offers', revealText);
-    appendBountyLog(`🎉 Reward Claimed! Delivery accepted.`, 'success');
+    await Promise.allSettled([
+      dispatchSignedMessage(window.nacl || nacl, state.keypair, 'tclk-offers', revealText),
+      dispatchSignedMessage(window.nacl || nacl, state.keypair, dealRoom, revealText)
+    ]);
 
-    const dealRoom = `mb-p-tclk-${contractId.replace(/^0x/, '').slice(0, 16)}`;
-    try {
-      await dispatchSignedMessage(window.nacl || nacl, state.keypair, dealRoom, solution.deliverable);
-    } catch {}
+    const receiptFrame = {
+      type: 'receipt',
+      from: state.keypair.did,
+      contract,
+      outcome: 'claimed',
+      rail: 'paper',
+      ref: lockRailRef
+    };
+    const receiptText = `tclk1 ${JSON.stringify(receiptFrame)}`;
+    dispatchSignedMessage(window.nacl || nacl, state.keypair, 'tclk-offers', receiptText).catch(() => {});
+    dispatchSignedMessage(window.nacl || nacl, state.keypair, dealRoom, receiptText).catch(() => {});
+
+    // Update CAS state note
+    fetchProtocol(`kv/${sNs}/${sKey}/set/claimed`).catch(() => {});
+
+    appendBountyLog(`🎉 Reward Claimed! +${amount} ${asset}`, 'success');
 
     bountyStats.solved++;
     if (asset === 'FLOP') {

@@ -1975,7 +1975,7 @@ test('formatRecruitMessage formats rich squad recruitment message with letters, 
 
 console.log('\n--- Section 15: Ultra-Fast Bounty Sniper Patterns & Solvers ---');
 
-import { fastSolve } from './sniper.mjs';
+import { fastSolve, computeContractId, canonicalJson, toAscii, dealRoomName, stateNotePath, paperNotePath } from './sniper.mjs';
 
 test('fastSolve solves OpenAPI did:key pattern challenge', () => {
   const res = fastSolve('From openapi.json: pattern that a did:key must match');
@@ -2034,6 +2034,58 @@ test('fastSolve solves single word challenges and trivia', () => {
   assert.strictEqual(fastSolve('Reply with one Indonesian word for afternoon'), 'sore');
   assert.strictEqual(fastSolve('Whether Paul McCartney died in 1966'), 'no');
   assert.strictEqual(fastSolve('Reply with the single word: lightning'), 'lightning');
+});
+
+test('fastSolve solves advanced math bounties (modPow, sumDivisors, nextPrime, collatz, modInverse)', () => {
+  // Modular Exponentiation
+  assert.strictEqual(fastSolve('Compute 140851910778^735271404147 mod 97264223513 (97264223513 is prime)'), '13368949656');
+  // Sum of divisors
+  assert.strictEqual(fastSolve('Compute σ(5227144), the sum of all positive divisors of 5227144'), '10555020');
+  // Smallest prime strictly greater than
+  assert.strictEqual(fastSolve('What is the smallest prime strictly greater than 661111630507?'), '661111630511');
+  // Collatz steps
+  assert.strictEqual(fastSolve('How many steps does the Collatz map (n→n/2 if even, n→3n+1 if odd) take from 27'), '111');
+  // Modular Inverse
+  assert.strictEqual(fastSolve('Find the modular inverse of 7244808 modulo 457611683'), '121183396');
+  // Indonesian animal & E2E encryption
+  assert.strictEqual(fastSolve('Reply with one Indonesian animal name, max 15 characters.'), 'kucing');
+  assert.strictEqual(fastSolve('From https://technocore.chat/patterns.md: What encryption algorithm is used for E2E-encrypted room?'), 'AESGCM');
+});
+
+test('canonicalJson and toAscii produce normative canonical JSON strings', () => {
+  const obj = { z: 1, a: 'hello\u2014world', b: undefined, c: [3, 2, 1] };
+  const can = canonicalJson(obj);
+  assert.strictEqual(can, '{"a":"hello—world","c":[3,2,1],"z":1}');
+  const asc = toAscii(can);
+  assert.strictEqual(asc, '{"a":"hello\\u2014world","c":[3,2,1],"z":1}');
+});
+
+test('computeContractId derives normative TCLK contract hash', () => {
+  const offer = {
+    amount: '100',
+    asset: 'FLOP',
+    claimByMs: 1789385760251,
+    expiresMs: 1789383960251,
+    from: 'did:key:z6MkvYoXPa8dJH8Zd3u5LHwZME4p9SXtYQK9b9VrUYBiHJdi',
+    id: '0xf419c33e8c6181ec302f470a571d8ef66ae334129b02b1f1e0f84fe92b1ae548',
+    lock: 'hash',
+    nonce: '986b7f9bbd96e047',
+    rails: ['flop-htlc', 'paper'],
+    refundAfterMs: 1789389360251,
+    role: 'payer',
+    type: 'offer'
+  };
+  const acceptCore = {
+    from: 'did:key:z6MkrNu5u77aEvZGVpU4y5ZVFTaVHvBm6Sj4dQMyqjv8UCQ8',
+    nonce: '161cb4896b1b1433',
+    ref: '0xf419c33e8c6181ec302f470a571d8ef66ae334129b02b1f1e0f84fe92b1ae548',
+    statement: '0x646d9b52d979ab1fe129cceb899f6b4bcc0f0972b445f70856eea9fd15dda0ef'
+  };
+  const cId = computeContractId(offer, acceptCore);
+  assert.strictEqual(cId, '0x2dfb4602f7e6dd0364dcf26e45f05813bf57fa4f9e9750d40df351f00267b67c');
+  assert.strictEqual(dealRoomName(cId), 'mb-p-tclk-2dfb4602f7e6dd03');
+  assert.deepStrictEqual(stateNotePath(cId), { ns: 'tclk-2d', key: 'fb4602f7e6dd03' });
+  assert.deepStrictEqual(paperNotePath(cId), { ns: 'tclk-paper-2d', key: 'fb4602f7e6dd03' });
 });
 
 console.log(`TEST RESULTS: ${passedTests} passed, ${failedTests} failed`);
