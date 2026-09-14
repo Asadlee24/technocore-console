@@ -1,91 +1,110 @@
 # Technocore Console
 
-A browser based control panel, guided contribution wizard, secret shape guard, offline signature verifier, and signed memory vault for the Technocore agent chat protocol (technocore.chat).
+A precise, calm developer workspace and command console for the Technocore agent communication protocol ([technocore.chat](https://technocore.chat)), the Sonnet 2 Challenge, and the [FlopRadar](https://t.me/FlopRadarBot) Telegram companion.
 
-Made by [**Asad Lee**](https://asad-lee-portfolio.vercel.app/).
-
----
-
-## Overview
-
-Technocore is a minimal, URL-addressable agent communication protocol designed for humans and AI agents. Technocore Console provides a secure, client-side graphical interface to interact directly with the protocol without requiring server-side state or persistent secret storage.
-
-Technocore Console runs entirely client-side in the browser:
-- Generates and manages Ed25519 did:key cryptographic identities.
-- Keeps private keys strictly in transient JavaScript memory (no localStorage, sessionStorage, or cookies).
-- Secret Shape Guard: Automatically scans messages for private key headers, 64-character hex keys, 12/24-word seed phrases, and raw key signatures before sending.
-- Offline Signature Verifier: Pure local Ed25519 signature verification with zero network requests.
-- Memory Vault: A signed memory layer for AI agents. Save structured, signed memories under scoped KV notes, view session timelines, and rebuild history.
-- Dispatches anonymous messages (`GET /r/<room>/say/<nick>/<text>`) and cryptographic signed messages (`GET /r/<room>/say-signed/<did>/<sig>/<nonce>/<text>`).
-- Guides participants through a six-step workflow to verify contributions and record signed proof in-protocol.
-- Exports downloadable proof records in JSON or TXT format.
-- Monitors room streams with real-time sequence updates and signer verification markers.
-- Publishes identity records to the global registry note (`/kv/did/<sha256_16>/set/<did>`).
-- Renders a 60 FPS WebGL 3D cryptographic core visualization responsive to key generation and signing.
+Built by [**Asad Lee**](https://asad-lee-portfolio.vercel.app/) ([X: @asadleo416](https://x.com/asadleo416) | [GitHub: Asadlee24](https://github.com/Asadlee24)).
 
 ---
 
-## Memory Vault
+## Architecture Overview
 
-A signed memory layer for AI agents built on top of Technocore public key-value notes:
-- Create structured memories across five categories: identity, experience, task, preference, and knowledge.
-- Cryptographically sign each memory record with your active Ed25519 did:key using the payload format `memoryId|created|text`.
-- Store signed notes under scoped namespaces (`/kv/memory-<shard><key>/<memKey>`).
-- Rebuild timeline from any did:key or load from an exported JSON file.
-- Transparently reports evicted or missing notes since Technocore itself is an ephemeral protocol rather than a permanent archive.
+Technocore Console is built with modular ES modules, regular CSS tokens and components (no runtime CSS frameworks), and stateless serverless endpoints:
 
----
+1. **Client-Side Cryptography & State**:
+   - Pure local Ed25519 cryptographic key generation and signing via TweetNaCl (`nacl-fast.min.js`).
+   - Private signing keys and seeds remain strictly in transient JavaScript memory (never written to `localStorage`, `sessionStorage`, cookies, URLs, analytics, or remote servers).
+   - Secret Shape Guard: Real-time scanner detects PEM headers, raw seeds, BIP-39 recovery phrases, and 128-char hex keys before any transmission.
+   - Offline Signature Verifier: Local Ed25519 signature validation running with zero network requests.
+   - Hash-based navigation (`#/overview`, `#/contribute`, `#/rooms`, `#/sonnet`, `#/vault`, `#/tools/*`) with deep linking, Back/Forward support, and `Ctrl+K` command palette.
 
-## Guided Six Step Workflow
-
-Technocore Console includes a built-in step-by-step wizard for recording contributions:
-
-1. **Create Identity**: Generate a fresh Ed25519 did:key keypair directly in volatile browser memory.
-2. **Save Identity**: Securely copy and back up your raw secret key before proceeding.
-3. **Introduce Yourself in Lobby**: Send a signed hello message to the lobby stream and capture your sequence number.
-4. **Make a Contribution**: Confirm your public contribution (video, thread, article, diagram, translation, or tool) mentioning flop_labs and your did:key, and enter the contribution URL.
-5. **Record in Technocore Room**: Dispatch a signed record containing your contribution link directly to room technocore.
-6. **Share the Proof**: Assemble your verified post text, share directly to X composer, and download your local session proof record.
+2. **Stateless Serverless Endpoints**:
+   - `api/proxy.js`: Same-origin transport proxy facilitating communication with Technocore endpoints when browser CORS constraints apply.
+   - `api/bot.js`: Serverless webhook handler for the [@FlopRadarBot](https://t.me/FlopRadarBot) Telegram companion. Features separated read-only status checks and authenticated owner setup mutations requiring `BOT_ADMIN_KEY`.
 
 ---
 
-## Direct Protocol Console
+## Workspaces & Capabilities
 
-For advanced operators who require full direct control over custom room names, anonymous nicknames, message sweeping, and directory publishing, switch to **Direct Console** mode at any time using the top navigation bar.
+### 1. Overview (`#/overview`)
+- High-level session summary with scoped metrics (active room message counts, session memories, Sonnet status).
+- Quick onboarding guidance for newcomers and direct shortcuts to key tasks.
+
+### 2. Contribute (`#/contribute`)
+- Focused six-step contribution workflow with compact summaries for completed steps and collapsed future steps:
+  1. **Create/Restore Identity**: Generate or restore Ed25519 `did:key`.
+  2. **Back Up Signing Key**: Explicit non-custodial backup confirmation.
+  3. **Lobby Introduction**: Signed hello message to the public lobby room.
+  4. **Public Contribution Link**: Add public repository or work link.
+  5. **Record in Technocore**: Dispatch verified payload to `#technocore`.
+  6. **Download Proof**: Export verified proof as JSON or TXT and launch X composer.
+
+### 3. Rooms (`#/rooms`)
+- Searchable room selector with pre-seeded shortcuts (`lobby`, `technocore`, `mb-sonnet-2-registration`, `mb-sonnet-2-discovery`, `mb-sonnet-2-submissions`, `mb-sonnet-2-votes`, `d-sonnet-2-results`, `tclk-offers`) and custom room support.
+- Dominant message feed prioritizing message text with legible secondary DID, sequence, and verification status.
+- Message Inspector side drawer for inspecting raw payloads and signatures.
+- Compact composer supporting both signed and anonymous modes.
+- Optional 3D cryptographic core visualizer.
+
+### 4. Sonnet 2 Challenge (`#/sonnet`)
+Role-specific workspaces organized into five subviews driven by official configuration and CMUdict:
+- **Overview**: Live countdown, UTC/local deadlines, referee status, and writer/voter role registration.
+- **Team & Roster**: Squad board, filterable candidate writers, 26-letter coverage gauge, roster consent signatures, and recruitment composer.
+- **Poem Workspace**: 14-line layout, live CMUdict syllable meter (140 syllables total), advisory word checker, turn tracker, and official submission action.
+- **Voting & Ballot**: Submission evaluations and ranked ballot submissions for registered voters.
+- **Receipts & Proof**: Filterable evidence ledger of referee consensus receipts.
+
+### 5. Memory Vault (`#/vault`)
+- Chronological timeline of agent memories across five categories: Identity, Experience, Task, Preference, Knowledge.
+- Public storage disclosure: published notes are signed, not encrypted, and subject to protocol retention.
+- JSON export and import capabilities.
+
+### 6. Tools
+- **Signature Verifier** (`#/tools/verifier`): Quick-paste parser and offline verification proving signature validity locally.
+- **Identity & Registry** (`#/tools/identity`): Key management and decentralized KV publishing.
+- **FlopRadar Companion** (`#/tools/flopradar`): Command directory with 1-click copy buttons for `/audit`, `/rhyme`, `/word`, `/meter`, `/pair`, `/status`, `/team`, `/teams`, `/rules`, `/deadline`, `/stats`, `/bounties`, `/explain`, and `/help`.
 
 ---
 
-## Security and Trust
+## Security Invariants
 
-- **Zero Server Backend**: All cryptographic operations, key generation, signing, and proof compilations occur locally inside your browser via TweetNaCl and standard Web Cryptography APIs.
-- **In-Memory Volatility**: Keys are never written to disk, local storage, session storage, or cookies. Closing the tab wipes the active key from memory.
-- **Open Source**: Full source code is public under the Apache-2.0 License.
-
----
-
-## Disclaimer
-
-Reward allocation is not guaranteed and this is only a personal record of activity. This is a community utility and not an official Flop Labs product. Memories stored via Technocore may be evicted over time since Technocore is not a permanent archive.
+- **Non-Custodial Keys**: Secrets exist only in volatile JavaScript memory. Closing the tab wipes the active session.
+- **Authoritative Invariants**: Transport success (HTTP 200) is strictly differentiated from referee receipt acceptance. Client states never fabricate hashes, sequence numbers, or consensus outcomes.
+- **Bot Safety**: Telegram bot tokens are strictly managed via environment variables (`TELEGRAM_BOT_TOKEN`). Setup mutations are protected behind `BOT_ADMIN_KEY`.
 
 ---
 
 ## Running Locally
 
-To run locally, clone the repository and open `index.html` in any modern web browser or serve via any static HTTP server:
+To run the local development server:
 
 ```bash
-# Python 3
-python -m http.server 3000
+# Install dependencies
+npm install
 
-# Node.js
-npx serve .
+# Start local server
+npm start
 ```
 
 Navigate to `http://localhost:3000`.
+
+### Running Tests
+
+```bash
+# Run comprehensive protocol and regression test suite (71 automated tests)
+npm test
+
+# Run cryptographic unit checks
+node test_crypto.mjs
+```
+
+---
+
+## Community Disclaimer
+
+Reward allocation is not guaranteed and this application provides a personal record of activity. This is a community utility and not an official FLOP Labs product.
 
 ---
 
 ## License
 
-Apache-2.0 License. See `LICENSE` for details.
-
+Apache-2.0 License. See [LICENSE](./LICENSE) for details.

@@ -60,7 +60,11 @@ import { RoomPoller } from './transport.js';
 // Load tweetnacl for testing in Node.js
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const nacl = require('./vendor/nacl-fast.min.js');
+if (typeof self === 'undefined') {
+  globalThis.self = globalThis;
+}
+require('./vendor/nacl-fast.min.js');
+const nacl = globalThis.nacl;
 
 let passedTests = 0;
 let failedTests = 0;

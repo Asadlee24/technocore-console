@@ -218,6 +218,28 @@ function cacheElements() {
     vaultView: document.getElementById('vault-view'),
     themeToggle: document.getElementById('theme-toggle'),
 
+    // Redesigned Shell & New Views
+    overviewView: document.getElementById('overview-view'),
+    toolsIdentityView: document.getElementById('tools-identity-view'),
+    toolsFlopradarView: document.getElementById('tools-flopradar-view'),
+    navOverviewBtn: document.getElementById('nav-overview-btn'),
+    navToolsIdentity: document.getElementById('nav-tools-identity'),
+    navToolsFlopradar: document.getElementById('nav-tools-flopradar'),
+    currentViewName: document.getElementById('current-view-name'),
+    currentViewDesc: document.getElementById('current-view-desc'),
+    globalIdentityBtn: document.getElementById('global-identity-btn'),
+    globalIdentityDidShort: document.getElementById('global-identity-did-short'),
+    overviewStatIdStatus: document.getElementById('overview-stat-id-status'),
+    overviewStatRoomMsgs: document.getElementById('overview-stat-room-msgs'),
+    overviewStatSonnet: document.getElementById('overview-stat-sonnet'),
+    overviewStatVault: document.getElementById('overview-stat-vault'),
+    mobileMenuBtn: document.getElementById('mobile-menu-btn'),
+    appSidebar: document.getElementById('app-sidebar'),
+    btnCmdPaletteTrigger: document.getElementById('btn-cmd-palette-trigger'),
+    commandPaletteModal: document.getElementById('command-palette-modal'),
+    commandSearchInput: document.getElementById('command-search-input'),
+    commandResultsList: document.getElementById('command-results-list'),
+
     // Wizard Header
     wizardProgressText: document.getElementById('wizard-progress-text'),
     wizardProgressBar: document.getElementById('wizard-progress-bar'),
@@ -472,17 +494,26 @@ function cacheElements() {
  * Initialize Theme
  */
 function initTheme() {
-  const savedTheme = 'dark';
+  let savedTheme = 'dark';
+  try {
+    const pref = localStorage.getItem('technocore_theme');
+    if (pref === 'light' || pref === 'dark') savedTheme = pref;
+  } catch {}
   document.documentElement.setAttribute('data-theme', savedTheme);
   document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+  document.documentElement.classList.toggle('light', savedTheme === 'light');
   state.theme = savedTheme;
   updateThemeButtonText();
 }
 
 function toggleTheme() {
   state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  try {
+    localStorage.setItem('technocore_theme', state.theme);
+  } catch {}
   document.documentElement.setAttribute('data-theme', state.theme);
   document.documentElement.classList.toggle('dark', state.theme === 'dark');
+  document.documentElement.classList.toggle('light', state.theme === 'light');
   updateThemeButtonText();
   if (visualizer) {
     visualizer.setTheme(state.theme);
@@ -492,6 +523,81 @@ function toggleTheme() {
 function updateThemeButtonText() {
   if (el.themeToggle) {
     el.themeToggle.textContent = state.theme === 'dark' ? 'Theme: Dark' : 'Theme: Light';
+  }
+}
+
+/**
+ * Toast Notification Helper
+ */
+window.showToast = function(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(8px)';
+    setTimeout(() => toast.remove(), 250);
+  }, 2800);
+};
+
+/**
+ * Sonnet Subview Switcher
+ */
+window.switchSonnetSubtab = function(subtab) {
+  const subtabs = ['overview', 'team', 'poem', 'voting', 'receipts'];
+  subtabs.forEach(t => {
+    const pane = document.getElementById('sonnet-subview-' + t);
+    const btn = document.getElementById('sonnet-subtab-' + t);
+    if (pane) pane.style.display = (t === subtab) ? 'block' : 'none';
+    if (btn) btn.classList.toggle('active', t === subtab);
+  });
+  if (window.location.hash.startsWith('#/sonnet')) {
+    window.location.hash = '#/sonnet/' + subtab;
+  }
+};
+
+/**
+ * Command Palette Controls
+ */
+window.openCommandPalette = function() {
+  const modal = document.getElementById('command-palette-modal');
+  if (!modal) return;
+  modal.classList.add('active');
+  const input = document.getElementById('command-search-input');
+  if (input) {
+    input.value = '';
+    input.focus();
+    const items = document.querySelectorAll('#command-results-list .command-item');
+    items.forEach(i => i.style.display = 'flex');
+  }
+};
+
+window.closeCommandPalette = function() {
+  const modal = document.getElementById('command-palette-modal');
+  if (modal) modal.classList.remove('active');
+};
+
+/**
+ * Update Overview Screen Scoped Metrics
+ */
+function updateOverviewStats() {
+  if (el.overviewStatIdStatus) {
+    el.overviewStatIdStatus.textContent = state.keypair ? (state.keypair.did.slice(0, 16) + '...') : 'No Keypair';
+  }
+  if (el.overviewStatRoomMsgs) {
+    el.overviewStatRoomMsgs.textContent = String(state.messages ? state.messages.length : 0);
+  }
+  if (el.overviewStatSonnet) {
+    el.overviewStatSonnet.textContent = state.sonnet && state.sonnet.role ? (state.sonnet.role.toUpperCase() + (state.sonnet.verified ? ' (Verified)' : '')) : 'Writer / Voter';
+  }
+  if (el.overviewStatVault) {
+    el.overviewStatVault.textContent = String(state.vaultMemories ? state.vaultMemories.length : 0);
+  }
+  if (el.globalIdentityDidShort) {
+    el.globalIdentityDidShort.textContent = state.keypair ? (state.keypair.did.slice(0, 16) + '...' + state.keypair.did.slice(-4)) : 'No Identity';
   }
 }
 
@@ -508,33 +614,83 @@ function initVisualizer() {
 }
 
 /**
- * Switch Navigation View
+ * Switch Navigation View (Enhanced for Redesigned Shell & Hash Router)
  */
 function setView(viewName) {
   state.activeView = viewName;
 
-  el.tabWizardMode.classList.toggle('active', viewName === 'wizard');
-  el.tabWizardMode.setAttribute('aria-selected', String(viewName === 'wizard'));
+  // Header Title and Description Metadata
+  const viewMeta = {
+    overview: { title: 'Overview', desc: 'Your Technocore workspace summary and next action' },
+    wizard: { title: 'Contribute', desc: 'Six-step verified contribution pipeline' },
+    direct: { title: 'Rooms', desc: 'Live room monitor and signed message composer' },
+    sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts' },
+    vault: { title: 'Memory Vault', desc: 'Decentralized timeline and public signed notes' },
+    verifier: { title: 'Signature Verifier', desc: 'Pure offline Ed25519 signature verification' },
+    'tools-identity': { title: 'Identity & Registry', desc: 'Key management and decentralized KV publishing' },
+    'tools-flopradar': { title: 'FlopRadar Companion', desc: 'Telegram bot telemetry and pre-submission audit' }
+  };
 
-  el.tabDirectMode.classList.toggle('active', viewName === 'direct');
-  el.tabDirectMode.setAttribute('aria-selected', String(viewName === 'direct'));
+  if (el.currentViewName && viewMeta[viewName]) {
+    el.currentViewName.textContent = viewMeta[viewName].title;
+  }
+  if (el.currentViewDesc && viewMeta[viewName]) {
+    el.currentViewDesc.textContent = viewMeta[viewName].desc;
+  }
 
+  // Sidebar Navigation Active States
+  if (el.navOverviewBtn) el.navOverviewBtn.classList.toggle('active', viewName === 'overview');
+  if (el.tabWizardMode) {
+    el.tabWizardMode.classList.toggle('active', viewName === 'wizard');
+    el.tabWizardMode.setAttribute('aria-selected', String(viewName === 'wizard'));
+  }
+  if (el.tabDirectMode) {
+    el.tabDirectMode.classList.toggle('active', viewName === 'direct');
+    el.tabDirectMode.setAttribute('aria-selected', String(viewName === 'direct'));
+  }
   if (el.tabSonnetMode) {
     el.tabSonnetMode.classList.toggle('active', viewName === 'sonnet');
     el.tabSonnetMode.setAttribute('aria-selected', String(viewName === 'sonnet'));
   }
+  if (el.tabVerifierMode) {
+    el.tabVerifierMode.classList.toggle('active', viewName === 'verifier');
+    el.tabVerifierMode.setAttribute('aria-selected', String(viewName === 'verifier'));
+  }
+  if (el.tabVaultMode) {
+    el.tabVaultMode.classList.toggle('active', viewName === 'vault');
+    el.tabVaultMode.setAttribute('aria-selected', String(viewName === 'vault'));
+  }
+  if (el.navToolsIdentity) el.navToolsIdentity.classList.toggle('active', viewName === 'tools-identity');
+  if (el.navToolsFlopradar) el.navToolsFlopradar.classList.toggle('active', viewName === 'tools-flopradar');
 
-  el.tabVerifierMode.classList.toggle('active', viewName === 'verifier');
-  el.tabVerifierMode.setAttribute('aria-selected', String(viewName === 'verifier'));
-
-  el.tabVaultMode.classList.toggle('active', viewName === 'vault');
-  el.tabVaultMode.setAttribute('aria-selected', String(viewName === 'vault'));
-
-  el.wizardView.classList.toggle('hidden', viewName !== 'wizard');
-  el.directView.classList.toggle('hidden', viewName !== 'direct');
+  // Toggle View Containers
+  if (el.overviewView) el.overviewView.classList.toggle('hidden', viewName !== 'overview');
+  if (el.wizardView) el.wizardView.classList.toggle('hidden', viewName !== 'wizard');
+  if (el.directView) el.directView.classList.toggle('hidden', viewName !== 'direct');
   if (el.sonnetView) el.sonnetView.classList.toggle('hidden', viewName !== 'sonnet');
-  el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
-  el.vaultView.classList.toggle('hidden', viewName !== 'vault');
+  if (el.verifierView) el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
+  if (el.vaultView) el.vaultView.classList.toggle('hidden', viewName !== 'vault');
+  if (el.toolsIdentityView) el.toolsIdentityView.classList.toggle('hidden', viewName !== 'tools-identity');
+  if (el.toolsFlopradarView) el.toolsFlopradarView.classList.toggle('hidden', viewName !== 'tools-flopradar');
+
+  // Sync URL hash
+  const hashMapping = {
+    overview: '#/overview',
+    wizard: '#/contribute',
+    direct: '#/rooms',
+    sonnet: '#/sonnet',
+    vault: '#/vault',
+    verifier: '#/tools/verifier',
+    'tools-identity': '#/tools/identity',
+    'tools-flopradar': '#/tools/flopradar'
+  };
+  const targetHash = hashMapping[viewName];
+  if (targetHash && !window.location.hash.startsWith(targetHash)) {
+    window.location.hash = targetHash;
+  }
+
+  // Update Overview stats
+  updateOverviewStats();
 
   if (viewName === 'sonnet') {
     updateSonnetStateUI();
@@ -550,18 +706,148 @@ function setView(viewName) {
       setTimeout(() => visualizer.onResize(), 60);
     }
   }
+
+  // Close mobile sidebar if open
+  if (el.appSidebar && el.appSidebar.classList.contains('mobile-open')) {
+    el.appSidebar.classList.remove('mobile-open');
+  }
 }
 
 /**
  * Event Bindings
  */
 function bindEvents() {
-  // Navigation tabs
-  el.tabWizardMode.addEventListener('click', () => setView('wizard'));
-  el.tabDirectMode.addEventListener('click', () => setView('direct'));
-  if (el.tabSonnetMode) el.tabSonnetMode.addEventListener('click', () => setView('sonnet'));
-  el.tabVerifierMode.addEventListener('click', () => setView('verifier'));
-  el.tabVaultMode.addEventListener('click', () => setView('vault'));
+  // Navigation tabs & Sidebar Links
+  if (el.navOverviewBtn) {
+    el.navOverviewBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      setView('overview');
+    });
+  }
+  el.tabWizardMode.addEventListener('click', (e) => {
+    e.preventDefault();
+    setView('wizard');
+  });
+  el.tabDirectMode.addEventListener('click', (e) => {
+    e.preventDefault();
+    setView('direct');
+  });
+  if (el.tabSonnetMode) {
+    el.tabSonnetMode.addEventListener('click', (e) => {
+      e.preventDefault();
+      setView('sonnet');
+    });
+  }
+  el.tabVerifierMode.addEventListener('click', (e) => {
+    e.preventDefault();
+    setView('verifier');
+  });
+  el.tabVaultMode.addEventListener('click', (e) => {
+    e.preventDefault();
+    setView('vault');
+  });
+  if (el.navToolsIdentity) {
+    el.navToolsIdentity.addEventListener('click', (e) => {
+      e.preventDefault();
+      setView('tools-identity');
+    });
+  }
+  if (el.navToolsFlopradar) {
+    el.navToolsFlopradar.addEventListener('click', (e) => {
+      e.preventDefault();
+      setView('tools-flopradar');
+    });
+  }
+
+  // Mobile menu button
+  if (el.mobileMenuBtn && el.appSidebar) {
+    el.mobileMenuBtn.addEventListener('click', () => {
+      el.appSidebar.classList.toggle('mobile-open');
+    });
+  }
+
+  // Global identity button
+  if (el.globalIdentityBtn) {
+    el.globalIdentityBtn.addEventListener('click', () => {
+      if (state.keypair) {
+        copyToClipboard(state.keypair.did, 'DID copied to clipboard.');
+      } else {
+        setView('wizard');
+      }
+    });
+  }
+
+  // Command palette button & shortcuts
+  if (el.btnCmdPaletteTrigger) {
+    el.btnCmdPaletteTrigger.addEventListener('click', window.openCommandPalette);
+  }
+
+  if (el.commandSearchInput && el.commandResultsList) {
+    el.commandSearchInput.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      const items = el.commandResultsList.querySelectorAll('.command-item');
+      items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(q) ? 'flex' : 'none';
+      });
+    });
+  }
+
+  // Listen for Ctrl+K or Cmd+K or Esc
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      const modal = document.getElementById('command-palette-modal');
+      if (modal && modal.classList.contains('active')) {
+        window.closeCommandPalette();
+      } else {
+        window.openCommandPalette();
+      }
+    } else if (e.key === 'Escape') {
+      window.closeCommandPalette();
+    }
+  });
+
+  // Hash router
+  window.addEventListener('hashchange', () => {
+    const hash = window.location.hash.toLowerCase();
+    if (hash === '#/overview') setView('overview');
+    else if (hash === '#/contribute' || hash === '#/wizard') setView('wizard');
+    else if (hash === '#/rooms' || hash === '#/direct') setView('direct');
+    else if (hash.startsWith('#/sonnet')) {
+      setView('sonnet');
+      const parts = hash.split('/');
+      if (parts[2] && typeof window.switchSonnetSubtab === 'function') {
+        window.switchSonnetSubtab(parts[2]);
+      }
+    }
+    else if (hash === '#/vault') setView('vault');
+    else if (hash === '#/tools/verifier' || hash === '#/verifier') setView('verifier');
+    else if (hash === '#/tools/identity') setView('tools-identity');
+    else if (hash === '#/tools/flopradar') setView('tools-flopradar');
+  });
+
+  // Initial Route Check
+  if (window.location.hash) {
+    const initialHash = window.location.hash.toLowerCase();
+    if (initialHash === '#/overview') setView('overview');
+    else if (initialHash === '#/contribute' || initialHash === '#/wizard') setView('wizard');
+    else if (initialHash === '#/rooms' || initialHash === '#/direct') setView('direct');
+    else if (initialHash.startsWith('#/sonnet')) {
+      setView('sonnet');
+      const parts = initialHash.split('/');
+      if (parts[2] && typeof window.switchSonnetSubtab === 'function') {
+        window.switchSonnetSubtab(parts[2]);
+      }
+    }
+    else if (initialHash === '#/vault') setView('vault');
+    else if (initialHash === '#/tools/verifier' || initialHash === '#/verifier') setView('verifier');
+    else if (initialHash === '#/tools/identity') setView('tools-identity');
+    else if (initialHash === '#/tools/flopradar') setView('tools-flopradar');
+    else setView('overview');
+  } else {
+    setView('overview');
+  }
 
   // Theme toggle
   el.themeToggle.addEventListener('click', toggleTheme);
@@ -797,6 +1083,11 @@ function applyKeypairToUI(kp) {
   updateSonnetStateUI();
   updateUrlPreview();
   updatePublishPreview();
+
+  // Overview & Shell updates
+  updateOverviewStats();
+  const toolsDidInput = document.getElementById('tools-did-display');
+  if (toolsDidInput) toolsDidInput.value = kp.did;
 }
 
 /**
@@ -820,6 +1111,11 @@ function handleClearIdentity() {
   state.wizard.technocoreSent = false;
   state.wizard.technocoreSeq = null;
   state.wizard.technocoreTimestamp = null;
+
+  // Overview & Shell updates
+  updateOverviewStats();
+  const toolsDidInput = document.getElementById('tools-did-display');
+  if (toolsDidInput) toolsDidInput.value = '';
 
   // Direct console reset
   el.identityStatusText.textContent = 'Unset (anonymous mode)';

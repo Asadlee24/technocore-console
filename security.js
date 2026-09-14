@@ -96,7 +96,7 @@ const COMMON_BIP39_WORDS = new Set([
   'holiday', 'hollow', 'home', 'honey', 'hood', 'hope', 'horn', 'horror', 'horse', 'hospital',
   'host', 'hotel', 'hour', 'hover', 'hub', 'huge', 'human', 'humble', 'humor', 'hundred',
   'hungry', 'hunt', 'hurdle', 'hurry', 'hurt', 'husband', 'hybrid', 'ice', 'icon', 'idea',
-  'identify', 'idle', 'ignore', 'ill', 'illegal', 'illness', 'image', 'imitate', 'immense', 'immune',
+  'identify', 'idle', 'igloo', 'ignore', 'ill', 'illegal', 'illness', 'image', 'imitate', 'immense', 'immune',
   'impact', 'impose', 'improve', 'impulse', 'inch', 'include', 'income', 'increase', 'index', 'indicate',
   'indoor', 'industry', 'infant', 'inflict', 'inform', 'initial', 'inject', 'injury', 'inmate', 'inner',
   'innocent', 'input', 'inquiry', 'insane', 'insect', 'inside', 'inspire', 'install', 'intact', 'interest',

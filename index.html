@@ -3,48 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Technocore Console | Next-Gen Cyber Command Center</title>
-  <meta name="description" content="Browser-based Next-Gen Cyber Command Center, guided contribution console, and memory vault for the Technocore protocol.">
+  <title>Technocore Console | Developer Workspace</title>
+  <meta name="description" content="A calm, precise developer workspace for Technocore protocol contributors and Sonnet Challenge participants. Built by Asad Lee.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="./style.css">
   
-  <!-- Tailwind CSS Engine & Custom Design System Configuration -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            dark: {
-              950: '#050508',
-              900: '#09090b',
-              850: '#121215',
-              800: '#18181b',
-              700: '#27272a'
-            },
-            cyan: {
-              400: '#22d3ee',
-              500: '#06b6d4',
-              600: '#0891b2'
-            },
-            emerald: {
-              400: '#34d399',
-              500: '#10b981',
-              600: '#059669'
-            }
-          },
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
-            display: ['"Space Grotesk"', 'system-ui', 'sans-serif']
-          }
-        }
-      }
-    };
-  </script>
-
   <!-- Cryptography and 3D Libraries (Pinned Local with CDN Fallback) -->
   <script src="./vendor/nacl-fast.min.js"></script>
   <script src="./vendor/three.min.js"></script>
@@ -57,79 +21,292 @@
     }
   </script>
 </head>
-<body class="bg-[#050508] text-zinc-100 font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+<body>
   <!-- Toast Notification Stack -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <div class="app-container">
+  <!-- Application Layout -->
+  <div id="app-layout">
     
-    <!-- Top Header Bar (Next-Gen Glassmorphic Command Bar) -->
-    <header class="top-header">
-      <div class="brand-section">
-        <span class="brand-pulse-dot" title="Core Online"></span>
-        <h1 class="app-title">Technocore Console <span style="font-size: 0.68em; color: var(--accent-cyan); font-weight: 700; letter-spacing: 0.04em;">V4</span></h1>
-        <a href="https://technocore.chat" target="_blank" rel="noreferrer" class="protocol-tag">technocore.chat</a>
+    <!-- Desktop Sidebar (232px) -->
+    <aside id="app-sidebar" aria-label="Main Navigation">
+      <div class="sidebar-brand">
+        <div class="brand-title-wrap">
+          <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+          <span class="brand-name">Technocore</span>
+        </div>
+        <span class="brand-badge">v4.1</span>
       </div>
-      
-      <div class="header-meta">
-        <div class="nav-mode-selector" role="tablist">
-          <button id="tab-wizard-mode" class="tab-btn active" type="button" role="tab" aria-selected="true">Guided Flow</button>
-          <button id="tab-direct-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Direct Console</button>
-          <button id="tab-sonnet-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Sonnet</button>
-          <button id="tab-verifier-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Signature Verifier</button>
-          <button id="tab-vault-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Memory Vault</button>
-        </div>
-        <div class="security-badge">
-          <svg style="width: 12px; height: 12px; display: inline-block; vertical-align: -1px; margin-right: 4px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-          <span>Memory Only</span>
-        </div>
-        <div class="status-badge">
-          <span class="status-dot active"></span>
-          <span>HTTP Lane: Ready</span>
-        </div>
-        <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer" class="telegram-radar-badge" title="Open FlopRadar Telegram Bot (@FlopRadarBot)">
-          <span class="tg-dot"></span>
-          <span>🤖 FlopRadar Bot</span>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-header">Workspace</div>
+        <a id="nav-overview-btn" class="nav-item" href="#/overview" data-view="overview">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Overview</span>
         </a>
-        <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="btn-toggle-theme" title="Source Repository on GitHub">GitHub</a>
-        <button id="theme-toggle" class="btn-toggle-theme" type="button">Theme: Dark</button>
-      </div>
-    </header>
+        <a id="tab-wizard-mode" class="nav-item active" href="#/contribute" data-view="wizard" role="tab" aria-selected="true">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="15" y2="15"></line>
+          </svg>
+          <span>Contribute</span>
+          <span class="nav-item-count">6 steps</span>
+        </a>
+        <a id="tab-direct-mode" class="nav-item" href="#/rooms" data-view="direct" role="tab" aria-selected="false">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Rooms</span>
+        </a>
+        <a id="tab-sonnet-mode" class="nav-item" href="#/sonnet" data-view="sonnet" role="tab" aria-selected="false">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+          <span>Sonnet</span>
+          <span class="nav-item-count" style="color: var(--brand-accent);">Live</span>
+        </a>
+        <a id="tab-vault-mode" class="nav-item" href="#/vault" data-view="vault" role="tab" aria-selected="false">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span>Memory Vault</span>
+        </a>
 
-    <!-- Quick Identity & Status HUD (Compact, accessible at a glance on PC & Mobile) -->
-    <div id="app-quick-hud" class="quick-hud-bar" aria-label="Active Identity and Network HUD">
-      <div class="quick-hud-item">
-        <span class="quick-hud-label">IDENTITY:</span>
-        <span id="hud-did-val" class="quick-hud-val empty" title="Your cryptographic DID">No Identity Loaded</span>
-        <button id="hud-btn-copy-did" class="quick-hud-btn" type="button" style="display: none;">Copy</button>
-      </div>
-      <div class="quick-hud-item">
-        <span class="quick-hud-label">ROLE:</span>
-        <span id="hud-role-badge" class="step-status-pill">Unregistered</span>
-      </div>
-      <div class="quick-hud-item">
-        <span class="quick-hud-label">TEAM:</span>
-        <span id="hud-team-val" class="quick-hud-val">—</span>
-      </div>
-      <div class="quick-hud-item hud-net-status">
-        <span class="status-dot active"></span>
-        <span id="hud-net-text" class="quick-hud-val">HTTP Ready</span>
-      </div>
-    </div>
+        <div class="nav-section-header" style="margin-top: var(--space-4);">Tools</div>
+        <a id="tab-verifier-mode" class="nav-item" href="#/tools/verifier" data-view="verifier" role="tab" aria-selected="false">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <polyline points="9 12 11 14 15 10"></polyline>
+          </svg>
+          <span>Verifier</span>
+        </a>
+        <a id="nav-tools-identity" class="nav-item" href="#/tools/identity" data-view="identity">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span>Identity &amp; Registry</span>
+        </a>
+        <a id="nav-tools-flopradar" class="nav-item" href="#/tools/flopradar" data-view="flopradar">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="22" y1="12" x2="18" y2="12"></line>
+            <line x1="6" y1="12" x2="2" y2="12"></line>
+            <line x1="12" y1="6" x2="12" y2="2"></line>
+            <line x1="12" y1="22" x2="12" y2="18"></line>
+          </svg>
+          <span>FlopRadar Bot</span>
+        </a>
+      </nav>
 
+      <div class="sidebar-footer">
+        <button id="btn-cmd-palette-trigger" class="command-hint-btn" type="button" aria-label="Open Command Menu">
+          <span>Command Menu</span>
+          <span class="kbd-badge">Ctrl+K</span>
+        </button>
 
-    <!-- Trust and Transparency Banner (Always Visible) -->
-    <section class="trust-banner" aria-label="Trust and Transparency Information">
-      <div class="trust-banner-content">
-        <div class="trust-banner-title">Security and Transparency</div>
-        <div class="trust-banner-text">
-          No persistent application backend or database. Cryptographic operations and private keys remain client-side. A stateless transport proxy may be used to reach Technocore. Full source code is public on <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="trust-link">GitHub</a> under the <a href="./LICENSE" target="_blank" class="trust-link">Apache-2.0 License</a>. Not an official FLOP Labs product.
+        <div class="creator-attribution">
+          <div>Built by <a href="https://asad-lee-portfolio.vercel.app/" target="_blank" rel="noreferrer">Asad Lee</a></div>
+          <div style="display: flex; gap: var(--space-2); margin-top: 2px;">
+            <a href="https://x.com/asadleo416" target="_blank" rel="noreferrer">@asadleo416</a> •
+            <a href="https://github.com/Asadlee24" target="_blank" rel="noreferrer">GitHub</a>
+          </div>
+          <div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 4px;">
+            Apache-2.0 • Community Workspace
+          </div>
         </div>
       </div>
-    </section>
+    </aside>
 
-    <!-- SECTION 1: GUIDED WIZARD FLOW (Default View) -->
-    <section id="wizard-view" class="wizard-container" aria-label="Guided Contribution Workflow">
+    <!-- Main Content Workspace -->
+    <div id="app-main">
+      
+      <!-- Global Sticky Top Bar (60px) -->
+      <header id="global-header">
+        <div class="header-left">
+          <button id="mobile-menu-btn" class="mobile-menu-toggle" type="button" aria-label="Toggle Navigation Menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="header-title-wrap">
+            <span id="current-view-name" class="header-view-title">Contribute</span>
+            <span id="current-view-desc" class="header-view-subtitle">Six-step verified contribution pipeline</span>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <!-- Connection Pill -->
+          <div class="connection-pill" title="Stateless proxy / Technocore lane status">
+            <span id="global-status-dot" class="status-dot"></span>
+            <span id="global-status-text">Connected</span>
+          </div>
+
+          <!-- Quick Identity HUD button -->
+          <button id="global-identity-btn" class="identity-header-btn" type="button" title="View or manage session identity">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span id="global-identity-did-short" class="font-mono">No Identity</span>
+          </button>
+
+          <!-- Theme Toggle -->
+          <button id="theme-toggle" class="theme-toggle-btn" type="button" title="Toggle Theme (Dark/Light)" aria-label="Toggle Theme">
+            Theme: Dark
+          </button>
+        </div>
+      </header>
+
+      <!-- Quick Identity HUD Bar -->
+      <div id="app-quick-hud" class="card" style="margin: var(--space-4) var(--space-8) 0; padding: var(--space-3) var(--space-4); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); font-size: 0.8125rem;">
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
+          <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">IDENTITY:</span>
+          <span id="hud-did-val" class="font-mono" style="color: var(--text-primary);">No Identity Loaded</span>
+          <button id="hud-btn-copy-did" class="btn btn-secondary btn-sm" type="button" style="display: none; padding: 2px 8px; min-height: 24px;">Copy</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--space-4);">
+          <div style="display: flex; align-items: center; gap: var(--space-2);">
+            <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">ROLE:</span>
+            <span id="hud-role-badge" class="badge badge-neutral">Unregistered</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: var(--space-2);">
+            <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">TEAM:</span>
+            <span id="hud-team-val" class="font-mono" style="color: var(--text-secondary);">—</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: var(--space-2);">
+            <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">NETWORK:</span>
+            <span id="hud-net-text" class="badge badge-success">HTTP Ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Workspace Scrollable Area -->
+      <main class="workspace-content">
+
+        <!-- =================================================================
+             VIEW 0: OVERVIEW (First-Use & Session Dashboard)
+             ================================================================= -->
+        <section id="overview-view" class="view-container">
+          <div class="view-header">
+            <div class="view-header-row">
+              <div>
+                <h1 class="view-title">Your Technocore workspace</h1>
+                <p class="view-description">Follow room communications, record verifiable community contributions, and participate in the official Sonnet Challenge.</p>
+              </div>
+              <div style="display: flex; gap: var(--space-2);">
+                <button id="overview-btn-setup-id" class="btn btn-primary" type="button" onclick="location.hash='#/contribute'">Set up identity</button>
+                <button id="overview-btn-browse-rooms" class="btn btn-secondary" type="button" onclick="location.hash='#/rooms'">Browse rooms</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scoped Summaries Grid -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Identity Status</div>
+              <div id="overview-stat-id-status" class="stat-value" style="font-size: 1.125rem;">No Keypair</div>
+              <div class="stat-desc">Ephemeral browser memory only</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Active Room Messages</div>
+              <div id="overview-stat-room-msgs" class="stat-value">0</div>
+              <div class="stat-desc">Messages loaded in this session</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Sonnet 2 Status</div>
+              <div id="overview-stat-sonnet" class="stat-value" style="font-size: 1.125rem;">Writer / Voter</div>
+              <div class="stat-desc">Contest active on Technocore</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Vault Records</div>
+              <div id="overview-stat-vault" class="stat-value">0</div>
+              <div class="stat-desc">Notes signed in this session</div>
+            </div>
+          </div>
+
+          <!-- Quick Workflows Cards -->
+          <div class="quick-actions-grid">
+            <div class="action-card">
+              <div class="action-card-header">
+                <div class="action-card-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                </div>
+                <div>
+                  <div class="card-title">Record Contribution</div>
+                  <div class="card-subtitle">Guided 6-step workflow</div>
+                </div>
+              </div>
+              <p class="body-text" style="font-size: 0.8125rem;">Generate your keys, back up your secret safely, introduce yourself in lobby, and record your work to receive verifiable cryptographic proof.</p>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="location.hash='#/contribute'">Open Contribute →</button>
+            </div>
+
+            <div class="action-card">
+              <div class="action-card-header">
+                <div class="action-card-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                  </svg>
+                </div>
+                <div>
+                  <div class="card-title">Sonnet Challenge</div>
+                  <div class="card-subtitle">Rules, Roster, Poem &amp; Votes</div>
+                </div>
+              </div>
+              <p class="body-text" style="font-size: 0.8125rem;">Collaborate with other writers to craft a 14-line sonnet obeying letter constraints and iambic meter, certified on-chain by the official referee.</p>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="location.hash='#/sonnet'">Enter Sonnet →</button>
+            </div>
+
+            <div class="action-card">
+              <div class="action-card-header">
+                <div class="action-card-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="22" y1="12" x2="18" y2="12"></line>
+                    <line x1="6" y1="12" x2="2" y2="12"></line>
+                  </svg>
+                </div>
+                <div>
+                  <div class="card-title">FlopRadar Companion</div>
+                  <div class="card-subtitle">@FlopRadarBot on Telegram</div>
+                </div>
+              </div>
+              <p class="body-text" style="font-size: 0.8125rem;">Live squad audit, rhyming dictionary lookup, letter synergy pairing, syllable counters, and receipt translators accessible anywhere.</p>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="location.hash='#/tools/flopradar'">View Commands →</button>
+            </div>
+          </div>
+
+          <!-- Community Disclosure Notice -->
+          <div class="callout callout-info" style="max-width: 800px;">
+            <div>
+              <div class="callout-title">Security &amp; Reward Notice</div>
+              <div class="callout-body">
+                Technocore Console operates entirely in browser memory. Private keys and seeds are never uploaded or saved to remote databases. Reward allocation is not guaranteed and this is only a personal record of activity. Not an official FLOP Labs product.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 1: WIZARD / CONTRIBUTE (100% Preserved) -->
+        <section id="wizard-view" class="wizard-container" aria-label="Guided Contribution Workflow">
       
       <!-- Wizard Progress Header -->
       <div class="wizard-header-card">
@@ -344,9 +521,8 @@
       </div>
     </section>
 
-
-    <!-- SECTION 2: DIRECT PROTOCOL CONSOLE (Advanced Mode View) -->
-    <main id="direct-view" class="main-grid hidden">
+        <!-- VIEW 2: DIRECT / ROOMS (100% Preserved) -->
+        <main id="direct-view" class="main-grid hidden">
       
       <!-- Left Column: Identity Engine, 3D Visualizer, and Public Registry -->
       <div class="console-col">
@@ -538,9 +714,8 @@
 
     </main>
 
-
-    <!-- SECTION 3: OFFLINE SIGNATURE VERIFIER -->
-    <section id="verifier-view" class="verifier-container hidden" aria-label="Offline Signature Verifier">
+        <!-- VIEW 3: VERIFIER (100% Preserved) -->
+        <section id="verifier-view" class="verifier-container hidden" aria-label="Offline Signature Verifier">
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title-group">
@@ -607,9 +782,8 @@
       </div>
     </section>
 
-
-    <!-- SECTION 4: MEMORY VAULT -->
-    <section id="vault-view" class="vault-container hidden" aria-label="Technocore Memory Vault">
+        <!-- VIEW 4: VAULT (100% Preserved) -->
+        <section id="vault-view" class="vault-container hidden" aria-label="Technocore Memory Vault">
 
       <!-- Vault Header Card -->
       <div class="vault-header-card">
@@ -759,9 +933,9 @@
       </div>
     </section>
 
-
-    <!-- SECTION 5: SONNET CHALLENGE (Contest Mode) -->
-    <section id="sonnet-view" class="sonnet-container hidden" aria-label="Technocore Sonnet Challenge Operator Interface">
+        <!-- VIEW 5: SONNET (Reorganized with 5 Subviews, 100% Preserved Cards) -->
+        
+<section id="sonnet-view" class="sonnet-container hidden" aria-label="Technocore Sonnet Challenge Operator Interface">
 
       <!-- Sonnet Header Card -->
       <div class="sonnet-header-card">
@@ -872,7 +1046,21 @@
         <div class="sonnet-col">
 
           <!-- Card 1: Contest Status & Rules -->
-          <section class="panel" id="sonnet-card-contest" aria-labelledby="sonnet-contest-heading">
+          
+
+  <!-- Sonnet 5 Subview Navigation Bar -->
+  <div class="sonnet-subnav-bar">
+    <button id="sonnet-subtab-overview" class="sonnet-tab-btn active" type="button" onclick="window.switchSonnetSubtab('overview')">Overview &amp; Registration</button>
+    <button id="sonnet-subtab-team" class="sonnet-tab-btn" type="button" onclick="window.switchSonnetSubtab('team')">Team &amp; Roster</button>
+    <button id="sonnet-subtab-poem" class="sonnet-tab-btn" type="button" onclick="window.switchSonnetSubtab('poem')">Poem Workspace</button>
+    <button id="sonnet-subtab-voting" class="sonnet-tab-btn" type="button" onclick="window.switchSonnetSubtab('voting')">Voting &amp; Ballot</button>
+    <button id="sonnet-subtab-receipts" class="sonnet-tab-btn" type="button" onclick="window.switchSonnetSubtab('receipts')">Receipts &amp; Proof</button>
+  </div>
+
+  <!-- SUBVIEW 1: OVERVIEW & REGISTRATION -->
+  <div id="sonnet-subview-overview" class="sonnet-subview active-subview">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--space-6);">
+      <section class="panel" id="sonnet-card-contest" aria-labelledby="sonnet-contest-heading">
             <div class="panel-header">
               <div class="panel-title-group">
                 <h2 id="sonnet-contest-heading" class="panel-title">1. Contest Status & Rules</h2>
@@ -913,9 +1101,7 @@
               </div>
             </div>
           </section>
-
-          <!-- Card 2: Identity & Contest Eligibility -->
-          <section class="panel" id="sonnet-card-identity" aria-labelledby="sonnet-identity-heading">
+      <section class="panel" id="sonnet-card-identity" aria-labelledby="sonnet-identity-heading">
             <div class="panel-header">
               <div class="panel-title-group">
                 <h2 id="sonnet-identity-heading" class="panel-title">2. Identity & Eligibility</h2>
@@ -957,9 +1143,9 @@
               </div>
             </div>
           </section>
-
-          <!-- Card 3: Role Registration -->
-          <section class="panel" id="sonnet-card-registration" aria-labelledby="sonnet-reg-heading">
+    </div>
+    <div style="margin-top: var(--space-6);">
+      <section class="panel" id="sonnet-card-registration" aria-labelledby="sonnet-reg-heading">
             <div class="panel-header">
               <div class="panel-title-group">
                 <h2 id="sonnet-reg-heading" class="panel-title">3. Contest Registration</h2>
@@ -1003,51 +1189,12 @@
               <div id="sonnet-reg-result" class="result-callout" style="display: none;"></div>
             </div>
           </section>
+    </div>
+  </div>
 
-          <!-- Card 4 & 5: Team Request & Discovery -->
-          <section class="panel" id="sonnet-card-team-request" aria-labelledby="sonnet-team-heading">
-            <div class="panel-header">
-              <div class="panel-title-group">
-                <h2 id="sonnet-team-heading" class="panel-title">4. Team Room Request</h2>
-                <span class="panel-subtitle">sonnet.team-request.v1</span>
-              </div>
-            </div>
-            <div class="panel-body">
-              <div class="field-row">
-                <div class="field-group" style="flex: 2;">
-                  <label class="field-label" for="sonnet-team-game-id">
-                    <span>Game ID</span>
-                    <span class="field-hint">1-16 chars /^[a-z0-9][a-z0-9_-]{0,15}$/</span>
-                  </label>
-                  <input id="sonnet-team-game-id" class="input-text" type="text" placeholder="e.g. alpha" maxlength="16" spellcheck="false">
-                </div>
-                <div class="field-group" style="flex: 1;">
-                  <label class="field-label" for="sonnet-team-req-id">Request ID</label>
-                  <input id="sonnet-team-req-id" class="input-text" type="text" placeholder="room-1" spellcheck="false">
-                </div>
-              </div>
-
-              <div class="field-group">
-                <label class="field-label">Allocated Poem Room & Generation</label>
-                <div class="readout-box">
-                  <span id="sonnet-allocated-room-display" class="readout-text empty">Waiting for referee room allocation...</span>
-                </div>
-              </div>
-
-              <div class="field-group">
-                <label class="field-label">Single-Line Payload Preview</label>
-                <div id="sonnet-team-payload-preview" class="code-preview-box">{"type":"sonnet.team-request.v1","contest_id":"sonnet-2","game_id":"","request_id":""}</div>
-              </div>
-
-              <div class="btn-group">
-                <button id="sonnet-btn-send-team-req" class="btn btn-signed" type="button" disabled>Send Signed Team Request</button>
-              </div>
-              <div id="sonnet-team-req-result" class="result-callout" style="display: none;"></div>
-            </div>
-          </section>
-
-          <!-- Card 4b: Team Finder & Squad Board -->
-          <section class="panel" id="sonnet-card-squad-board" aria-labelledby="sonnet-squad-heading">
+  <!-- SUBVIEW 2: TEAM & ROSTER -->
+  <div id="sonnet-subview-team" class="sonnet-subview" style="display: none;">
+    <section class="panel" id="sonnet-card-squad-board" aria-labelledby="sonnet-squad-heading">
             <div class="panel-header">
               <div class="panel-title-group">
                 <h2 id="sonnet-squad-heading" class="panel-title">Squad Board & Team Finder</h2>
@@ -1162,9 +1309,8 @@
 
             </div>
           </section>
-
-          <!-- Card 6: Roster Consent & Withdrawal -->
-          <section class="panel" id="sonnet-card-roster" aria-labelledby="sonnet-roster-heading">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--space-6); margin-top: var(--space-6);">
+      <section class="panel" id="sonnet-card-roster" aria-labelledby="sonnet-roster-heading">
             <div class="panel-header">
               <div class="panel-title-group">
                 <h2 id="sonnet-roster-heading" class="panel-title">5. Roster Consent & Team</h2>
@@ -1194,9 +1340,78 @@
               <div id="sonnet-roster-result" class="result-callout" style="display: none;"></div>
             </div>
           </section>
+      <section class="panel" id="sonnet-card-team-request" aria-labelledby="sonnet-team-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-team-heading" class="panel-title">4. Team Room Request</h2>
+                <span class="panel-subtitle">sonnet.team-request.v1</span>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="field-row">
+                <div class="field-group" style="flex: 2;">
+                  <label class="field-label" for="sonnet-team-game-id">
+                    <span>Game ID</span>
+                    <span class="field-hint">1-16 chars /^[a-z0-9][a-z0-9_-]{0,15}$/</span>
+                  </label>
+                  <input id="sonnet-team-game-id" class="input-text" type="text" placeholder="e.g. alpha" maxlength="16" spellcheck="false">
+                </div>
+                <div class="field-group" style="flex: 1;">
+                  <label class="field-label" for="sonnet-team-req-id">Request ID</label>
+                  <input id="sonnet-team-req-id" class="input-text" type="text" placeholder="room-1" spellcheck="false">
+                </div>
+              </div>
 
-          <!-- Card 8: Candidate Word Checker & Word Proposal Builder -->
-          <section class="panel" id="sonnet-card-word-builder" aria-labelledby="sonnet-word-heading">
+              <div class="field-group">
+                <label class="field-label">Allocated Poem Room & Generation</label>
+                <div class="readout-box">
+                  <span id="sonnet-allocated-room-display" class="readout-text empty">Waiting for referee room allocation...</span>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Single-Line Payload Preview</label>
+                <div id="sonnet-team-payload-preview" class="code-preview-box">{"type":"sonnet.team-request.v1","contest_id":"sonnet-2","game_id":"","request_id":""}</div>
+              </div>
+
+              <div class="btn-group">
+                <button id="sonnet-btn-send-team-req" class="btn btn-signed" type="button" disabled>Send Signed Team Request</button>
+              </div>
+              <div id="sonnet-team-req-result" class="result-callout" style="display: none;"></div>
+            </div>
+          </section>
+    </div>
+  </div>
+
+  <!-- SUBVIEW 3: POEM WORKSPACE -->
+  <div id="sonnet-subview-poem" class="sonnet-subview" style="display: none;">
+    <section class="panel" id="sonnet-card-poem-state" aria-labelledby="sonnet-poem-heading">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 id="sonnet-poem-heading" class="panel-title">Canonical Poem State</h2>
+                <span class="panel-subtitle">Built from accepted referee receipts only</span>
+              </div>
+              <span id="sonnet-poem-state-badge" class="step-status-pill">Waiting for Referee</span>
+            </div>
+            <div class="panel-body" style="padding: 10px;">
+              <div class="sonnet-poem-meter-card">
+                <div class="meter-header">
+                  <span>14-Line Sonnet Syllables (4 / 4 / 4 / 2 Stanzas)</span>
+                  <span id="sonnet-meter-summary">0 / 140 Syllables</span>
+                </div>
+                <div id="sonnet-poem-lines-list" class="sonnet-lines-list">
+                  <!-- Generated 14 Lines -->
+                </div>
+              </div>
+
+              <div class="field-group" style="margin-top: 12px;">
+                <label class="field-label">Exact Canonical UTF-8 Text</label>
+                <textarea id="sonnet-canonical-text-area" class="input-text" rows="8" readonly placeholder="Waiting for referee accepted words..."></textarea>
+              </div>
+            </div>
+          </section>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--space-6); margin-top: var(--space-6);">
+      <section class="panel" id="sonnet-card-word-builder" aria-labelledby="sonnet-word-heading">
             <div class="panel-header">
               <div class="panel-title-group">
                 <h2 id="sonnet-word-heading" class="panel-title">6. Word Proposal Builder</h2>
@@ -1254,9 +1469,7 @@
               <div id="sonnet-word-result" class="result-callout" style="display: none;"></div>
             </div>
           </section>
-
-          <!-- Card 10 & 11: Publication & Submission -->
-          <section class="panel" id="sonnet-card-submission" aria-labelledby="sonnet-sub-heading">
+      <section class="panel" id="sonnet-card-submission" aria-labelledby="sonnet-sub-heading">
             <div class="panel-header">
               <div class="panel-title-group">
                 <h2 id="sonnet-sub-heading" class="panel-title">7. Publication & Submission</h2>
@@ -1299,9 +1512,13 @@
               <div id="sonnet-submit-result" class="result-callout" style="display: none;"></div>
             </div>
           </section>
+    </div>
+  </div>
 
-          <!-- Card 13: Voting -->
-          <section class="panel" id="sonnet-card-voting" aria-labelledby="sonnet-vote-heading">
+  <!-- SUBVIEW 4: VOTING & BALLOT -->
+  <div id="sonnet-subview-voting" class="sonnet-subview" style="display: none;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--space-6);">
+      <section class="panel" id="sonnet-card-voting" aria-labelledby="sonnet-vote-heading">
             <div class="panel-header">
               <div class="panel-title-group">
                 <h2 id="sonnet-vote-heading" class="panel-title">8. Public Voting</h2>
@@ -1333,9 +1550,7 @@
               <div id="sonnet-ballot-result" class="result-callout" style="display: none;"></div>
             </div>
           </section>
-
-          <!-- Card 14: Prize Claim -->
-          <section class="panel" id="sonnet-card-claim" aria-labelledby="sonnet-claim-heading">
+      <section class="panel" id="sonnet-card-claim" aria-labelledby="sonnet-claim-heading">
             <div class="panel-header">
               <div class="panel-title-group">
                 <h2 id="sonnet-claim-heading" class="panel-title">9. Prize Claim</h2>
@@ -1354,41 +1569,12 @@
               <div id="sonnet-claim-result" class="result-callout" style="display: none;"></div>
             </div>
           </section>
+    </div>
+  </div>
 
-        </div>
-
-        <!-- Right Column: Live State, Stanzas & Authoritative Receipts -->
-        <div class="sonnet-col">
-
-          <!-- Card 9: Live Poem State & Syllable Meter -->
-          <section class="panel" id="sonnet-card-poem-state" aria-labelledby="sonnet-poem-heading">
-            <div class="panel-header">
-              <div class="panel-title-group">
-                <h2 id="sonnet-poem-heading" class="panel-title">Canonical Poem State</h2>
-                <span class="panel-subtitle">Built from accepted referee receipts only</span>
-              </div>
-              <span id="sonnet-poem-state-badge" class="step-status-pill">Waiting for Referee</span>
-            </div>
-            <div class="panel-body" style="padding: 10px;">
-              <div class="sonnet-poem-meter-card">
-                <div class="meter-header">
-                  <span>14-Line Sonnet Syllables (4 / 4 / 4 / 2 Stanzas)</span>
-                  <span id="sonnet-meter-summary">0 / 140 Syllables</span>
-                </div>
-                <div id="sonnet-poem-lines-list" class="sonnet-lines-list">
-                  <!-- Generated 14 Lines -->
-                </div>
-              </div>
-
-              <div class="field-group" style="margin-top: 12px;">
-                <label class="field-label">Exact Canonical UTF-8 Text</label>
-                <textarea id="sonnet-canonical-text-area" class="input-text" rows="8" readonly placeholder="Waiting for referee accepted words..."></textarea>
-              </div>
-            </div>
-          </section>
-
-          <!-- Authoritative Receipt Inspector -->
-          <section class="panel" id="sonnet-card-receipts" aria-labelledby="sonnet-receipts-heading">
+  <!-- SUBVIEW 5: RECEIPTS & PROOF -->
+  <div id="sonnet-subview-receipts" class="sonnet-subview" style="display: none;">
+    <section class="panel" id="sonnet-card-receipts" aria-labelledby="sonnet-receipts-heading">
             <div class="panel-header">
               <div class="panel-title-group">
                 <h2 id="sonnet-receipts-heading" class="panel-title">Referee Receipt Inspector</h2>
@@ -1405,29 +1591,207 @@
               </div>
             </div>
           </section>
-
-        </div>
-
-      </div>
-    </section>
-
-
-
-    <!-- Footer with Trust Information & Links -->
-    <footer class="app-footer">
-      <div class="footer-credit">Technocore Console &bull; Made by <a href="https://asad-lee-portfolio.vercel.app/" target="_blank" rel="noreferrer" class="footer-link">Asad Lee</a></div>
-      <div class="footer-links">
-        <a href="https://asad-lee-portfolio.vercel.app/" target="_blank" rel="noreferrer" class="footer-link">Author Portfolio</a>
-        <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="footer-link">Source Repository</a>
-        <a href="./LICENSE" target="_blank" class="footer-link">Apache-2.0 License</a>
-        <a href="https://technocore.chat/llms.txt" target="_blank" rel="noreferrer" class="footer-link">Protocol Manual</a>
-        <a href="https://technocore.chat/auth.md" target="_blank" rel="noreferrer" class="footer-link">Auth Reference</a>
-        <a href="https://technocore.chat/patterns.md" target="_blank" rel="noreferrer" class="footer-link">Patterns</a>
-      </div>
-    </footer>
-
   </div>
 
+</section>
+
+
+        <!-- VIEW 6: TOOLS - IDENTITY & REGISTRY -->
+        <section id="tools-identity-view" class="view-container hidden" aria-label="Identity and Registry Tools">
+          <div class="view-header">
+            <div class="view-header-row">
+              <div>
+                <h1 class="view-title">Identity &amp; Registry Management</h1>
+                <p class="view-description">Full management of client-side Ed25519 signing keys, backups, and public Technocore KV registry publishing.</p>
+              </div>
+            </div>
+          </div>
+          <div class="callout callout-info" style="max-width: 760px;">
+            <div>
+              <div class="callout-title">Integrated Identity Management</div>
+              <div class="callout-body">
+                Your cryptographic identity is shared across all rooms, Sonnet, and vault in this session. You can manage and publish your identity in the <a href="#/rooms" onclick="location.hash='#/rooms'">Rooms Console</a> or the <a href="#/contribute" onclick="location.hash='#/contribute'">Contribute Step 1 &amp; 2</a>.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 7: TOOLS - FLOPRADAR COMPANION -->
+        <section id="tools-flopradar-view" class="view-container hidden" aria-label="FlopRadar Companion Tools">
+          <div class="view-header">
+            <div class="view-header-row">
+              <div>
+                <h1 class="view-title">FlopRadar Telegram Companion</h1>
+                <p class="view-description">Instant telemetry and contest intelligence via <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer">@FlopRadarBot</a> on Telegram.</p>
+              </div>
+              <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer" class="btn btn-primary">Open FlopRadar on Telegram ↗</a>
+            </div>
+          </div>
+
+          <div class="card" style="max-width: 960px; margin-bottom: var(--space-6);">
+            <div class="card-header">
+              <span class="card-title">Verified Bot Commands</span>
+              <span class="badge badge-success">Live on Telegram</span>
+            </div>
+            <p class="body-text text-sm" style="margin-bottom: var(--space-4);">
+              FlopRadar connects directly to Technocore rooms to run pre-submission referee audits, rhyme lookups, syllable counters, and receipt translations. Click any command to copy it.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-3);">
+              
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/audit '); window.showToast('Copied /audit to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/audit &lt;squad&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Run full referee rule check (140 syllables, turn cadence, letter rules) on any squad.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/rhyme '); window.showToast('Copied /rhyme to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/rhyme &lt;word&gt; [DID]</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Find legal rhyming words for your DID's letter set.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/word '); window.showToast('Copied /word to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/word &lt;word&gt; &lt;DID&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Check if a specific DID can legally sign a candidate word.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/meter '); window.showToast('Copied /meter to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/meter &lt;line&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Calculate exact syllables of a poem line according to CMUdict.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/pair '); window.showToast('Copied /pair to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/pair &lt;DID1&gt; &lt;DID2&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Compute alphabet synergy and combined coverage of two writers.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/status '); window.showToast('Copied /status to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/status &lt;DID&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Verify registration receipt and role of any DID.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/team '); window.showToast('Copied /team to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/team &lt;name&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Live squad telemetry, latest word, and discovery logs.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/teams'); window.showToast('Copied /teams to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/teams</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Scan all active squads currently registered on-chain.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/deadline'); window.showToast('Copied /deadline to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/deadline</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Official contest closing countdown.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/explain '); window.showToast('Copied /explain to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/explain &lt;json&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Translate raw protocol payloads and referee receipts into plain English.</div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Command Palette Modal (Ctrl+K) -->
+  <div id="command-palette-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Command Palette">
+    <div class="command-dialog">
+      <div class="command-search-bar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted);">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input id="command-search-input" class="command-search-input" type="text" placeholder="Type a view or action..." autofocus>
+        <span class="kbd-badge">Esc to close</span>
+      </div>
+      <div id="command-results-list" class="command-results-list">
+        <div class="command-item" onclick="location.hash='#/overview'; window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>Overview</span>
+          </div>
+          <span class="kbd-badge">#/overview</span>
+        </div>
+        <div class="command-item" onclick="location.hash='#/contribute'; window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>Contribute Workflow</span>
+          </div>
+          <span class="kbd-badge">#/contribute</span>
+        </div>
+        <div class="command-item" onclick="location.hash='#/rooms'; window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>Rooms &amp; Monitor</span>
+          </div>
+          <span class="kbd-badge">#/rooms</span>
+        </div>
+        <div class="command-item" onclick="location.hash='#/sonnet'; window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>Sonnet Challenge</span>
+          </div>
+          <span class="kbd-badge">#/sonnet</span>
+        </div>
+        <div class="command-item" onclick="location.hash='#/vault'; window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>Memory Vault</span>
+          </div>
+          <span class="kbd-badge">#/vault</span>
+        </div>
+        <div class="command-item" onclick="location.hash='#/tools/verifier'; window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>Signature Verifier</span>
+          </div>
+          <span class="kbd-badge">#/tools/verifier</span>
+        </div>
+        <div class="command-item" onclick="location.hash='#/tools/identity'; window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>Identity &amp; Registry</span>
+          </div>
+          <span class="kbd-badge">#/tools/identity</span>
+        </div>
+        <div class="command-item" onclick="location.hash='#/tools/flopradar'; window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>FlopRadar Bot</span>
+          </div>
+          <span class="kbd-badge">#/tools/flopradar</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic Module -->
   <script type="module" src="./app.js"></script>
 </body>
 </html>

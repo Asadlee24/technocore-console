@@ -7,8 +7,8 @@ import https from 'https';
  * Powered by Asad Lee (@asadleo416) | Technocore Console
  */
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
-const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+const TELEGRAM_API = BOT_TOKEN ? `https://api.telegram.org/bot${BOT_TOKEN}` : '';
 const FOOTER = '\n\nPowered by <a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> | <a href="https://technocore-console.vercel.app">Technocore Console</a>';
 
 const BOT_COMMANDS = [
@@ -443,8 +443,41 @@ export default async function handler(req, res) {
   const protocol = host.includes('localhost') ? 'http' : 'https';
   const webhookUrl = `${protocol}://${host}/api/bot`;
 
-  // SETUP / HEALTHCHECK (GET /api/bot)
+  // READ-ONLY STATUS OR AUTHENTICATED SETUP (GET /api/bot)
   if (req.method === 'GET') {
+    const isSetupRequested = req.query && req.query.setup === '1';
+
+    // Standard read-only health check (Safe, no mutations or Telegram API calls)
+    if (!isSetupRequested) {
+      return res.status(200).json({
+        ok: true,
+        service: 'FlopRadarBot',
+        status: 'online',
+        configured: Boolean(BOT_TOKEN),
+        commands: BOT_COMMANDS.map(c => c.command),
+        author: 'Asad Lee (@asadleo416)',
+        notice: 'Read-only status check. Setup mutations require authenticated owner action.'
+      });
+    }
+
+    // Authenticated setup mutation: only runs when explicitly requested with valid admin key
+    const adminKey = process.env.BOT_ADMIN_KEY;
+    const providedKey = (req.query && req.query.key) || (req.headers && req.headers['x-bot-admin-key']);
+
+    if (!adminKey || !providedKey || providedKey !== adminKey) {
+      return res.status(401).json({
+        ok: false,
+        error: 'Unauthorized. Executing bot webhook and command setup requires a valid BOT_ADMIN_KEY.'
+      });
+    }
+
+    if (!BOT_TOKEN) {
+      return res.status(500).json({
+        ok: false,
+        error: 'TELEGRAM_BOT_TOKEN is not configured in server environment.'
+      });
+    }
+
     try {
       // 1. Ensure webhook is set
       const hookRes = await fetch(`${TELEGRAM_API}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
