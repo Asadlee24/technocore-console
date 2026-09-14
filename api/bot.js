@@ -260,6 +260,39 @@ function canSignWord(word, did) {
   };
 }
 
+function solveTaskBot(context, spec = '') {
+  const full = `${context || ''}\n${spec || ''}`;
+  if (/exact pattern for a valid did:key identifier/i.test(full)) return '^did:key:z6Mk[1-9A-HJ-NP-Za-km-z]{44}$';
+  if (/maximum character length for a message in this protocol/i.test(full)) return '4096';
+  if (/What frame does the payee send after receiving an offer/i.test(full)) return 'accept';
+  if (/Nonce replay on the signed lane[\s\S]*Report the HTTP status of the second req/i.test(full)) return '400';
+  const single = full.match(/Reply with the single word:\s*([A-Za-z0-9_-]+)/i);
+  if (single) return single[1];
+
+  const rowRegex = /(\d+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*(\d+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*(\d\d:\d\d:\d\d)/g;
+  const rows = [];
+  let m;
+  while ((m = rowRegex.exec(full)) !== null) {
+    rows.push({ seq: parseInt(m[1], 10), payer: m[2], amount: parseInt(m[3], 10), asset: m[4], time: m[6] });
+  }
+  if (rows.length > 0) {
+    if (/even numbers[\s\S]*ascending order[\s\S]*comma-separated/i.test(full)) {
+      const ev = rows.filter(r => r.seq % 2 === 0).map(r => r.seq).sort((a,b) => a - b);
+      return ev.length ? ev.join(', ') : 'none';
+    }
+    if (/earliest time and the seq of the row with the latest time/i.test(full)) {
+      const sorted = [...rows].sort((a,b) => a.time.localeCompare(b.time) || a.seq - b.seq);
+      return `${sorted[0].seq} ${sorted[sorted.length-1].seq}`;
+    }
+    if (/3 rows with the largest amount[\s\S]*highest first/i.test(full)) {
+      const sorted = [...rows].sort((a,b) => b.amount - a.amount || a.seq - b.seq);
+      return sorted.slice(0, 3).map(r => r.seq).join(', ');
+    }
+  }
+  return null;
+}
+
+
 function countWordSyllables(word) {
   const w = (word || '').toLowerCase().replace(/[^a-z]/g, '');
   if (!w) return 0;
@@ -1239,18 +1272,39 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: bounties or bounty
-      if (command === 'bounties' || command === 'bounty') {
-        await sendTelegramMessage(chatId, `Scanning <code>tclk-offers</code> for bounties...`);
-        const offers = await fetchTechnocoreRoom('tclk-offers', 10);
+      // COMMAND: bounties or bounty or hunt
+      if (command === 'bounties' || command === 'bounty' || command === 'hunt') {
+        await sendTelegramMessage(chatId, `Scanning <code>tclk-offers</code> for active bounties...`);
+        const roomData = await fetchTechnocoreRoom('tclk-offers', 50);
 
-        let reply = `<b>Recent TCLK Bounties:</b>\n\n`;
-        if (offers.messages && offers.messages.length > 0) {
-          offers.messages.slice(-4).forEach(m => {
-            reply += `• Seq ${m.seq}: <i>${(m.text || '').slice(0, 100)}...</i>\n`;
-          });
+        const openOffers = [];
+        if (roomData.messages && Array.isArray(roomData.messages)) {
+          for (const m of roomData.messages) {
+            if (m.text && m.text.includes('"type":"offer"')) {
+              try {
+                const clean = m.text.replace(/^tclk1\s+/, '');
+                const parsed = JSON.parse(clean);
+                openOffers.push({ seq: m.seq, ...parsed });
+              } catch (e) {}
+            }
+          }
+        }
+
+        let reply = `<b>🎯 Live TCLK Bounties (${openOffers.length} Recent):</b>\n\n`;
+        if (openOffers.length > 0) {
+          for (const off of openOffers.slice(-3)) {
+            const amount = off.amount || '100';
+            const asset = off.asset || 'FLOP';
+            const context = off.job?.context || 'Micro-task';
+            const solution = solveTaskBot(context);
+
+            reply += `💰 <b>Reward: ${escapeHtml(amount)} ${escapeHtml(asset)}</b> (Seq ${off.seq})\n` +
+              `• <b>Task:</b> <i>${escapeHtml(context.slice(0, 130))}...</i>\n` +
+              (solution ? `• 💡 <b>Auto-Solved Answer:</b> <code>${escapeHtml(solution)}</code>\n\n` : `• <i>Complex task (requires manual /kv review)</i>\n\n`);
+          }
+          reply += `<i>Tip: Run Bounty Hunter in Console or accept directly on /r/tclk-offers.</i>`;
         } else {
-          reply += `No active offers in the buffer. Check room tclk-offers regularly.\n`;
+          reply += `No active offers found in the last buffer. Check room <code>tclk-offers</code> regularly.`;
         }
 
         await sendTelegramMessage(chatId, reply);

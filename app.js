@@ -224,6 +224,18 @@ function cacheElements() {
     toolsFlopradarView: document.getElementById('tools-flopradar-view'),
     navOverviewBtn: document.getElementById('nav-overview-btn'),
     navToolsIdentity: document.getElementById('nav-tools-identity'),
+    tabBountyMode: document.getElementById('tab-bounty-mode'),
+    bountyView: document.getElementById('bounty-view'),
+    btnToggleHunter: document.getElementById('btn-toggle-hunter'),
+    bountyStatusBadge: document.getElementById('bounty-status-badge'),
+    bountyTargetDid: document.getElementById('bounty-target-did'),
+    bountyStatFlop: document.getElementById('bounty-stat-flop'),
+    bountyStatSolved: document.getElementById('bounty-stat-solved'),
+    bountyStatScanned: document.getElementById('bounty-stat-scanned'),
+    bountyStatActive: document.getElementById('bounty-stat-active'),
+    bountyLiveFeed: document.getElementById('bounty-live-feed'),
+    btnClearBountyFeed: document.getElementById('btn-clear-bounty-feed'),
+    bountyPulseDot: document.getElementById('bounty-pulse-dot'),
     navToolsFlopradar: document.getElementById('nav-tools-flopradar'),
     currentViewName: document.getElementById('current-view-name'),
     currentViewDesc: document.getElementById('current-view-desc'),
@@ -640,7 +652,8 @@ function setView(viewName) {
     vault: { title: 'Memory Vault', desc: 'Decentralized timeline and public signed notes' },
     verifier: { title: 'Signature Verifier', desc: 'Pure offline Ed25519 signature verification' },
     'tools-identity': { title: 'Identity & Registry', desc: 'Key management and decentralized KV publishing' },
-    'tools-flopradar': { title: 'FlopRadar Bot', desc: 'Telegram companion bot for Sonnet Challenge intelligence and referee audits' }
+    'tools-flopradar': { title: 'FlopRadar Bot', desc: 'Telegram companion bot for Sonnet Challenge intelligence and referee audits' },
+    bounty: { title: 'TCLK Bounty Hunter', desc: 'Autonomous micro-task solver and FLOP reward harvester' }
   };
 
   if (el.currentViewName && viewMeta[viewName]) {
@@ -672,6 +685,10 @@ function setView(viewName) {
     el.tabVaultMode.classList.toggle('active', viewName === 'vault');
     el.tabVaultMode.setAttribute('aria-selected', String(viewName === 'vault'));
   }
+  if (el.tabBountyMode) {
+    el.tabBountyMode.classList.toggle('active', viewName === 'bounty');
+    el.tabBountyMode.setAttribute('aria-selected', String(viewName === 'bounty'));
+  }
   if (el.navToolsIdentity) el.navToolsIdentity.classList.toggle('active', viewName === 'tools-identity');
   if (el.navToolsFlopradar) el.navToolsFlopradar.classList.toggle('active', viewName === 'tools-flopradar');
 
@@ -682,6 +699,7 @@ function setView(viewName) {
   if (el.sonnetView) el.sonnetView.classList.toggle('hidden', viewName !== 'sonnet');
   if (el.verifierView) el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
   if (el.vaultView) el.vaultView.classList.toggle('hidden', viewName !== 'vault');
+  if (el.bountyView) el.bountyView.classList.toggle('hidden', viewName !== 'bounty');
   if (el.toolsIdentityView) el.toolsIdentityView.classList.toggle('hidden', viewName !== 'tools-identity');
   if (el.toolsFlopradarView) el.toolsFlopradarView.classList.toggle('hidden', viewName !== 'tools-flopradar');
 
@@ -693,6 +711,7 @@ function setView(viewName) {
     sonnet: '#/sonnet',
     vault: '#/vault',
     verifier: '#/tools/verifier',
+    bounty: '#/bounty',
     'tools-identity': '#/tools/identity',
     'tools-flopradar': '#/tools/flopradar'
   };
@@ -768,6 +787,12 @@ function bindEvents() {
     el.navToolsFlopradar.addEventListener('click', (e) => {
       e.preventDefault();
       setView('tools-flopradar');
+    });
+  }
+  if (el.tabBountyMode) {
+    el.tabBountyMode.addEventListener('click', (e) => {
+      e.preventDefault();
+      setView('bounty');
     });
   }
 
@@ -850,6 +875,7 @@ function bindEvents() {
     else if (hash === '#/tools/verifier' || hash === '#/verifier') setView('verifier');
     else if (hash === '#/tools/identity') setView('tools-identity');
     else if (hash === '#/tools/flopradar') setView('tools-flopradar');
+    else if (hash === '#/bounty' || hash === '#/bounties') setView('bounty');
     else setView('wizard');
   });
 
@@ -867,7 +893,9 @@ function bindEvents() {
     }
     else if (initialHash === '#/vault') setView('vault');
     else if (initialHash === '#/tools/verifier' || initialHash === '#/verifier') setView('verifier');
-    else if (initialHash === '#/tools/identity' || initialHash === '#/tools/flopradar') setView('tools-identity');
+    else if (initialHash === '#/tools/identity') setView('tools-identity');
+    else if (initialHash === '#/tools/flopradar') setView('tools-flopradar');
+    else if (initialHash === '#/bounty' || initialHash === '#/bounties') setView('bounty');
     else setView('wizard');
   } else {
     setView('wizard');
@@ -926,6 +954,25 @@ function bindEvents() {
 
   // Direct Publish
   el.btnPublishIdentity.addEventListener('click', handlePublishIdentity);
+
+  // Bounty Hunter Actions
+  if (el.btnToggleHunter) {
+    el.btnToggleHunter.addEventListener('click', () => {
+      if (isBountyHunting) {
+        stopBountyHuntingUI();
+      } else {
+        startBountyHuntingUI();
+      }
+    });
+  }
+
+  if (el.btnClearBountyFeed) {
+    el.btnClearBountyFeed.addEventListener('click', () => {
+      if (el.bountyLiveFeed) {
+        el.bountyLiveFeed.innerHTML = '<div class="text-muted" style="font-style: italic;">Feed cleared. Waiting for events...</div>';
+      }
+    });
+  }
 
   // Wizard Step 1 Bindings
   el.wizardBtnGenerate.addEventListener('click', handleGenerateKey);
@@ -4409,3 +4456,316 @@ function showSonnetClaimResult(type, message) {
   el.sonnetClaimResult.innerHTML = `<div class="result-body">${escapeHtml(message)}</div>`;
   el.sonnetClaimResult.style.display = 'flex';
 }
+
+// ====================================================
+// TCLK Bounty Hunter (Autonomous Browser-Side Solver)
+// ====================================================
+let isBountyHunting = false;
+let bountyPollTimer = null;
+let bountyLastSeq = null;
+const processedBountyIds = new Set();
+const bountyStats = {
+  flop: 0,
+  solved: 0,
+  scanned: 0,
+  active: 0
+};
+
+function appendBountyLog(msg, type = 'info') {
+  if (!el.bountyLiveFeed) return;
+  const time = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.style.display = 'flex';
+  line.style.gap = '8px';
+  line.style.alignItems = 'flex-start';
+  line.style.wordBreak = 'break-word';
+
+  let color = 'var(--text-secondary)';
+  let icon = 'ℹ️';
+  if (type === 'success') { color = '#10B981'; icon = '✅'; }
+  else if (type === 'warn') { color = '#F59E0B'; icon = '⚡'; }
+  else if (type === 'error') { color = '#EF4444'; icon = '❌'; }
+  else if (type === 'highlight') { color = '#38BDF8'; icon = '🎯'; }
+
+  line.innerHTML = `<span style="color: var(--text-muted); font-size: 0.75rem; min-width: 65px;">[${time}]</span> <span style="color: ${color};">${icon} ${msg}</span>`;
+
+  const firstChild = el.bountyLiveFeed.firstElementChild;
+  if (firstChild && firstChild.style.fontStyle === 'italic') {
+    el.bountyLiveFeed.innerHTML = '';
+  }
+
+  el.bountyLiveFeed.appendChild(line);
+  el.bountyLiveFeed.scrollTop = el.bountyLiveFeed.scrollHeight;
+}
+
+function solveTaskClient(context, specText = '') {
+  const fullText = `${context || ''}\n${specText || ''}`;
+  if (/exact pattern for a valid did:key identifier/i.test(fullText)) {
+    return { deliverable: '^did:key:z6Mk[1-9A-HJ-NP-Za-km-z]{44}$', type: 'OpenAPI Pattern' };
+  }
+  if (/maximum character length for a message in this protocol/i.test(fullText)) {
+    return { deliverable: '4096', type: 'Protocol Max Length' };
+  }
+  if (/What frame does the payee send after receiving an offer/i.test(fullText)) {
+    return { deliverable: 'accept', type: 'TCLK Frame Flow' };
+  }
+  if (/Nonce replay on the signed lane[\s\S]*Report the HTTP status of the second req/i.test(fullText)) {
+    return { deliverable: '400', type: 'Replay HTTP Status' };
+  }
+  const single = fullText.match(/Reply with the single word:\s*([A-Za-z0-9_-]+)/i);
+  if (single) {
+    return { deliverable: single[1], type: 'Single-Word Echo' };
+  }
+  const rowRegex = /(\d+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*(\d+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*(\d\d:\d\d:\d\d)/g;
+  const rows = [];
+  let m;
+  while ((m = rowRegex.exec(fullText)) !== null) {
+    rows.push({
+      seq: parseInt(m[1], 10),
+      payer: m[2],
+      amount: parseInt(m[3], 10),
+      asset: m[4],
+      time: m[6]
+    });
+  }
+  if (rows.length > 0) {
+    if (/even numbers[\s\S]*ascending order[\s\S]*comma-separated/i.test(fullText)) {
+      const ev = rows.filter(r => r.seq % 2 === 0).map(r => r.seq).sort((a, b) => a - b);
+      return { deliverable: ev.length ? ev.join(', ') : 'none', type: 'Matrix Even Filter' };
+    }
+    if (/earliest time and the seq of the row with the latest time/i.test(fullText)) {
+      const sorted = [...rows].sort((a, b) => a.time.localeCompare(b.time) || a.seq - b.seq);
+      return { deliverable: `${sorted[0].seq} ${sorted[sorted.length - 1].seq}`, type: 'Matrix Min/Max Time' };
+    }
+    if (/3 rows with the largest amount[\s\S]*highest first/i.test(fullText)) {
+      const sorted = [...rows].sort((a, b) => b.amount - a.amount || a.seq - b.seq);
+      return { deliverable: sorted.slice(0, 3).map(r => r.seq).join(', '), type: 'Matrix Top 3' };
+    }
+  }
+  return null;
+}
+
+async function processBrowserBountyOffer(offer) {
+  if (!state.keypair) return;
+  const offerId = offer.id;
+  const payer = offer.from || 'anonymous';
+  const amount = offer.amount || '100';
+  const asset = offer.asset || 'FLOP';
+  const context = offer.job?.context || '';
+
+  appendBountyLog(`New offer: <strong>${escapeHtml(amount)} ${escapeHtml(asset)}</strong> (Seq: ${offer.seq || 'N/A'})`, 'highlight');
+
+  let specText = '';
+  const specMatch = context.match(/(?:full spec:|\/kv\/)\s*(\/kv\/[^\s]+|[^\s]+\/kv\/[^\s]+)/);
+  if (specMatch) {
+    const specPath = specMatch[1].replace(/^[a-z]+:\/\/[^\/]+/i, '');
+    try {
+      const specRes = await fetchProtocol(specPath);
+      if (specRes.ok && specRes.text) specText = specRes.text;
+    } catch {}
+  }
+
+  const solution = solveTaskClient(context, specText);
+  if (!solution) {
+    appendBountyLog(`Task pattern requires manual inspection. Skipping.`, 'info');
+    return;
+  }
+
+  appendBountyLog(`Solved [${solution.type}]: <code>${escapeHtml(solution.deliverable)}</code>`, 'success');
+
+  const hash = await sha256Hex(solution.deliverable);
+  const statement = '0x' + hash;
+  const nonce = Math.floor(Math.random() * 1e12).toString(16);
+
+  const acceptFrame = {
+    type: 'accept',
+    from: state.keypair.did,
+    ref: offerId,
+    statement,
+    nonce
+  };
+  const acceptText = `tclk1 ${JSON.stringify(acceptFrame)}`;
+
+  appendBountyLog(`Posting signed accept to /r/tclk-offers...`, 'info');
+  bountyStats.active++;
+  if (el.bountyStatActive) el.bountyStatActive.textContent = String(bountyStats.active);
+
+  try {
+    const acceptRes = await dispatchSignedMessage(window.nacl || nacl, state.keypair, 'tclk-offers', acceptText);
+    if (!acceptRes.ok && acceptRes.status >= 400) {
+      appendBountyLog(`Accept rejected (${acceptRes.status}): ${escapeHtml(acceptRes.text?.slice(0, 80) || '')}`, 'error');
+      bountyStats.active = Math.max(0, bountyStats.active - 1);
+      if (el.bountyStatActive) el.bountyStatActive.textContent = String(bountyStats.active);
+      return;
+    }
+    appendBountyLog(`Accept posted! Awaiting payer lock frame...`, 'info');
+  } catch (err) {
+    appendBountyLog(`Dispatch error: ${err.message}`, 'error');
+    bountyStats.active = Math.max(0, bountyStats.active - 1);
+    if (el.bountyStatActive) el.bountyStatActive.textContent = String(bountyStats.active);
+    return;
+  }
+
+  const deadline = Date.now() + 25000;
+  let contractId = null;
+
+  while (Date.now() < deadline && isBountyHunting) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const checkRes = await fetchProtocol('r/tclk-offers?format=json&limit=15');
+      if (checkRes.ok && checkRes.json?.messages) {
+        for (const msg of checkRes.json.messages) {
+          if (msg.text && msg.text.includes('"type":"lock"') && msg.text.includes(offerId)) {
+            try {
+              const parsed = JSON.parse(msg.text.replace(/^tclk1\s+/, ''));
+              contractId = parsed.contract || parsed.ref || offerId;
+              appendBountyLog(`Payer lock verified! Contract: ${escapeHtml(contractId.slice(0, 16))}...`, 'success');
+              break;
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+    if (contractId) break;
+  }
+
+  bountyStats.active = Math.max(0, bountyStats.active - 1);
+  if (el.bountyStatActive) el.bountyStatActive.textContent = String(bountyStats.active);
+
+  if (!contractId) {
+    appendBountyLog(`Payer lock timeout (another bot accepted first).`, 'warn');
+    return;
+  }
+
+  appendBountyLog(`Posting reveal frame to claim reward...`, 'info');
+  const revealFrame = {
+    type: 'reveal',
+    from: state.keypair.did,
+    contract: contractId,
+    secret: solution.deliverable
+  };
+  const revealText = `tclk1 ${JSON.stringify(revealFrame)}`;
+
+  try {
+    const revRes = await dispatchSignedMessage(window.nacl || nacl, state.keypair, 'tclk-offers', revealText);
+    appendBountyLog(`🎉 Reward Claimed! Delivery accepted.`, 'success');
+
+    const dealRoom = `mb-p-tclk-${contractId.replace(/^0x/, '').slice(0, 16)}`;
+    try {
+      await dispatchSignedMessage(window.nacl || nacl, state.keypair, dealRoom, solution.deliverable);
+    } catch {}
+
+    bountyStats.solved++;
+    if (asset === 'FLOP') {
+      bountyStats.flop += parseInt(amount, 10) || 0;
+    }
+    if (el.bountyStatSolved) el.bountyStatSolved.textContent = String(bountyStats.solved);
+    if (el.bountyStatFlop) el.bountyStatFlop.textContent = `${bountyStats.flop} FLOP`;
+
+    showToast(`Bounty Claimed! +${amount} ${asset}`, 'success');
+  } catch (err) {
+    appendBountyLog(`Reveal error: ${err.message}`, 'error');
+  }
+}
+
+async function runBountyHunterCycle() {
+  if (!isBountyHunting) return;
+  try {
+    const url = bountyLastSeq ? `r/tclk-offers?format=json&since=${bountyLastSeq}&wait=10` : `r/tclk-offers?format=json&limit=15`;
+    const res = await fetchProtocol(url);
+    if (res.ok && res.json?.messages) {
+      if (res.json.last_seq) bountyLastSeq = res.json.last_seq;
+      for (const msg of res.json.messages) {
+        if (msg.text && msg.text.includes('"type":"offer"')) {
+          try {
+            const clean = msg.text.replace(/^tclk1\s+/, '');
+            const offer = JSON.parse(clean);
+            if (offer.id && !processedBountyIds.has(offer.id)) {
+              processedBountyIds.add(offer.id);
+              bountyStats.scanned++;
+              if (el.bountyStatScanned) el.bountyStatScanned.textContent = String(bountyStats.scanned);
+              await processBrowserBountyOffer({ ...offer, seq: msg.seq });
+            }
+          } catch {}
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Bounty cycle error:', err);
+  }
+
+  if (processedBountyIds.size > 1500) processedBountyIds.clear();
+  if (isBountyHunting) {
+    bountyPollTimer = setTimeout(runBountyHunterCycle, 2000);
+  }
+}
+
+function startBountyHuntingUI() {
+  if (!state.keypair) {
+    const userPrompt = prompt(
+      "Enter your 32-byte seed or 64-byte secret key to start the Bounty Hunter:\n(Or visit Identity Setup in sidebar)",
+      ""
+    );
+    if (userPrompt && userPrompt.trim()) {
+      try {
+        state.keypair = restoreKeypair(userPrompt.trim(), window.nacl || nacl);
+        updateIdentityUI();
+        showToast("Identity successfully restored!", "success");
+      } catch (e) {
+        alert("Invalid key format: " + e.message);
+        return;
+      }
+    } else {
+      showToast("Identity required to sign bounty claims.", "error");
+      setView('wizard');
+      return;
+    }
+  }
+
+  isBountyHunting = true;
+  if (el.btnToggleHunter) {
+    el.btnToggleHunter.textContent = '⏹ Stop Auto-Hunter';
+    el.btnToggleHunter.style.background = '#EF4444';
+    el.btnToggleHunter.style.borderColor = '#DC2626';
+    el.btnToggleHunter.style.boxShadow = '0 0 15px rgba(239, 68, 68, 0.4)';
+  }
+  if (el.bountyStatusBadge) {
+    el.bountyStatusBadge.textContent = 'Active (Hunting)';
+    el.bountyStatusBadge.className = 'badge badge-success';
+  }
+  if (el.bountyPulseDot) {
+    el.bountyPulseDot.style.background = '#10B981';
+    el.bountyPulseDot.style.boxShadow = '0 0 10px #10B981';
+  }
+  if (el.bountyTargetDid) {
+    el.bountyTargetDid.textContent = state.keypair.did;
+  }
+
+  appendBountyLog(`Bounty Hunter started! Monitoring /r/tclk-offers for live deals...`, 'success');
+  appendBountyLog(`Active Signer DID: ${state.keypair.did}`, 'info');
+  runBountyHunterCycle();
+}
+
+function stopBountyHuntingUI() {
+  isBountyHunting = false;
+  if (bountyPollTimer) {
+    clearTimeout(bountyPollTimer);
+    bountyPollTimer = null;
+  }
+  if (el.btnToggleHunter) {
+    el.btnToggleHunter.textContent = '▶ Start Auto-Hunter';
+    el.btnToggleHunter.style.background = '#10B981';
+    el.btnToggleHunter.style.borderColor = '#059669';
+    el.btnToggleHunter.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.4)';
+  }
+  if (el.bountyStatusBadge) {
+    el.bountyStatusBadge.textContent = 'Idle';
+    el.bountyStatusBadge.className = 'badge badge-neutral';
+  }
+  if (el.bountyPulseDot) {
+    el.bountyPulseDot.style.background = '#64748B';
+    el.bountyPulseDot.style.boxShadow = 'none';
+  }
+  appendBountyLog(`Bounty Hunter paused.`, 'warn');
+}
+

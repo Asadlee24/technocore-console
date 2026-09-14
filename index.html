@@ -76,6 +76,13 @@
           </svg>
           <span>Memory Vault</span>
         </a>
+        <a id="tab-bounty-mode" class="nav-item" href="#/bounty" data-view="bounty" role="tab" aria-selected="false">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span>Bounty Hunter</span>
+          <span class="nav-badge" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B; font-size: 0.625rem; padding: 1px 6px; border-radius: 9999px;">FLOP</span>
+        </a>
 
         <div class="nav-section-header" style="margin-top: var(--space-4);">Tools</div>
         <a id="tab-verifier-mode" class="nav-item" href="#/tools/verifier" data-view="verifier" role="tab" aria-selected="false">
@@ -1544,6 +1551,79 @@
                 <div class="text-xs text-secondary" style="margin-top: 4px;">Translate raw protocol payloads and referee receipts into plain English.</div>
               </div>
 
+            </div>
+          </div>
+        </section>
+ 
+        <!-- VIEW 8: BOUNTY HUNTER (AUTONOMOUS TCLK SOLVER) -->
+        <section id="bounty-view" class="view-container hidden" aria-label="Automated Bounty Hunter">
+          <div class="view-header">
+            <div class="view-header-row">
+              <div>
+                <h1 class="view-title">⚡ TCLK Bounty Hunter</h1>
+                <p class="view-description">Autonomous micro-task solver and FLOP reward harvester for Technocore. Runs 100% in your browser on Vercel without terminal commands.</p>
+              </div>
+              <div style="display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
+                <button id="btn-toggle-hunter" class="btn btn-primary" type="button" style="min-width: 170px; background: #10B981; border-color: #059669; font-weight: 700; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);">
+                  ▶ Start Auto-Hunter
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status & Target DID Card -->
+          <div class="card" style="margin-bottom: var(--space-4); border-color: var(--border-focus); background: var(--surface-main);">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3);">
+              <div style="display: flex; align-items: center; gap: var(--space-3);">
+                <div id="bounty-status-icon" style="width: 40px; height: 40px; border-radius: 50%; background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">⚡</div>
+                <div>
+                  <div style="display: flex; align-items: center; gap: var(--space-2);">
+                    <span style="font-weight: 700; color: var(--text-primary); font-size: 1rem;">Autonomous Solver Engine</span>
+                    <span id="bounty-status-badge" class="badge badge-neutral">Idle</span>
+                  </div>
+                  <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 2px;">
+                    Receiver DID: <span id="bounty-target-did" class="font-mono text-xs" style="color: var(--brand-accent);">did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4 (Asad Lee)</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--space-3); font-size: 0.8125rem;">
+                <span class="text-secondary">Venue: <code>/r/tclk-offers</code></span>
+                <span class="text-secondary">Rail: <code>paper</code></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats Grid -->
+          <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4);">
+            <div class="card" style="padding: var(--space-3);">
+              <div class="text-xs text-muted" style="text-transform: uppercase; font-weight: 600;">Total FLOP Earned</div>
+              <div id="bounty-stat-flop" class="font-mono" style="font-size: 1.5rem; font-weight: 800; color: #10B981; margin-top: 4px;">0 FLOP</div>
+            </div>
+            <div class="card" style="padding: var(--space-3);">
+              <div class="text-xs text-muted" style="text-transform: uppercase; font-weight: 600;">Bounties Solved</div>
+              <div id="bounty-stat-solved" class="font-mono" style="font-size: 1.5rem; font-weight: 800; color: var(--brand-accent); margin-top: 4px;">0</div>
+            </div>
+            <div class="card" style="padding: var(--space-3);">
+              <div class="text-xs text-muted" style="text-transform: uppercase; font-weight: 600;">Offers Scanned</div>
+              <div id="bounty-stat-scanned" class="font-mono" style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">0</div>
+            </div>
+            <div class="card" style="padding: var(--space-3);">
+              <div class="text-xs text-muted" style="text-transform: uppercase; font-weight: 600;">Active Deals Locked</div>
+              <div id="bounty-stat-active" class="font-mono" style="font-size: 1.5rem; font-weight: 800; color: #F59E0B; margin-top: 4px;">0</div>
+            </div>
+          </div>
+
+          <!-- Live Activity Feed & Stream Terminal -->
+          <div class="card" style="margin-bottom: var(--space-4);">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; align-items: center; gap: var(--space-2);">
+                <span class="card-title">Live Bounty Hunter Telemetry</span>
+                <span id="bounty-pulse-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #64748B;"></span>
+              </div>
+              <button id="btn-clear-bounty-feed" class="btn btn-secondary btn-sm" type="button">Clear Feed</button>
+            </div>
+            <div id="bounty-live-feed" style="max-height: 420px; overflow-y: auto; font-family: var(--font-mono); font-size: 0.8125rem; background: rgba(0,0,0,0.3); border-radius: 8px; padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">
+              <div class="text-muted" style="font-style: italic;">Press "▶ Start Auto-Hunter" above to begin scanning and auto-solving /r/tclk-offers bounties in real time...</div>
             </div>
           </div>
         </section>
