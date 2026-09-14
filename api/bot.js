@@ -1,3 +1,5 @@
+import https from 'https';
+
 /**
  * FlopRadar Telegram Bot (@FlopRadarBot)
  * Vercel Serverless Webhook Handler
@@ -7,7 +9,7 @@
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
-const FOOTER = '\n\nPowered by Asad Lee (@asadleo416) | Technocore Console: https://technocore-console.vercel.app';
+const FOOTER = '\n\nPowered by <a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> | <a href="https://technocore-console.vercel.app">Technocore Console</a>';
 
 const BOT_COMMANDS = [
   { command: 'vote', description: '50,000 FLOP Voter Pool & ballot tracking' },
@@ -27,7 +29,7 @@ const BOT_COMMANDS = [
 ];
 
 const KNOWN_DIDS = {
-  'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': 'Asad Lee (@asadleo416, Leader)',
+  'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': '<a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> (Leader)',
   'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh': 'SmartecVitalik (@Smartecio)',
   'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9': 'Aika Kurashi (@aika_kurashi)',
   'did:key:z6MkmGwVm4qswSyN1aDm8NRiabEzKzm5pcjqJqZ4nQYiZpWZ': 'wowyeahohno (@wowyeahohno)',
@@ -82,15 +84,44 @@ async function sendTelegramMessage(chatId, text, extra = {}) {
   }
 }
 
-async function fetchTechnocoreRoom(room, limit = 50) {
-  try {
-    const res = await fetch(`https://technocore.chat/r/${room}?format=json&limit=${limit}`);
-    if (!res.ok) return { messages: [] };
-    return await res.json();
-  } catch {
-    return { messages: [] };
-  }
+async function streamFindRegistration(targetDid) {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve({ receipt: null, request: null }), 6000);
+    https.get('https://technocore.chat/r/mb-sonnet-2-registration/export', (res) => {
+      let buffer = '';
+      let latestReceipt = null;
+      let latestRequest = null;
+
+      res.on('data', chunk => {
+        buffer += chunk;
+        let lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (line.includes(targetDid)) {
+            try {
+              const record = JSON.parse(line);
+              const payload = JSON.parse(record.text);
+              if (payload.type === 'sonnet.receipt.v1') {
+                latestReceipt = { ...payload, seq: record.seq, from: record.from, ts: record.ts };
+              } else if (payload.type === 'sonnet.register.v1') {
+                latestRequest = { ...payload, seq: record.seq, from: record.from, ts: record.ts };
+              }
+            } catch(e){}
+          }
+        }
+      });
+
+      res.on('end', () => {
+        clearTimeout(timeout);
+        resolve({ receipt: latestReceipt, request: latestRequest });
+      });
+    }).on('error', () => {
+      clearTimeout(timeout);
+      resolve({ receipt: null, request: null });
+    });
+  });
 }
+
 
 function analyzeDidLetters(did) {
   const clean = (did || '').trim().toLowerCase();
@@ -481,56 +512,69 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: status <DID>
-      if (command === 'status') {
+      // COMMAND: status <DID> (also alias: checkreg, reg)
+      if (command === 'status' || command === 'checkreg' || command === 'reg') {
         const targetDid = args[0];
         if (!targetDid || !targetDid.startsWith('did:key:')) {
           await sendTelegramMessage(chatId, `<b>Usage:</b> <code>/status &lt;DID&gt;</code>\n\nExample:\n<code>/status did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4</code>`);
           return res.status(200).json({ ok: true });
         }
 
-        await sendTelegramMessage(chatId, `Scanning Technocore ledger for <code>${targetDid.slice(0, 20)}...</code>`);
+        await sendTelegramMessage(chatId, `Scanning Technocore registration ledger for <code>${targetDid.slice(0, 20)}...</code>`);
 
-        if (KNOWN_DIDS[targetDid]) {
-          const reply = `<b>Registration Report</b>\n\n` +
-            `Member: <b>${KNOWN_DIDS[targetDid]}</b>\n` +
-            `DID: <code>${targetDid}</code>\n` +
-            `Status: <b>VERIFIED ON-CHAIN</b>\n\n` +
-            `Identity record is officially verified and registered with the Technocore referee.`;
-          await sendTelegramMessage(chatId, reply);
-          return res.status(200).json({ ok: true });
-        }
+        const regResult = await streamFindRegistration(targetDid);
+        const analysis = analyzeDidLetters(targetDid);
 
-        const [regData, discData] = await Promise.all([
-          fetchTechnocoreRoom('mb-sonnet-2-registration', 200),
-          fetchTechnocoreRoom('mb-sonnet-2-discovery', 100)
-        ]);
-
-        let found = null;
-        if (Array.isArray(regData.messages)) {
-          for (let i = regData.messages.length - 1; i >= 0; i--) {
-            const m = regData.messages[i];
-            if ((m.text || '').includes(targetDid)) {
-              try {
-                const p = JSON.parse(m.text);
-                found = { type: p.type, status: p.status || 'recorded', role: p.role || 'Writer', seq: m.seq };
-                break;
-              } catch {}
-            }
-          }
-        }
-
-        let reply = `<b>Registration Report</b>\n\n` +
+        let reply = `<b>Registration Status Report</b>\n\n` +
           `DID: <code>${targetDid}</code>\n`;
 
-        if (found) {
-          reply += `Status: <b>${found.status.toUpperCase()}</b>\n` +
-            `Role: <code>${found.role}</code>\n` +
-            `Seq: <code>${found.seq}</code>`;
-        } else {
-          reply += `Status: <b>NOT FOUND IN RECENT WINDOW</b>\n\n` +
-            `Note: The active buffer retains recent records. If registered earlier, the record sits in archived exports.`;
+        if (KNOWN_DIDS[targetDid]) {
+          reply += `Known Identity: <b>${KNOWN_DIDS[targetDid]}</b>\n`;
         }
+
+        const receipt = regResult.receipt;
+        const request = regResult.request;
+
+        if (receipt) {
+          const isAccepted = receipt.status === 'accepted';
+          reply += `Status: <b>${isAccepted ? 'ACCEPTED' : 'REJECTED'}</b>\n` +
+            `Role: <b>${(receipt.role || 'Writer').toUpperCase()}</b>\n` +
+            `Receipt Seq: <code>${receipt.seq}</code>\n` +
+            `Intake Seq: <code>${receipt.intake_seq || 'N/A'}</code>\n`;
+
+          if (receipt.x_account_url) {
+            reply += `X Account: <a href="${escapeHtml(receipt.x_account_url)}">${escapeHtml(receipt.x_account_url)}</a>\n`;
+          }
+          if (receipt.reason) {
+            reply += `Referee Reason: <code>${escapeHtml(receipt.reason)}</code>\n`;
+          }
+          reply += `Referee Signer: <code>${(receipt.from || '').slice(0, 24)}...</code> (Verified)\n\n`;
+
+          if (isAccepted) {
+            reply += `<b>Official Entrant:</b> Eligible to participate in Sonnet-2 as a registered ${receipt.role || 'writer'}!`;
+          } else {
+            reply += `<b>Refused:</b> Registration was rejected by the official referee.`;
+          }
+        } else if (request) {
+          reply += `Status: <b>PENDING INTAKE</b>\n` +
+            `Requested Role: <b>${(request.role || 'Writer').toUpperCase()}</b>\n` +
+            `Request Seq: <code>${request.seq}</code>\n` +
+            `Request ID: <code>${request.request_id || 'N/A'}</code>\n\n` +
+            `Registration request was recorded on-chain; awaiting official referee receipt.`;
+        } else if (KNOWN_DIDS[targetDid]) {
+          reply += `Status: <b>VERIFIED ON-CHAIN (Historical)</b>\n\n` +
+            `Identity record is officially verified with the Technocore referee.`;
+        } else {
+          reply += `Status: <b>NOT REGISTERED</b>\n\n` +
+            `No registration request or receipt found for this DID in the active ledger.\n\n` +
+            `<b>How to Register:</b>\n` +
+            `Submit a signed <code>sonnet.register.v1</code> payload to <code>mb-sonnet-2-registration</code> choosing <code>writer</code>, <code>voter</code>, or <code>organizer</code>.`;
+        }
+
+        reply += `\n\n<b>Alphabet Compatibility:</b>\n` +
+          `• Coverage: <b>${analysis.coveragePercent}%</b> (${analysis.count}/26 letters)\n` +
+          `• Letter 'o': ${analysis.hasO ? 'Present (Can sign "to", "of", "you")' : 'Missing (Avoid "o" words)'}\n` +
+          `• Missing Letters: <code>${analysis.missing ? analysis.missing.toUpperCase().split('').join(' ') : 'None (100% Full Alphabet)'}</code>`;
 
         await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
