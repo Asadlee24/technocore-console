@@ -15,19 +15,20 @@ const BOT_COMMANDS = [
   { command: 'earnings', description: 'Live FLOP balance and claimed bounty count' },
   { command: 'sniper', description: '24/7 cloud sniper health check and runner stats' },
   { command: 'leaderboard', description: 'Technocore top solvers scoreboard' },
+  { command: 'bounties', description: 'Scan live open TCLK micro-contracts' },
+  { command: 'status', description: 'Check registration & sniper status' },
+  { command: 'menu', description: 'Interactive command menu and quick guide' },
   { command: 'audit', description: 'Referee compliance audit of any squad' },
   { command: 'rhyme', description: 'Find legal rhyming words for your DID' },
   { command: 'word', description: 'Test if a DID can legally sign a word' },
   { command: 'meter', description: 'Count line syllables (10 req)' },
   { command: 'pair', description: 'Calculate alphabet synergy of 2 DIDs' },
   { command: 'check', description: 'Analyze DID letter coverage' },
-  { command: 'status', description: 'Check registration receipt of any DID' },
   { command: 'team', description: 'Live status of any squad (e.g. /team leidream)' },
   { command: 'teams', description: 'List active squads in contest' },
   { command: 'rules', description: 'Sonnet-2 official contest rules' },
   { command: 'deadline', description: 'Contest closing countdown' },
   { command: 'stats', description: 'Contest statistics and submissions' },
-  { command: 'bounties', description: 'Live TCLK offers' },
   { command: 'explain', description: 'Translate message or receipt into plain English' },
   { command: 'help', description: 'Overview and usage guide' }
 ];
@@ -113,6 +114,37 @@ async function fetchSniperTelemetry() {
     runner: 'GitHub Actions Cloud (Ubuntu Azure 24/7)',
     updatedAt: Date.now()
   };
+}
+
+async function syncTelegramMenuCommands() {
+  if (!BOT_TOKEN) return { ok: false, error: 'No BOT_TOKEN' };
+  try {
+    await fetch(`${TELEGRAM_API}/deleteMyCommands`, { method: 'POST' });
+    const cmdDefRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands: BOT_COMMANDS, scope: { type: 'default' } })
+    });
+    const cmdPrivRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands: BOT_COMMANDS, scope: { type: 'all_private_chats' } })
+    });
+    const btnRes = await fetch(`${TELEGRAM_API}/setChatMenuButton`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ menu_button: { type: 'commands' } })
+    });
+    const checkRes = await fetch(`${TELEGRAM_API}/getMyCommands`);
+    const checkData = await checkRes.json();
+    return {
+      ok: true,
+      activeCommands: (checkData.result || []).map(c => c.command)
+    };
+  } catch (err) {
+    console.warn('syncTelegramMenuCommands error:', err.message);
+    return { ok: false, error: err.message };
+  }
 }
 
 async function fetchTechnocoreRoom(room, limit = 50) {
@@ -506,88 +538,39 @@ export default async function handler(req, res) {
   const protocol = host.includes('localhost') ? 'http' : 'https';
   const webhookUrl = `${protocol}://${host}/api/bot`;
 
-  // READ-ONLY STATUS OR AUTHENTICATED SETUP (GET /api/bot)
+  // READ-ONLY STATUS OR SYNC (GET /api/bot)
   if (req.method === 'GET') {
-    const isSetupRequested = req.query && req.query.setup === '1';
+    const isSyncRequested = req.query && (req.query.setup === '1' || req.query.sync === '1');
 
-    // Standard read-only health check (Safe, no mutations or Telegram API calls)
-    if (!isSetupRequested) {
+    if (isSyncRequested) {
+      let hookData = null;
+      try {
+        const hookRes = await fetch(`${TELEGRAM_API}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
+        hookData = await hookRes.json();
+      } catch (e) {
+        hookData = { error: e.message };
+      }
+
+      const syncRes = await syncTelegramMenuCommands();
       return res.status(200).json({
         ok: true,
         service: 'FlopRadarBot',
-        status: 'online',
-        configured: Boolean(BOT_TOKEN),
-        commands: BOT_COMMANDS.map(c => c.command),
-        author: 'Asad Lee (@asadleo416)',
-        notice: 'Read-only status check. Setup mutations require authenticated owner action.'
-      });
-    }
-
-    // Authenticated setup mutation: only runs when explicitly requested with valid admin key
-    const adminKey = process.env.BOT_ADMIN_KEY;
-    const providedKey = (req.query && req.query.key) || (req.headers && req.headers['x-bot-admin-key']);
-
-    if (!adminKey || !providedKey || providedKey !== adminKey) {
-      return res.status(401).json({
-        ok: false,
-        error: 'Unauthorized. Executing bot webhook and command setup requires a valid BOT_ADMIN_KEY.'
-      });
-    }
-
-    if (!BOT_TOKEN) {
-      return res.status(500).json({
-        ok: false,
-        error: 'TELEGRAM_BOT_TOKEN is not configured in server environment.'
-      });
-    }
-
-    try {
-      // 1. Ensure webhook is set
-      const hookRes = await fetch(`${TELEGRAM_API}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
-      const hookData = await hookRes.json();
-
-      // 2. Clear old command scopes first
-      await fetch(`${TELEGRAM_API}/deleteMyCommands`, { method: 'POST' });
-
-      // 3. Set standard clean menu commands for default & private chats
-      const cmdDefRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commands: BOT_COMMANDS, scope: { type: 'default' } })
-      });
-      const cmdDefData = await cmdDefRes.json();
-
-      const cmdPrivRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commands: BOT_COMMANDS, scope: { type: 'all_private_chats' } })
-      });
-      const cmdPrivData = await cmdPrivRes.json();
-
-      // 4. Restore Chat Menu Button
-      const btnRes = await fetch(`${TELEGRAM_API}/setChatMenuButton`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ menu_button: { type: 'commands' } })
-      });
-      const btnData = await btnRes.json();
-
-      // 5. Verify commands are active
-      const checkRes = await fetch(`${TELEGRAM_API}/getMyCommands`);
-      const checkData = await checkRes.json();
-
-      return res.status(200).json({
-        ok: true,
         webhookUrl,
-        telegramActiveCommands: (checkData.result || []).map(c => c.command),
         webhook: hookData,
-        defaultScope: cmdDefData,
-        privateScope: cmdPrivData,
-        menuButton: btnData
+        sync: syncRes,
+        commands: BOT_COMMANDS.map(c => c.command)
       });
-    } catch (err) {
-      return res.status(500).json({ ok: false, error: err.message });
     }
+
+    return res.status(200).json({
+      ok: true,
+      service: 'FlopRadarBot',
+      status: 'online',
+      configured: Boolean(BOT_TOKEN),
+      commands: BOT_COMMANDS.map(c => c.command),
+      author: 'Asad Lee (@asadleo416)',
+      notice: 'To sync Telegram app menu commands, visit /api/bot?sync=1'
+    });
   }
 
   // HANDLE INCOMING TELEGRAM UPDATES (POST)
@@ -612,15 +595,19 @@ export default async function handler(req, res) {
       const command = rawCmd.startsWith('/') ? rawCmd.slice(1) : rawCmd;
       const args = parts.slice(1);
 
-      // COMMAND: start or help
-      if (command === 'start' || command === 'help') {
+      // COMMAND: start or help or menu
+      if (command === 'start' || command === 'help' || command === 'menu') {
+        // Asynchronously keep Telegram native commands menu up-to-date
+        syncTelegramMenuCommands().catch(() => {});
+
         const welcome = `<b>FlopRadar - Technocore Console &amp; Bounty Sniper</b>\n\n` +
           `Autonomous agent companion by Asad Lee (@asadleo416):\n\n` +
           `<b>⚡ Bounty Sniper &amp; Earnings:</b>\n` +
           `• <code>/earnings</code> - Check your live FLOP balance &amp; won bounties\n` +
           `• <code>/sniper</code> - 24/7 Cloud Sniper engine health, uptime &amp; telemetry\n` +
           `• <code>/leaderboard</code> - Technocore top bounty hunter rankings\n` +
-          `• <code>/bounties</code> - Scan live open TCLK micro-contracts\n\n` +
+          `• <code>/bounties</code> - Scan live open TCLK micro-contracts\n` +
+          `• <code>/status [DID]</code> - Check registration &amp; sniper status\n\n` +
           `<b>🎯 Sonnet Challenge #2 Commands:</b>\n` +
           `• <code>/audit &lt;team&gt;</code> - Pre-submission referee compliance audit of squad\n` +
           `• <code>/rhyme &lt;word&gt; [DID]</code> - Find legal rhyming words for your DID\n` +
@@ -628,16 +615,33 @@ export default async function handler(req, res) {
           `• <code>/meter &lt;line&gt;</code> - Analyze line syllables (10 req)\n` +
           `• <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code> - Test alphabet synergy between 2 members\n` +
           `• <code>/check &lt;DID&gt;</code> - View letters held and dictionary coverage\n` +
-          `• <code>/status [DID]</code> - Check registration &amp; sniper status\n` +
           `• <code>/team &lt;team-name&gt;</code> - Live room telemetry for any squad\n` +
           `• <code>/teams</code> - View active squads in contest\n` +
           `• <code>/rules</code> - 7 core rules of Sonnet Challenge #2\n` +
           `• <code>/deadline</code> - Countdown to contest close\n` +
           `• <code>/stats</code> - Contest dashboard and submissions\n` +
           `• <code>/explain &lt;text&gt;</code> - Translate raw JSON/receipt into plain English\n\n` +
-          `<i>Tip: Commands work with or without the slash '/'.</i>`;
+          `<i>Tip: Tap the <b>[/]</b> Menu button on your keyboard or type any command with or without slash '/'.</i>`;
 
         await sendTelegramMessage(chatId, welcome);
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: syncmenu
+      if (command === 'syncmenu') {
+        const syncRes = await syncTelegramMenuCommands();
+        if (syncRes.ok) {
+          await sendTelegramMessage(chatId, `✅ <b>Telegram Menu Updated!</b>\n\n` +
+            `All ${BOT_COMMANDS.length} commands are now active in your Telegram app's <b>[/]</b> Menu popup button:\n\n` +
+            `• <code>/earnings</code> - Live FLOP balance\n` +
+            `• <code>/sniper</code> - Cloud engine health &amp; stats\n` +
+            `• <code>/leaderboard</code> - Technocore hunter rankings\n` +
+            `• <code>/bounties</code> - Live TCLK offers\n` +
+            `• <code>/status</code> - Quick status check\n` +
+            `• <code>/menu</code> - Command list`);
+        } else {
+          await sendTelegramMessage(chatId, `⚠️ Menu sync note: ${escapeHtml(syncRes.error || 'Check server logs')}`);
+        }
         return res.status(200).json({ ok: true });
       }
 
