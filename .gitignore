@@ -2,3 +2,8 @@
 Thumbs.db
 node_modules/
 *.log
+.env
+.env*
+solver_secrets.json
+solver_config.json
+scratch/
