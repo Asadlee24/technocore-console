@@ -1428,6 +1428,149 @@ function parsePlainTextRoom(rawText) {
   return messages;
 }
 
+/**
+ * Formats message content: renders plain text directly, or parses and presents
+ * Sonnet/Technocore protocol JSON payloads with badges, metadata chips, human-readable text,
+ * and collapsible raw JSON inspection.
+ */
+function createFormattedMessageElement(rawText) {
+  if (!rawText || typeof rawText !== 'string') {
+    const span = document.createElement('span');
+    span.className = 'message-content';
+    span.textContent = '';
+    return span;
+  }
+
+  const trimmed = rawText.trim();
+  let payload = null;
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      payload = JSON.parse(trimmed);
+    } catch {
+      payload = null;
+    }
+  }
+
+  // If not a JSON object, return standard plain text content
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    const textSpan = document.createElement('span');
+    textSpan.className = 'message-content';
+    textSpan.textContent = rawText;
+    return textSpan;
+  }
+
+  // Structured protocol message presentation
+  const container = document.createElement('div');
+  container.className = 'message-content message-protocol-box';
+
+  const metaRow = document.createElement('div');
+  metaRow.className = 'message-protocol-meta';
+
+  const type = payload.type || '';
+  const typeBadge = document.createElement('span');
+  typeBadge.className = 'protocol-type-badge';
+
+  if (type === 'sonnet.application.v1') {
+    typeBadge.classList.add('badge-application');
+    typeBadge.textContent = 'Application';
+  } else if (type === 'sonnet.recruit.v1') {
+    typeBadge.classList.add('badge-recruit');
+    typeBadge.textContent = 'Recruitment';
+  } else if (type === 'sonnet.register.v1') {
+    typeBadge.classList.add('badge-register');
+    typeBadge.textContent = 'Registration';
+  } else if (type === 'sonnet.roster.v1') {
+    typeBadge.classList.add('badge-roster');
+    typeBadge.textContent = 'Squad Roster';
+  } else if (type === 'sonnet.note.v1') {
+    typeBadge.classList.add('badge-note');
+    typeBadge.textContent = 'Note';
+  } else if (type.startsWith('sonnet.receipt.')) {
+    typeBadge.classList.add('badge-receipt');
+    typeBadge.textContent = 'Referee Receipt';
+  } else if (type === 'sonnet.word.v1') {
+    typeBadge.classList.add('badge-word');
+    typeBadge.textContent = 'Word';
+  } else if (type === 'sonnet.submit.v1') {
+    typeBadge.classList.add('badge-submit');
+    typeBadge.textContent = 'Submission';
+  } else {
+    typeBadge.classList.add('badge-generic');
+    typeBadge.textContent = type || 'Protocol JSON';
+  }
+  metaRow.appendChild(typeBadge);
+
+  if (payload.game_id) {
+    const gameChip = document.createElement('span');
+    gameChip.className = 'protocol-meta-chip';
+    gameChip.textContent = `Game: ${payload.game_id}`;
+    metaRow.appendChild(gameChip);
+  }
+
+  if (payload.contest_id) {
+    const contestChip = document.createElement('span');
+    contestChip.className = 'protocol-meta-chip';
+    contestChip.textContent = payload.contest_id;
+    metaRow.appendChild(contestChip);
+  }
+
+  if (payload.role) {
+    const roleChip = document.createElement('span');
+    roleChip.className = 'protocol-meta-chip';
+    roleChip.textContent = `Role: ${payload.role}`;
+    metaRow.appendChild(roleChip);
+  }
+
+  const rawX = payload.x_account_url || payload.x_handle;
+  if (rawX) {
+    const xNorm = normalizeXHandle(rawX);
+    if (xNorm.handle) {
+      const xChip = document.createElement('a');
+      xChip.className = 'protocol-meta-chip protocol-x-link';
+      xChip.href = xNorm.url;
+      xChip.target = '_blank';
+      xChip.rel = 'noopener noreferrer';
+      xChip.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -1px; margin-right: 3px;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>${escapeHtml(xNorm.handle)}`;
+      metaRow.appendChild(xChip);
+    }
+  }
+
+  container.appendChild(metaRow);
+
+  // Human-readable message body
+  if (payload.text && typeof payload.text === 'string') {
+    const textBody = document.createElement('div');
+    textBody.className = 'protocol-message-text';
+    textBody.textContent = payload.text;
+    container.appendChild(textBody);
+  } else if (payload.roster && Array.isArray(payload.roster)) {
+    const rosterBody = document.createElement('div');
+    rosterBody.className = 'protocol-message-text';
+    rosterBody.textContent = `Squad members: ${payload.roster.join(', ')}`;
+    container.appendChild(rosterBody);
+  } else if (payload.word) {
+    const wordBody = document.createElement('div');
+    wordBody.className = 'protocol-message-text';
+    wordBody.textContent = `Contributed word: "${payload.word}"${payload.line_number ? ` (line ${payload.line_number})` : ''}`;
+    container.appendChild(wordBody);
+  }
+
+  // Collapsible Raw JSON details
+  const details = document.createElement('details');
+  details.className = 'message-json-details';
+  const summary = document.createElement('summary');
+  summary.textContent = 'Raw Protocol JSON';
+  const pre = document.createElement('pre');
+  pre.className = 'raw-json-pre';
+  pre.textContent = JSON.stringify(payload, null, 2);
+
+  details.appendChild(summary);
+  details.appendChild(pre);
+  container.appendChild(details);
+
+  return container;
+}
+
 function renderMessageList(messages) {
   el.roomEmptyState.style.display = 'none';
   el.roomMessageList.style.display = 'flex';
@@ -1449,13 +1592,11 @@ function renderMessageList(messages) {
     senderSpan.className = `message-sender ${isVerified ? 'verified' : 'unverified'}`;
     senderSpan.textContent = `<${senderStr}>`;
 
-    const textSpan = document.createElement('span');
-    textSpan.className = 'message-content';
-    textSpan.textContent = msg.text || '';
+    const contentEl = createFormattedMessageElement(msg.text || '');
 
     item.appendChild(seqSpan);
     item.appendChild(senderSpan);
-    item.appendChild(textSpan);
+    item.appendChild(contentEl);
 
     el.roomMessageList.appendChild(item);
   });
