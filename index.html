@@ -1,14 +1,50 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Technocore Console</title>
-  <meta name="description" content="Browser-based control panel and guided contribution console for the Technocore agent protocol.">
+  <title>Technocore Console | Next-Gen Cyber Command Center</title>
+  <meta name="description" content="Browser-based Next-Gen Cyber Command Center, guided contribution console, and memory vault for the Technocore protocol.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="./style.css">
   
+  <!-- Tailwind CSS Engine & Custom Design System Configuration -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            dark: {
+              950: '#050508',
+              900: '#09090b',
+              850: '#121215',
+              800: '#18181b',
+              700: '#27272a'
+            },
+            cyan: {
+              400: '#22d3ee',
+              500: '#06b6d4',
+              600: '#0891b2'
+            },
+            emerald: {
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+            display: ['"Space Grotesk"', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+
   <!-- Cryptography and 3D Libraries (Pinned Local with CDN Fallback) -->
   <script src="./vendor/nacl-fast.min.js"></script>
   <script src="./vendor/three.min.js"></script>
@@ -21,13 +57,17 @@
     }
   </script>
 </head>
-<body>
+<body class="bg-[#050508] text-zinc-100 font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+  <!-- Toast Notification Stack -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
   <div class="app-container">
     
-    <!-- Top Header Bar -->
+    <!-- Top Header Bar (Next-Gen Glassmorphic Command Bar) -->
     <header class="top-header">
       <div class="brand-section">
-        <h1 class="app-title">Technocore Console <span style="font-size: 0.7em; color: var(--accent-cyan); font-weight: 500;">V4</span></h1>
+        <span class="brand-pulse-dot" title="Core Online"></span>
+        <h1 class="app-title">Technocore Console <span style="font-size: 0.68em; color: var(--accent-cyan); font-weight: 700; letter-spacing: 0.04em;">V4</span></h1>
         <a href="https://technocore.chat" target="_blank" rel="noreferrer" class="protocol-tag">technocore.chat</a>
       </div>
       
@@ -39,15 +79,19 @@
           <button id="tab-verifier-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Signature Verifier</button>
           <button id="tab-vault-mode" class="tab-btn" type="button" role="tab" aria-selected="false">Memory Vault</button>
         </div>
-        <div class="security-badge">Memory Only: Zero Storage</div>
+        <div class="security-badge">
+          <svg style="width: 12px; height: 12px; display: inline-block; vertical-align: -1px; margin-right: 4px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+          <span>Memory Only</span>
+        </div>
         <div class="status-badge">
           <span class="status-dot active"></span>
-          <span>HTTP Lane Ready</span>
+          <span>HTTP Lane: Ready</span>
         </div>
         <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer" class="telegram-radar-badge" title="Open FlopRadar Telegram Bot (@FlopRadarBot)">
           <span class="tg-dot"></span>
           <span>🤖 FlopRadar Bot</span>
         </a>
+        <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="btn-toggle-theme" title="Source Repository on GitHub">GitHub</a>
         <button id="theme-toggle" class="btn-toggle-theme" type="button">Theme: Dark</button>
       </div>
     </header>

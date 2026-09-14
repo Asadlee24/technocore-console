@@ -474,6 +474,7 @@ function cacheElements() {
 function initTheme() {
   const savedTheme = 'dark';
   document.documentElement.setAttribute('data-theme', savedTheme);
+  document.documentElement.classList.toggle('dark', savedTheme === 'dark');
   state.theme = savedTheme;
   updateThemeButtonText();
 }
@@ -481,6 +482,7 @@ function initTheme() {
 function toggleTheme() {
   state.theme = state.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', state.theme);
+  document.documentElement.classList.toggle('dark', state.theme === 'dark');
   updateThemeButtonText();
   if (visualizer) {
     visualizer.setTheme(state.theme);
@@ -1234,12 +1236,35 @@ function showPublishResult(type, message) {
   el.publishResult.style.display = 'flex';
 }
 
+export function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${type === 'success' ? '✓' : (type === 'error' ? '✕' : 'ℹ')}</span>
+    <span class="toast-msg">${escapeHtml(message)}</span>
+  `;
+  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.classList.add('show');
+  });
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 300);
+  }, 3000);
+}
+
 function copyToClipboard(text, successMessage) {
   if (!text) return;
   navigator.clipboard.writeText(text).then(() => {
     showDispatchResult('info', successMessage);
+    showToast(successMessage, 'success');
   }).catch(() => {
     showDispatchResult('error', 'Clipboard permission denied. Copy manually from the input box.');
+    showToast('Clipboard permission denied', 'error');
   });
 }
 
