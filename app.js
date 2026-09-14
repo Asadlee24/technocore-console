@@ -1,6 +1,6 @@
 /**
  * Technocore Console V4 - Application Core Logic
- * Made by Asad Lee (Community-built client, not an official FLOP Labs product)
+ * Community-built client, not an official FLOP Labs product
  * Client-side control panel, Secret Shape Guard, offline verifier, and Sonnet Challenge Console.
  *
  * Strict Authoritative Invariants:
@@ -522,7 +522,10 @@ function toggleTheme() {
 
 function updateThemeButtonText() {
   if (el.themeToggle) {
-    el.themeToggle.textContent = state.theme === 'dark' ? 'Theme: Dark' : 'Theme: Light';
+    const isDark = state.theme === 'dark';
+    el.themeToggle.innerHTML = isDark
+      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Theme: Dark`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>Theme: Light`;
   }
 }
 
@@ -624,7 +627,7 @@ function setView(viewName) {
 
   // Header Title and Description Metadata
   const viewMeta = {
-    wizard: { title: 'Contribute', desc: 'Six-step verified contribution pipeline' },
+    wizard: { title: 'Identity Setup', desc: 'Cryptographic Ed25519 key generation and secure backup' },
     direct: { title: 'Rooms', desc: 'Live room monitor and signed message composer' },
     sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts' },
     vault: { title: 'Memory Vault', desc: 'Decentralized timeline and public signed notes' },
@@ -764,6 +767,11 @@ function bindEvents() {
     el.mobileMenuBtn.addEventListener('click', () => {
       el.appSidebar.classList.toggle('mobile-open');
     });
+  }
+
+  // Theme toggle button
+  if (el.themeToggle) {
+    el.themeToggle.addEventListener('click', toggleTheme);
   }
 
   // Global identity button
@@ -920,24 +928,26 @@ function bindEvents() {
   el.wizardBtnConfirmSaved.addEventListener('click', handleWizardConfirmSaved);
 
   // Wizard Step 3 Bindings
-  el.wizardBtnSendLobby.addEventListener('click', handleWizardSendLobby);
+  if (el.wizardBtnSendLobby) el.wizardBtnSendLobby.addEventListener('click', handleWizardSendLobby);
 
   // Wizard Step 4 Bindings
-  el.chkContribPublic.addEventListener('change', checkWizardContribForm);
-  el.chkContribMention.addEventListener('change', checkWizardContribForm);
-  el.wizardContribUrl.addEventListener('input', checkWizardContribForm);
-  el.wizardBtnConfirmContrib.addEventListener('click', handleWizardConfirmContrib);
+  if (el.chkContribPublic) el.chkContribPublic.addEventListener('change', checkWizardContribForm);
+  if (el.chkContribMention) el.chkContribMention.addEventListener('change', checkWizardContribForm);
+  if (el.wizardContribUrl) el.wizardContribUrl.addEventListener('input', checkWizardContribForm);
+  if (el.wizardBtnConfirmContrib) el.wizardBtnConfirmContrib.addEventListener('click', handleWizardConfirmContrib);
 
   // Wizard Step 5 Bindings
-  el.wizardBtnSendTechnocore.addEventListener('click', handleWizardSendTechnocore);
+  if (el.wizardBtnSendTechnocore) el.wizardBtnSendTechnocore.addEventListener('click', handleWizardSendTechnocore);
 
   // Wizard Step 6 Bindings
-  el.wizardBtnCopyShare.addEventListener('click', () => {
-    copyToClipboard(el.wizardShareText.value, 'Share text copied to clipboard.');
-  });
-  el.wizardBtnOpenX.addEventListener('click', handleOpenXComposer);
-  el.wizardBtnDownloadJson.addEventListener('click', () => handleDownloadProof('json'));
-  el.wizardBtnDownloadTxt.addEventListener('click', () => handleDownloadProof('txt'));
+  if (el.wizardBtnCopyShare) {
+    el.wizardBtnCopyShare.addEventListener('click', () => {
+      copyToClipboard(el.wizardShareText ? el.wizardShareText.value : '', 'Share text copied to clipboard.');
+    });
+  }
+  if (el.wizardBtnOpenX) el.wizardBtnOpenX.addEventListener('click', handleOpenXComposer);
+  if (el.wizardBtnDownloadJson) el.wizardBtnDownloadJson.addEventListener('click', () => handleDownloadProof('json'));
+  if (el.wizardBtnDownloadTxt) el.wizardBtnDownloadTxt.addEventListener('click', () => handleDownloadProof('txt'));
 
   // Signature Verifier Bindings
   el.btnQuickParse.addEventListener('click', handleQuickParse);
@@ -1713,91 +1723,46 @@ function escapeHtml(str) {
 function updateWizardUI() {
   const hasKey = Boolean(state.keypair);
   const isSaved = hasKey && state.wizard.secretConfirmed;
-  const lobbyDone = isSaved && state.wizard.lobbySent;
-  const contribDone = lobbyDone && state.wizard.contributionConfirmed;
-  const technocoreDone = contribDone && state.wizard.technocoreSent;
 
-  let currentStep = 1;
-  if (hasKey) currentStep = 2;
-  if (isSaved) currentStep = 3;
-  if (lobbyDone) currentStep = 4;
-  if (contribDone) currentStep = 5;
-  if (technocoreDone) currentStep = 6;
-
+  const currentStep = hasKey ? (isSaved ? 2 : 2) : 1;
   state.wizard.currentStep = currentStep;
 
-  let completedSteps = 0;
-  if (hasKey) completedSteps++;
-  if (isSaved) completedSteps++;
-  if (lobbyDone) completedSteps++;
-  if (contribDone) completedSteps++;
-  if (technocoreDone) completedSteps++;
-  if (technocoreDone) completedSteps++;
+  const completedSteps = (hasKey ? 1 : 0) + (isSaved ? 1 : 0);
+  const percent = Math.min(100, Math.round((completedSteps / 2) * 100));
 
-  const percent = Math.min(100, Math.round((completedSteps / 6) * 100));
-  el.wizardProgressText.textContent = `Step ${currentStep} of 6 (${percent}% Complete)`;
-  el.wizardProgressBar.style.width = `${percent}%`;
-
-  updateStepCardState(el.stepCard1, el.stepStatus1, hasKey ? 'completed' : 'active', hasKey ? 'Done' : 'Active');
-
-  if (hasKey) {
-    updateStepCardState(el.stepCard2, el.stepStatus2, isSaved ? 'completed' : 'active', isSaved ? 'Done' : 'Active');
-    el.wizardBtnRevealSecret.disabled = false;
-    el.wizardBtnCopySecret.disabled = false;
-    el.wizardBtnConfirmSaved.disabled = false;
-  } else {
-    updateStepCardState(el.stepCard2, el.stepStatus2, 'locked', 'Locked');
-    el.wizardBtnRevealSecret.disabled = true;
-    el.wizardBtnCopySecret.disabled = true;
-    el.wizardBtnConfirmSaved.disabled = true;
+  if (el.wizardProgressText) {
+    el.wizardProgressText.textContent = isSaved ? 'Identity Configured & Active (100% Complete)' : `Step ${currentStep} of 2 (${percent}% Complete)`;
+  }
+  if (el.wizardProgressBar) {
+    el.wizardProgressBar.style.width = `${percent}%`;
   }
 
-  if (isSaved) {
-    updateStepCardState(el.stepCard3, el.stepStatus3, lobbyDone ? 'completed' : 'active', lobbyDone ? `Done` : 'Active');
-    el.wizardBtnSendLobby.disabled = false;
-  } else {
-    updateStepCardState(el.stepCard3, el.stepStatus3, 'locked', 'Locked');
-    el.wizardBtnSendLobby.disabled = true;
+  if (el.stepCard1 && el.stepStatus1) {
+    updateStepCardState(el.stepCard1, el.stepStatus1, hasKey ? 'completed' : 'active', hasKey ? 'Done' : 'Active');
   }
 
-  if (lobbyDone) {
-    updateStepCardState(el.stepCard4, el.stepStatus4, contribDone ? 'completed' : 'active', contribDone ? 'Done' : 'Active');
-    checkWizardContribForm();
-  } else {
-    updateStepCardState(el.stepCard4, el.stepStatus4, 'locked', 'Locked');
-    el.wizardBtnConfirmContrib.disabled = true;
+  if (el.stepCard2 && el.stepStatus2) {
+    if (hasKey) {
+      updateStepCardState(el.stepCard2, el.stepStatus2, isSaved ? 'completed' : 'active', isSaved ? 'Done' : 'Active');
+      if (el.wizardBtnRevealSecret) el.wizardBtnRevealSecret.disabled = false;
+      if (el.wizardBtnCopySecret) el.wizardBtnCopySecret.disabled = false;
+      if (el.wizardBtnConfirmSaved) el.wizardBtnConfirmSaved.disabled = false;
+    } else {
+      updateStepCardState(el.stepCard2, el.stepStatus2, 'locked', 'Locked');
+      if (el.wizardBtnRevealSecret) el.wizardBtnRevealSecret.disabled = true;
+      if (el.wizardBtnCopySecret) el.wizardBtnCopySecret.disabled = true;
+      if (el.wizardBtnConfirmSaved) el.wizardBtnConfirmSaved.disabled = true;
+    }
   }
 
-  if (contribDone) {
-    updateStepCardState(el.stepCard5, el.stepStatus5, technocoreDone ? 'completed' : 'active', technocoreDone ? `Done` : 'Active');
-    el.wizardBtnSendTechnocore.disabled = false;
-    el.wizardTechnocorePreview.textContent = `Payload: Contribution: ${state.wizard.contributionUrl}`;
-    el.wizardTechnocorePreview.className = 'readout-text';
-  } else {
-    updateStepCardState(el.stepCard5, el.stepStatus5, 'locked', 'Locked');
-    el.wizardBtnSendTechnocore.disabled = true;
-    el.wizardTechnocorePreview.textContent = 'Complete step 4 to assemble payload.';
-    el.wizardTechnocorePreview.className = 'readout-text empty';
-  }
-
-  if (technocoreDone) {
-    updateStepCardState(el.stepCard6, el.stepStatus6, 'completed', 'Ready');
-    updateShareText();
-    el.wizardBtnCopyShare.disabled = false;
-    el.wizardBtnOpenX.disabled = false;
-    el.wizardBtnDownloadJson.disabled = false;
-    el.wizardBtnDownloadTxt.disabled = false;
-  } else {
-    updateStepCardState(el.stepCard6, el.stepStatus6, 'locked', 'Locked');
-    el.wizardShareText.value = '';
-    el.wizardBtnCopyShare.disabled = true;
-    el.wizardBtnOpenX.disabled = true;
-    el.wizardBtnDownloadJson.disabled = true;
-    el.wizardBtnDownloadTxt.disabled = true;
+  const completeBox = document.getElementById('step-complete-box');
+  if (completeBox) {
+    completeBox.style.display = isSaved ? 'block' : 'none';
   }
 }
 
 function updateStepCardState(cardEl, pillEl, status, text) {
+  if (!cardEl || !pillEl) return;
   cardEl.classList.remove('active-step', 'completed-step', 'locked');
   pillEl.className = `step-status-pill ${status}`;
   pillEl.textContent = text;
@@ -1811,7 +1776,11 @@ function handleWizardConfirmSaved() {
   if (!state.keypair) return;
   state.wizard.secretConfirmed = true;
   updateWizardUI();
-  focusStep(3);
+  const completeBox = document.getElementById('step-complete-box');
+  if (completeBox) {
+    completeBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  showToast('Key saved! Your identity is ready across all Technocore workspaces.', 'success');
 }
 
 async function handleWizardSendLobby() {
@@ -2743,7 +2712,7 @@ function bindSonnetEvents() {
       el.squadRecruitTray.style.display = isOpen ? 'none' : 'block';
       if (!isOpen) {
         if (el.squadRecruitGameId && !el.squadRecruitGameId.value.trim()) {
-          el.squadRecruitGameId.value = (state.sonnet.gameId || 'team-asad').trim();
+          el.squadRecruitGameId.value = (state.sonnet.gameId || 'squad-alpha').trim();
         }
         if (!el.squadRecruitMsg.value.trim()) {
           generateSquadRecruitMessage();
@@ -4138,7 +4107,7 @@ function generateSquadRecruitMessage() {
     ? rawMembers 
     : (state.keypair ? [state.keypair.did] : []);
 
-  const gameId = (el.squadRecruitGameId?.value || '').trim() || (state.sonnet?.gameId || '').trim() || 'team-asad';
+  const gameId = (el.squadRecruitGameId?.value || '').trim() || (state.sonnet?.gameId || '').trim() || 'squad-alpha';
   const myDid = state.keypair?.did || '';
   const myXUrl = el.sonnetRegXUrl?.value?.trim() || '';
   const seatsNeeded = el.squadRecruitSeats?.value || '1';

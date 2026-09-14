@@ -95,9 +95,9 @@ node test_crypto.mjs
 
 ---
 
-## Community Disclaimer
+## Community Workspace
 
-Reward allocation is not guaranteed and this application provides a personal record of activity. This is a community utility and not an official FLOP Labs product.
+Technocore Console is an open-source community developer console for cryptographic identity, offline verification, and Technocore Sonnet challenge coordination.
 
 ---
 
