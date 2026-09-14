@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Technocore Console | Developer Workspace</title>
-  <meta name="description" content="A calm, precise developer workspace for Technocore protocol contributors and Sonnet Challenge participants. Built by Asad Lee.">
+  <meta name="description" content="A calm, precise developer workspace for Technocore protocol contributors and Sonnet Challenge participants.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="./style.css">
@@ -91,16 +91,6 @@
           </svg>
           <span>Identity &amp; Registry</span>
         </a>
-        <a id="nav-tools-flopradar" class="nav-item" href="#/tools/flopradar" data-view="flopradar">
-          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="22" y1="12" x2="18" y2="12"></line>
-            <line x1="6" y1="12" x2="2" y2="12"></line>
-            <line x1="12" y1="6" x2="12" y2="2"></line>
-            <line x1="12" y1="22" x2="12" y2="18"></line>
-          </svg>
-          <span>FlopRadar Bot</span>
-        </a>
       </nav>
 
       <div class="sidebar-footer">
@@ -110,13 +100,11 @@
         </button>
 
         <div class="creator-attribution">
-          <div>Built by <a href="https://asad-lee-portfolio.vercel.app/" target="_blank" rel="noreferrer">Asad Lee</a></div>
-          <div style="display: flex; gap: var(--space-2); margin-top: 2px;">
-            <a href="https://x.com/asadleo416" target="_blank" rel="noreferrer">@asadleo416</a> •
-            <a href="https://github.com/Asadlee24" target="_blank" rel="noreferrer">GitHub</a>
+          <div>
+            <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer">GitHub Repository</a>
           </div>
           <div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 4px;">
-            Apache-2.0 • Community Workspace
+            Apache-2.0 • Open Source Console
           </div>
         </div>
       </div>
@@ -786,7 +774,7 @@
                 <li><a href="https://github.com/flop-labs/technocore-chat" target="_blank" rel="noreferrer" class="trust-link">github.com/flop-labs/technocore-chat</a></li>
                 <li><a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="trust-link">github.com/Asadlee24/technocore-console (this project)</a></li>
               </ul>
-              <div class="vault-built-by">Built by <a href="https://asad-lee-portfolio.vercel.app/" target="_blank" rel="noreferrer" class="trust-link">Asad Lee</a>. Reward allocation is not guaranteed and this is only a personal record of activity. This is not an official Flop Labs product.</div>
+              <div class="vault-built-by">Technocore Console is a client-side developer workspace. Reward allocation is not guaranteed and this is only a personal record of activity. This is not an official Flop Labs product.</div>
             </div>
           </section>
 
@@ -1501,113 +1489,6 @@
           </div>
         </section>
 
-        <!-- VIEW 7: TOOLS - FLOPRADAR COMPANION -->
-        <section id="tools-flopradar-view" class="view-container hidden" aria-label="FlopRadar Companion Tools">
-          <div class="view-header">
-            <div class="view-header-row">
-              <div>
-                <h1 class="view-title">FlopRadar Telegram Companion</h1>
-                <p class="view-description">Instant telemetry and contest intelligence via <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer">@FlopRadarBot</a> on Telegram.</p>
-              </div>
-              <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer" class="btn btn-primary">Open FlopRadar on Telegram ↗</a>
-            </div>
-          </div>
-
-          <div class="card" style="max-width: 960px; margin-bottom: var(--space-6);">
-            <div class="card-header">
-              <span class="card-title">Verified Bot Commands</span>
-              <span class="badge badge-success">Live on Telegram</span>
-            </div>
-            <p class="body-text text-sm" style="margin-bottom: var(--space-4);">
-              FlopRadar connects directly to Technocore rooms to run pre-submission referee audits, rhyme lookups, syllable counters, and receipt translations. Click any command to copy it.
-            </p>
-
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-3);">
-              
-              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/audit '); window.showToast('Copied /audit to clipboard', 'success');">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong class="font-mono" style="color: var(--brand-accent);">/audit &lt;squad&gt;</strong>
-                  <span class="badge badge-neutral">Copy</span>
-                </div>
-                <div class="text-xs text-secondary" style="margin-top: 4px;">Run full referee rule check (140 syllables, turn cadence, letter rules) on any squad.</div>
-              </div>
-
-              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/rhyme '); window.showToast('Copied /rhyme to clipboard', 'success');">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong class="font-mono" style="color: var(--brand-accent);">/rhyme &lt;word&gt; [DID]</strong>
-                  <span class="badge badge-neutral">Copy</span>
-                </div>
-                <div class="text-xs text-secondary" style="margin-top: 4px;">Find legal rhyming words for your DID's letter set.</div>
-              </div>
-
-              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/word '); window.showToast('Copied /word to clipboard', 'success');">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong class="font-mono" style="color: var(--brand-accent);">/word &lt;word&gt; &lt;DID&gt;</strong>
-                  <span class="badge badge-neutral">Copy</span>
-                </div>
-                <div class="text-xs text-secondary" style="margin-top: 4px;">Check if a specific DID can legally sign a candidate word.</div>
-              </div>
-
-              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/meter '); window.showToast('Copied /meter to clipboard', 'success');">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong class="font-mono" style="color: var(--brand-accent);">/meter &lt;line&gt;</strong>
-                  <span class="badge badge-neutral">Copy</span>
-                </div>
-                <div class="text-xs text-secondary" style="margin-top: 4px;">Calculate exact syllables of a poem line according to CMUdict.</div>
-              </div>
-
-              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/pair '); window.showToast('Copied /pair to clipboard', 'success');">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong class="font-mono" style="color: var(--brand-accent);">/pair &lt;DID1&gt; &lt;DID2&gt;</strong>
-                  <span class="badge badge-neutral">Copy</span>
-                </div>
-                <div class="text-xs text-secondary" style="margin-top: 4px;">Compute alphabet synergy and combined coverage of two writers.</div>
-              </div>
-
-              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/status '); window.showToast('Copied /status to clipboard', 'success');">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong class="font-mono" style="color: var(--brand-accent);">/status &lt;DID&gt;</strong>
-                  <span class="badge badge-neutral">Copy</span>
-                </div>
-                <div class="text-xs text-secondary" style="margin-top: 4px;">Verify registration receipt and role of any DID.</div>
-              </div>
-
-              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/team '); window.showToast('Copied /team to clipboard', 'success');">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong class="font-mono" style="color: var(--brand-accent);">/team &lt;name&gt;</strong>
-                  <span class="badge badge-neutral">Copy</span>
-                </div>
-                <div class="text-xs text-secondary" style="margin-top: 4px;">Live squad telemetry, latest word, and discovery logs.</div>
-              </div>
-
-              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/teams'); window.showToast('Copied /teams to clipboard', 'success');">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong class="font-mono" style="color: var(--brand-accent);">/teams</strong>
-                  <span class="badge badge-neutral">Copy</span>
-                </div>
-                <div class="text-xs text-secondary" style="margin-top: 4px;">Scan all active squads currently registered on-chain.</div>
-              </div>
-
-              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/deadline'); window.showToast('Copied /deadline to clipboard', 'success');">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong class="font-mono" style="color: var(--brand-accent);">/deadline</strong>
-                  <span class="badge badge-neutral">Copy</span>
-                </div>
-                <div class="text-xs text-secondary" style="margin-top: 4px;">Official contest closing countdown.</div>
-              </div>
-
-              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/explain '); window.showToast('Copied /explain to clipboard', 'success');">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong class="font-mono" style="color: var(--brand-accent);">/explain &lt;json&gt;</strong>
-                  <span class="badge badge-neutral">Copy</span>
-                </div>
-                <div class="text-xs text-secondary" style="margin-top: 4px;">Translate raw protocol payloads and referee receipts into plain English.</div>
-              </div>
-
-            </div>
-          </div>
-        </section>
-
       </main>
     </div>
   </div>
@@ -1659,12 +1540,6 @@
             <span>Identity &amp; Registry</span>
           </div>
           <span class="kbd-badge">#/tools/identity</span>
-        </div>
-        <div class="command-item" onclick="location.hash='#/tools/flopradar'; window.closeCommandPalette();">
-          <div class="command-item-left">
-            <span>FlopRadar Bot</span>
-          </div>
-          <span class="kbd-badge">#/tools/flopradar</span>
         </div>
       </div>
     </div>

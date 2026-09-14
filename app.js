@@ -629,8 +629,7 @@ function setView(viewName) {
     sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts' },
     vault: { title: 'Memory Vault', desc: 'Decentralized timeline and public signed notes' },
     verifier: { title: 'Signature Verifier', desc: 'Pure offline Ed25519 signature verification' },
-    'tools-identity': { title: 'Identity & Registry', desc: 'Key management and decentralized KV publishing' },
-    'tools-flopradar': { title: 'FlopRadar Companion', desc: 'Telegram bot telemetry and pre-submission audit' }
+    'tools-identity': { title: 'Identity & Registry', desc: 'Key management and decentralized KV publishing' }
   };
 
   if (el.currentViewName && viewMeta[viewName]) {
@@ -663,7 +662,7 @@ function setView(viewName) {
     el.tabVaultMode.setAttribute('aria-selected', String(viewName === 'vault'));
   }
   if (el.navToolsIdentity) el.navToolsIdentity.classList.toggle('active', viewName === 'tools-identity');
-  if (el.navToolsFlopradar) el.navToolsFlopradar.classList.toggle('active', viewName === 'tools-flopradar');
+  if (el.navToolsFlopradar) el.navToolsFlopradar.classList.toggle('active', false);
 
   // Toggle View Containers
   if (el.overviewView) el.overviewView.classList.toggle('hidden', true);
@@ -673,7 +672,7 @@ function setView(viewName) {
   if (el.verifierView) el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
   if (el.vaultView) el.vaultView.classList.toggle('hidden', viewName !== 'vault');
   if (el.toolsIdentityView) el.toolsIdentityView.classList.toggle('hidden', viewName !== 'tools-identity');
-  if (el.toolsFlopradarView) el.toolsFlopradarView.classList.toggle('hidden', viewName !== 'tools-flopradar');
+  if (el.toolsFlopradarView) el.toolsFlopradarView.classList.toggle('hidden', true);
 
   // Sync URL hash
   const hashMapping = {
@@ -683,8 +682,7 @@ function setView(viewName) {
     sonnet: '#/sonnet',
     vault: '#/vault',
     verifier: '#/tools/verifier',
-    'tools-identity': '#/tools/identity',
-    'tools-flopradar': '#/tools/flopradar'
+    'tools-identity': '#/tools/identity'
   };
   const targetHash = hashMapping[viewName];
   if (targetHash && !window.location.hash.startsWith(targetHash)) {
@@ -824,8 +822,7 @@ function bindEvents() {
     }
     else if (hash === '#/vault') setView('vault');
     else if (hash === '#/tools/verifier' || hash === '#/verifier') setView('verifier');
-    else if (hash === '#/tools/identity') setView('tools-identity');
-    else if (hash === '#/tools/flopradar') setView('tools-flopradar');
+    else if (hash === '#/tools/identity' || hash === '#/tools/flopradar') setView('tools-identity');
     else setView('wizard');
   });
 
@@ -843,8 +840,7 @@ function bindEvents() {
     }
     else if (initialHash === '#/vault') setView('vault');
     else if (initialHash === '#/tools/verifier' || initialHash === '#/verifier') setView('verifier');
-    else if (initialHash === '#/tools/identity') setView('tools-identity');
-    else if (initialHash === '#/tools/flopradar') setView('tools-flopradar');
+    else if (initialHash === '#/tools/identity' || initialHash === '#/tools/flopradar') setView('tools-identity');
     else setView('wizard');
   } else {
     setView('wizard');
@@ -1961,7 +1957,7 @@ function handleDownloadProof(format) {
   if (!state.keypair) return;
 
   const proof = {
-    client: 'Technocore Console V4 by Asad Lee',
+    client: 'Technocore Console V4',
     disclaimer: 'No persistent backend or database. Private keys remain client-side. Not an official FLOP Labs product.',
     did: state.keypair.did,
     timestamp: new Date().toISOString(),
@@ -2246,7 +2242,7 @@ function handleVaultExport() {
 
   const exportObj = {
     exported: new Date().toISOString(),
-    tool: 'Technocore Console V4 by Asad Lee',
+    tool: 'Technocore Console V4',
     source: 'https://github.com/Asadlee24/technocore-console',
     disclaimer: 'Personal record of activity. Not an official FLOP Labs product. Technocore is not a permanent archive.',
     memories: memories.map(m => ({ id: m.id, category: m.category, text: m.text, created: m.created, did: m.did, signature: m.signature, notePath: m._notePath }))
