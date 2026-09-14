@@ -366,46 +366,43 @@ export default async function handler(req, res) {
       const hookRes = await fetch(`${TELEGRAM_API}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
       const hookData = await hookRes.json();
 
-      // 2. Completely delete all command scopes so the menu sheet is empty
-      await fetch(`${TELEGRAM_API}/deleteMyCommands`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope: { type: 'default' } })
-      });
-      await fetch(`${TELEGRAM_API}/deleteMyCommands`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope: { type: 'all_private_chats' } })
-      });
-      await fetch(`${TELEGRAM_API}/deleteMyCommands`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope: { type: 'all_group_chats' } })
-      });
-      await fetch(`${TELEGRAM_API}/deleteMyCommands`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope: { type: 'all_chat_administrators' } })
-      });
+      // 2. Clear old command scopes first
       await fetch(`${TELEGRAM_API}/deleteMyCommands`, { method: 'POST' });
 
-      // 3. Reset Chat Menu Button to default (removes the [Menu] button)
+      // 3. Set standard clean menu commands for default & private chats
+      const cmdDefRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commands: BOT_COMMANDS, scope: { type: 'default' } })
+      });
+      const cmdDefData = await cmdDefRes.json();
+
+      const cmdPrivRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commands: BOT_COMMANDS, scope: { type: 'all_private_chats' } })
+      });
+      const cmdPrivData = await cmdPrivRes.json();
+
+      // 4. Restore Chat Menu Button
       const btnRes = await fetch(`${TELEGRAM_API}/setChatMenuButton`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ menu_button: { type: 'default' } })
+        body: JSON.stringify({ menu_button: { type: 'commands' } })
       });
       const btnData = await btnRes.json();
 
-      // 4. Verify commands are completely cleared
+      // 5. Verify commands are active
       const checkRes = await fetch(`${TELEGRAM_API}/getMyCommands`);
       const checkData = await checkRes.json();
 
       return res.status(200).json({
         ok: true,
         webhookUrl,
-        telegramActiveCommands: checkData.result || [],
+        telegramActiveCommands: (checkData.result || []).map(c => c.command),
         webhook: hookData,
+        defaultScope: cmdDefData,
+        privateScope: cmdPrivData,
         menuButton: btnData
       });
     } catch (err) {
