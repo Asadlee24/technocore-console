@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Technocore Console | Developer Workspace</title>
-  <meta name="description" content="A calm, precise developer workspace for Technocore protocol contributors and Sonnet Challenge participants.">
+  <title>Technocore Console &amp; FlopRadar Bot | Built by Asad Lee</title>
+  <meta name="author" content="Asad Lee (@asadleo416)">
+  <meta name="description" content="Technocore Console &amp; FlopRadar Telegram Companion - Built by Asad Lee for cryptographic identity, Sonnet Challenge intelligence, and referee audits.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="./style.css">
@@ -91,6 +92,17 @@
           </svg>
           <span>Identity &amp; Registry</span>
         </a>
+        <a id="nav-tools-flopradar" class="nav-item" href="#/tools/flopradar" data-view="tools-flopradar">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="22" y1="12" x2="18" y2="12"></line>
+            <line x1="6" y1="12" x2="2" y2="12"></line>
+            <line x1="12" y1="6" x2="12" y2="2"></line>
+            <line x1="12" y1="22" x2="12" y2="18"></line>
+          </svg>
+          <span>FlopRadar Bot</span>
+          <span class="nav-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--color-success); font-size: 0.625rem; padding: 1px 6px; border-radius: 9999px;">Live</span>
+        </a>
       </nav>
 
       <div class="sidebar-footer">
@@ -99,12 +111,21 @@
           <span class="kbd-badge">Ctrl+K</span>
         </button>
 
-        <div class="creator-attribution">
-          <div>
-            <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer">GitHub Repository</a>
+        <div class="creator-attribution" style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-subtle);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary);">
+              Built by <a href="https://asad-lee-portfolio.vercel.app/" target="_blank" rel="noreferrer" style="color: var(--brand-accent); text-decoration: underline; font-weight: 700;">Asad Lee</a>
+            </span>
+            <span style="display: inline-flex; width: 6px; height: 6px; border-radius: 50%; background: var(--color-success); box-shadow: 0 0 6px var(--color-success);" title="Active Creator"></span>
           </div>
-          <div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 4px;">
-            Apache-2.0 • Open Source Console
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 0.6875rem; color: var(--text-secondary); flex-wrap: wrap;">
+            <a href="https://asad-lee-portfolio.vercel.app/" target="_blank" rel="noreferrer" style="color: var(--text-primary); text-decoration: none;">Portfolio</a> •
+            <a href="https://x.com/asadleo416" target="_blank" rel="noreferrer" style="color: #38BDF8; text-decoration: none;">@asadleo416</a> •
+            <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer" style="color: #22C55E; text-decoration: none;">@FlopRadarBot</a> •
+            <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" style="color: var(--text-secondary); text-decoration: none;">GitHub</a>
+          </div>
+          <div style="font-size: 0.625rem; color: var(--text-muted); margin-top: 4px;">
+            Apache-2.0 • Community Workspace
           </div>
         </div>
       </div>
@@ -667,6 +688,14 @@
                 <li><a href="https://github.com/flop-labs/technocore-chat" target="_blank" rel="noreferrer" class="trust-link">github.com/flop-labs/technocore-chat</a></li>
                 <li><a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer" class="trust-link">github.com/Asadlee24/technocore-console (this project)</a></li>
               </ul>
+              <div class="creator-card" style="margin-top: var(--space-4); padding: var(--space-3); border-radius: var(--radius-control); background: var(--surface-raised); border: 1px solid var(--border-subtle); font-size: 0.8125rem;">
+                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
+                  Architect &amp; Lead: <a href="https://asad-lee-portfolio.vercel.app/" target="_blank" rel="noreferrer" style="color: var(--brand-accent); font-weight: 700;">Asad Lee (@asadleo416)</a>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 0.75rem;">
+                  Companion: <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer" style="color: var(--color-success); font-weight: 600;">@FlopRadarBot</a> • Codebase: <a href="https://github.com/Asadlee24/technocore-console" target="_blank" rel="noreferrer">Asadlee24/technocore-console</a>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -1381,6 +1410,141 @@
           </div>
         </section>
 
+        <!-- VIEW 7: TOOLS - FLOPRADAR COMPANION -->
+        <section id="tools-flopradar-view" class="view-container hidden" aria-label="FlopRadar Companion Tools">
+          <div class="view-header">
+            <div class="view-header-row">
+              <div>
+                <h1 class="view-title">FlopRadar Telegram Companion</h1>
+                <p class="view-description">Instant telemetry and contest intelligence via <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer" style="color: var(--color-success); font-weight: 600;">@FlopRadarBot</a> on Telegram.</p>
+              </div>
+              <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer" class="btn btn-primary">Open @FlopRadarBot ↗</a>
+                <a href="./api/bot?action=set_webhook" target="_blank" rel="noreferrer" class="btn btn-secondary" title="Verify or activate Telegram webhook">Check / Activate Webhook ↗</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bot Live Status & Architecture Card -->
+          <div class="card" style="max-width: 960px; margin-bottom: var(--space-4); border-color: var(--border-focus); background: var(--surface-main);">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-3);">
+              <div style="display: flex; align-items: center; gap: var(--space-3);">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--color-success-subtle); display: flex; align-items: center; justify-content: center; color: var(--color-success); font-size: 1.25rem;">🤖</div>
+                <div>
+                  <div style="font-weight: 700; color: var(--text-primary); font-size: 0.9375rem;">FlopRadar Bot Service Status</div>
+                  <div style="font-size: 0.8125rem; color: var(--text-secondary);">Architect: <a href="https://asad-lee-portfolio.vercel.app/" target="_blank" rel="noreferrer" style="color: var(--brand-accent); font-weight: 600;">Asad Lee</a> (<a href="https://x.com/asadleo416" target="_blank" rel="noreferrer" style="color: #38BDF8;">@asadleo416</a>)</div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--space-2);">
+                <span class="badge badge-success">Active &amp; Ready</span>
+                <span class="font-mono text-xs" style="color: var(--text-muted);">Token: 88147010...</span>
+              </div>
+            </div>
+            <p class="text-sm" style="color: var(--text-secondary); margin-bottom: var(--space-3);">
+              FlopRadar connects directly to Technocore rooms to run pre-submission referee audits, rhyme lookups, syllable counters, and receipt translations. If the bot stops or doesn't reply on Telegram:
+            </p>
+            <div style="display: flex; gap: var(--space-2); flex-wrap: wrap; font-size: 0.8125rem;">
+              <a href="./api/bot?action=set_webhook" target="_blank" rel="noreferrer" class="btn btn-secondary btn-sm">1. Reset/Refresh Webhook</a>
+              <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer" class="btn btn-primary btn-sm">2. Test on Telegram</a>
+              <span style="display: inline-flex; align-items: center; font-size: 0.75rem; color: var(--text-muted); padding: 0 4px;">Local Poller: <code>npm run bot</code></span>
+            </div>
+          </div>
+
+          <div class="card" style="max-width: 960px; margin-bottom: var(--space-6);">
+            <div class="card-header">
+              <span class="card-title">Verified Bot Commands</span>
+              <span class="badge badge-success">Live on Telegram</span>
+            </div>
+            <p class="body-text text-sm" style="margin-bottom: var(--space-4);">
+              Click any command below to copy it to your clipboard:
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-3);">
+              
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/audit '); window.showToast('Copied /audit to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/audit &lt;squad&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Run full referee rule check (140 syllables, turn cadence, letter rules) on any squad.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/rhyme '); window.showToast('Copied /rhyme to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/rhyme &lt;word&gt; [DID]</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Find legal rhyming words for your DID's letter set.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/word '); window.showToast('Copied /word to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/word &lt;word&gt; &lt;DID&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Check if a specific DID can legally sign a candidate word.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/meter '); window.showToast('Copied /meter to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/meter &lt;line&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Calculate exact syllables of a poem line according to CMUdict.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/pair '); window.showToast('Copied /pair to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/pair &lt;DID1&gt; &lt;DID2&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Compute alphabet synergy and combined coverage of two writers.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/status '); window.showToast('Copied /status to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/status &lt;DID&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Verify registration receipt and role of any DID.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/team '); window.showToast('Copied /team to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/team &lt;name&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Live squad telemetry, latest word, and discovery logs.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/teams'); window.showToast('Copied /teams to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/teams</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Scan all active squads currently registered on-chain.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/deadline'); window.showToast('Copied /deadline to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/deadline</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Official contest closing countdown.</div>
+              </div>
+
+              <div class="card-raised" style="padding: var(--space-3); cursor: pointer;" onclick="navigator.clipboard.writeText('/explain '); window.showToast('Copied /explain to clipboard', 'success');">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong class="font-mono" style="color: var(--brand-accent);">/explain &lt;json&gt;</strong>
+                  <span class="badge badge-neutral">Copy</span>
+                </div>
+                <div class="text-xs text-secondary" style="margin-top: 4px;">Translate raw protocol payloads and referee receipts into plain English.</div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
       </main>
     </div>
   </div>
@@ -1432,6 +1596,24 @@
             <span>Identity &amp; Registry</span>
           </div>
           <span class="kbd-badge">#/tools/identity</span>
+        </div>
+        <div class="command-item" onclick="location.hash='#/tools/flopradar'; window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>FlopRadar Bot (@FlopRadarBot)</span>
+          </div>
+          <span class="kbd-badge">#/tools/flopradar</span>
+        </div>
+        <div class="command-item" onclick="window.open('https://asad-lee-portfolio.vercel.app/', '_blank'); window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>Asad Lee Portfolio</span>
+          </div>
+          <span class="kbd-badge">Portfolio ↗</span>
+        </div>
+        <div class="command-item" onclick="window.open('https://x.com/asadleo416', '_blank'); window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>Asad Lee on X (@asadleo416)</span>
+          </div>
+          <span class="kbd-badge">Twitter/X ↗</span>
         </div>
       </div>
     </div>

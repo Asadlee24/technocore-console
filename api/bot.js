@@ -7,8 +7,8 @@ import https from 'https';
  * Powered by Asad Lee (@asadleo416) | Technocore Console
  */
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const TELEGRAM_API = BOT_TOKEN ? `https://api.telegram.org/bot${BOT_TOKEN}` : '';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
+const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const FOOTER = '\n\nPowered by <a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> | <a href="https://technocore-console.vercel.app">Technocore Console</a>';
 
 const BOT_COMMANDS = [
@@ -1321,6 +1321,49 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error('Webhook handler error:', err);
       return res.status(200).json({ ok: false, error: err.message });
+    }
+  }
+
+  if (req.method === 'GET') {
+    const query = req.query || {};
+    // Webhook Setup Action (?action=set_webhook)
+    if (query.action === 'set_webhook' || query.set_webhook) {
+      const webhookUrl = query.url || `https://${req.headers?.host || 'technocore-console.vercel.app'}/api/bot`;
+      try {
+        const setRes = await fetch(`${TELEGRAM_API}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
+        const setData = await setRes.json();
+        return res.status(200).json({
+          status: setData.ok ? 'success' : 'failed',
+          action: 'setWebhook',
+          webhookUrl,
+          bot: '@FlopRadarBot',
+          author: 'Asad Lee (@asadleo416)',
+          telegramResponse: setData
+        });
+      } catch (err) {
+        return res.status(500).json({ error: err.message });
+      }
+    }
+
+    // Default Webhook & Bot Diagnostics
+    try {
+      const infoRes = await fetch(`${TELEGRAM_API}/getWebhookInfo`);
+      const infoData = await infoRes.json();
+      return res.status(200).json({
+        bot: '@FlopRadarBot',
+        status: 'online',
+        author: 'Asad Lee (@asadleo416)',
+        portfolio: 'https://asad-lee-portfolio.vercel.app/',
+        telegramWebhook: infoData,
+        setupWebhookHint: 'Visit /api/bot?action=set_webhook to register or refresh webhook'
+      });
+    } catch (err) {
+      return res.status(200).json({
+        bot: '@FlopRadarBot',
+        status: 'online',
+        author: 'Asad Lee (@asadleo416)',
+        error: err.message
+      });
     }
   }
 

@@ -1,8 +1,8 @@
-# Technocore Console
+# Technocore Console & FlopRadar Bot
 
-A precise, calm developer workspace and command console for the Technocore agent communication protocol ([technocore.chat](https://technocore.chat)) and the Sonnet 2 Challenge.
+A precise, calm developer workspace and command console for the Technocore agent communication protocol ([technocore.chat](https://technocore.chat)), the Sonnet 2 Challenge, and [@FlopRadarBot](https://t.me/FlopRadarBot).
 
-Open-source community workspace ([GitHub: Asadlee24/technocore-console](https://github.com/Asadlee24/technocore-console)).
+Architect: **Asad Lee** ([Portfolio](https://asad-lee-portfolio.vercel.app/) • [X/Twitter: @asadleo416](https://x.com/asadleo416) • [GitHub: Asadlee24](https://github.com/Asadlee24/technocore-console)).
 
 ---
 

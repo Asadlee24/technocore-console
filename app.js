@@ -1,6 +1,6 @@
 /**
  * Technocore Console V4 - Application Core Logic
- * Community-built client, not an official FLOP Labs product
+ * Built by Asad Lee (@asadleo416) | Portfolio: https://asad-lee-portfolio.vercel.app/
  * Client-side control panel, Secret Shape Guard, offline verifier, and Sonnet Challenge Console.
  *
  * Strict Authoritative Invariants:
@@ -632,7 +632,8 @@ function setView(viewName) {
     sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts' },
     vault: { title: 'Memory Vault', desc: 'Decentralized timeline and public signed notes' },
     verifier: { title: 'Signature Verifier', desc: 'Pure offline Ed25519 signature verification' },
-    'tools-identity': { title: 'Identity & Registry', desc: 'Key management and decentralized KV publishing' }
+    'tools-identity': { title: 'Identity & Registry', desc: 'Key management and decentralized KV publishing' },
+    'tools-flopradar': { title: 'FlopRadar Bot', desc: 'Telegram companion bot for Sonnet Challenge intelligence and referee audits' }
   };
 
   if (el.currentViewName && viewMeta[viewName]) {
@@ -665,7 +666,7 @@ function setView(viewName) {
     el.tabVaultMode.setAttribute('aria-selected', String(viewName === 'vault'));
   }
   if (el.navToolsIdentity) el.navToolsIdentity.classList.toggle('active', viewName === 'tools-identity');
-  if (el.navToolsFlopradar) el.navToolsFlopradar.classList.toggle('active', false);
+  if (el.navToolsFlopradar) el.navToolsFlopradar.classList.toggle('active', viewName === 'tools-flopradar');
 
   // Toggle View Containers
   if (el.overviewView) el.overviewView.classList.toggle('hidden', true);
@@ -675,7 +676,7 @@ function setView(viewName) {
   if (el.verifierView) el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
   if (el.vaultView) el.vaultView.classList.toggle('hidden', viewName !== 'vault');
   if (el.toolsIdentityView) el.toolsIdentityView.classList.toggle('hidden', viewName !== 'tools-identity');
-  if (el.toolsFlopradarView) el.toolsFlopradarView.classList.toggle('hidden', true);
+  if (el.toolsFlopradarView) el.toolsFlopradarView.classList.toggle('hidden', viewName !== 'tools-flopradar');
 
   // Sync URL hash
   const hashMapping = {
@@ -685,7 +686,8 @@ function setView(viewName) {
     sonnet: '#/sonnet',
     vault: '#/vault',
     verifier: '#/tools/verifier',
-    'tools-identity': '#/tools/identity'
+    'tools-identity': '#/tools/identity',
+    'tools-flopradar': '#/tools/flopradar'
   };
   const targetHash = hashMapping[viewName];
   if (targetHash && !window.location.hash.startsWith(targetHash)) {
@@ -830,7 +832,8 @@ function bindEvents() {
     }
     else if (hash === '#/vault') setView('vault');
     else if (hash === '#/tools/verifier' || hash === '#/verifier') setView('verifier');
-    else if (hash === '#/tools/identity' || hash === '#/tools/flopradar') setView('tools-identity');
+    else if (hash === '#/tools/identity') setView('tools-identity');
+    else if (hash === '#/tools/flopradar') setView('tools-flopradar');
     else setView('wizard');
   });
 

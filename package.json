@@ -6,6 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "bot": "node bot_poller.mjs",
     "test": "node test_suite.mjs"
   },
   "engines": {
