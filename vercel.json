@@ -5,11 +5,5 @@
       "source": "/api/proxy/(.*)",
       "destination": "/api/proxy?path=$1"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/auto-hunt",
-      "schedule": "* * * * *"
-    }
   ]
 }
