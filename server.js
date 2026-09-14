@@ -1,8 +1,8 @@
 /**
- * Standalone Production Server for Railway / Render / VPS
- * Runs FlopRadar Telegram Bot 24/7 with zero external npm dependencies.
+ * Standalone Production Server for Local Dev, Railway, Render, or VPS
+ * Serves Technocore Console Web App, /api/proxy, and FlopRadar Telegram Bot.
  * 
- * Built by Asad Lee for Technocore Sonnet Challenge #2
+ * Built by Asad Lee (@asadleo416)
  * Portfolio: https://asad-lee-portfolio.vercel.app/
  */
 
@@ -10,76 +10,59 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import botHandler from './api/bot.js';
+import proxyHandler from './api/proxy.js';
 
 const PORT = process.env.PORT || 3000;
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.dict': 'text/plain; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff'
+};
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
   // Health check endpoint
-  if (url.pathname === '/' || url.pathname === '/health') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>FlopRadar Bot - 24/7 Active</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <style>
-            body { font-family: system-ui, sans-serif; background: #0b0f19; color: #f3f4f6; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-            .card { background: #161e2e; padding: 2.5rem; border-radius: 1rem; border: 1px solid #374151; text-align: center; max-width: 480px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-            h1 { color: #38bdf8; margin-top: 0; }
-            .status { display: inline-flex; align-items: center; gap: 8px; background: rgba(34, 197, 94, 0.2); color: #4ade80; padding: 6px 14px; border-radius: 9999px; font-weight: 600; margin-bottom: 1rem; }
-            .dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
-            a { color: #60a5fa; text-decoration: none; font-weight: 500; }
-            @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="status"><div class="dot"></div> 24/7 Active on Railway</div>
-            <h1>🤖 FlopRadar Bot</h1>
-            <p>Real-time companion for Technocore Sonnet Challenge #2.</p>
-            <p>Architect: <b><a href="https://asad-lee-portfolio.vercel.app/" target="_blank" style="color: #38bdf8; text-decoration: underline;">Asad Lee</a> (<a href="https://x.com/asadleo416" target="_blank" style="color: #60a5fa;">@asadleo416</a>)</b></p>
-            <p><a href="https://t.me/FlopRadarBot" target="_blank">👉 Open in Telegram (@FlopRadarBot)</a></p>
-            <p><a href="https://technocore-console.vercel.app/" target="_blank">🌐 Technocore Console</a></p>
-          </div>
-        </body>
-      </html>
-    `);
+  if (url.pathname === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'ok',
+      service: 'technocore-console',
+      architect: 'Asad Lee (@asadleo416)',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    }));
     return;
   }
 
   // Telegram webhook endpoint (/api/bot)
   if (url.pathname.startsWith('/api/bot')) {
     let bodyData = '';
-    req.on('data', chunk => {
-      bodyData += chunk;
-    });
-
+    req.on('data', chunk => { bodyData += chunk; });
     req.on('end', async () => {
-      // Mock Express / Next-style res helpers
-      res.status = (code) => {
-        res.statusCode = code;
-        return res;
-      };
+      res.status = (code) => { res.statusCode = code; return res; };
+      res.send = (data) => { res.end(data); return res; };
       res.json = (data) => {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(data));
+        return res;
       };
-
-      // Mock Express-style req fields
       req.query = Object.fromEntries(url.searchParams.entries());
       req.body = undefined;
       if (bodyData) {
-        try {
-          req.body = JSON.parse(bodyData);
-        } catch {
-          req.body = bodyData;
-        }
+        try { req.body = JSON.parse(bodyData); } catch { req.body = bodyData; }
       }
-
       try {
         await botHandler(req, res);
       } catch (err) {
@@ -93,13 +76,64 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Fallback 404
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
-  res.end('Not Found');
+  // Serverless proxy endpoint (/api/proxy)
+  if (url.pathname.startsWith('/api/proxy')) {
+    let bodyData = '';
+    req.on('data', chunk => { bodyData += chunk; });
+    req.on('end', async () => {
+      res.status = (code) => { res.statusCode = code; return res; };
+      res.send = (data) => { res.end(data); return res; };
+      res.json = (data) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(data));
+        return res;
+      };
+      req.query = Object.fromEntries(url.searchParams.entries());
+      req.body = undefined;
+      if (bodyData) {
+        try { req.body = JSON.parse(bodyData); } catch { req.body = bodyData; }
+      }
+      try {
+        await proxyHandler(req, res);
+      } catch (err) {
+        console.error('Error executing proxy handler:', err);
+        if (!res.writableEnded) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      }
+    });
+    return;
+  }
+
+  // Static File Serving (index.html, app.js, style.css, vendor files, etc.)
+  let reqPath = url.pathname === '/' ? '/index.html' : url.pathname;
+  // Prevent directory traversal
+  const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, '');
+  const filePath = path.join(process.cwd(), safePath);
+
+  fs.stat(filePath, (err, stats) => {
+    if (err || !stats.isFile()) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+      return;
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': 'no-cache'
+    });
+    fs.createReadStream(filePath).pipe(res);
+  });
 });
 
 server.listen(PORT, () => {
-  console.log(`[FlopRadar] Server listening on port ${PORT}`);
-  console.log(`[FlopRadar] Health check: http://localhost:${PORT}/health`);
-  console.log(`[FlopRadar] Webhook: http://localhost:${PORT}/api/bot`);
+  console.log('=============================================================');
+  console.log(`🌐 Technocore Console & FlopRadar running on http://localhost:${PORT}`);
+  console.log(`⚡ Architect: Asad Lee (@asadleo416)`);
+  console.log(`📡 Proxy: http://localhost:${PORT}/api/proxy`);
+  console.log(`🤖 Bot Webhook: http://localhost:${PORT}/api/bot`);
+  console.log('=============================================================');
 });
