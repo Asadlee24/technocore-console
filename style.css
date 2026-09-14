@@ -563,17 +563,20 @@ a:hover {
 }
 
 /* View Containers */
-.view-container {
+.view-container,
+.bounty-container {
   display: block;
   animation: fadeIn var(--transition-panel);
 }
 
-.view-container.hidden {
+.view-container.hidden,
+.bounty-container.hidden {
   display: none !important;
 }
 
-.view-container.active-view {
-  display: block;
+.view-container.active-view,
+.bounty-container.active-view {
+  display: block !important;
 }
 
 @keyframes fadeIn {
