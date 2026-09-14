@@ -45,6 +45,26 @@ const KNOWN_DIDS = {
   'did:key:z6MkowHQwsx9xr84WbWN3YCnKutyBnBXkT1ChKY4uEAAMzte': 'Contest Referee'
 };
 
+function getSolverDisplayName(did) {
+  if (!did) return 'Unknown Node';
+  if (did.includes('z6Mkhefo')) {
+    return '<b>Asad Lee (@asadleo416) [YOU]</b>';
+  }
+  if (KNOWN_DIDS[did]) {
+    return `<b>${KNOWN_DIDS[did]}</b>`;
+  }
+
+  const hash = did.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const prefixes = ['Quantum', 'Nexus', 'Hyperion', 'Apex', 'Vector', 'Titan', 'Aether', 'Cipher', 'Vortex', 'Sigma'];
+  const roles = ['Solver', 'Hunter', 'Worker', 'Sniper Node', 'Runner', 'Engine'];
+  
+  const prefix = prefixes[hash % prefixes.length];
+  const role = roles[(hash >> 2) % roles.length];
+  const tag = did.slice(-4);
+
+  return `<b>${prefix} ${role}</b> (<code>#${tag}</code>)`;
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -1491,9 +1511,11 @@ export default async function handler(req, res) {
           topList.forEach((solver, idx) => {
             const medal = medals[idx] || `${idx + 1}.`;
             const isMe = solver.did.includes('z6Mkhefo');
-            const displayName = isMe ? '<b>Asad Lee (@asadleo416) [YOU]</b>' : `<code>${solver.did.slice(0, 18)}...</code>`;
+            const displayName = getSolverDisplayName(solver.did);
+            const shortDid = solver.did.slice(0, 16) + '...' + solver.did.slice(-4);
             reply += `${medal} ${displayName}\n` +
-              `   • Confirmed Wins: <b>${solver.claims}</b> | Offers Locked: <b>${solver.accepts}</b>\n`;
+              `   • Confirmed Wins: <b>${solver.claims}</b> | Offers Locked: <b>${solver.accepts}</b>\n` +
+              (isMe ? '' : `   • DID: <code>${shortDid}</code>\n`);
           });
         } else {
           reply += `<i>Auditing live /r/tclk-offers transactions...</i>\n`;
