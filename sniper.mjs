@@ -486,7 +486,7 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
         status: 'online',
         mode: 'cloud-sniper-24/7',
         runner: 'GitHub Actions Cloud (Ubuntu Azure)',
-        telegram: '@FlopRadarBot (Chat: 7080909965)',
+        telegram: '@FlopRadarBot',
         updatedAt: Date.now(),
         lastHeartbeat: Date.now(),
         recentWins: recentWins.slice(0, 15)
