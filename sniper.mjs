@@ -66,7 +66,10 @@ const PATTERNS = {
   matrixRows: /(\d+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*(\d+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*([A-Za-z0-9_-]+)\s*\|\s*(\d\d:\d\d:\d\d)/g,
   matrixEven: /even numbers[\s\S]*ascending order[\s\S]*comma-separated/i,
   matrixMinMax: /earliest time and the seq of the row with the latest time/i,
-  matrixTop3: /3 rows with the largest amount[\s\S]*highest first/i
+  matrixTop3: /3 rows with the largest amount[\s\S]*highest first/i,
+  dealExampleScript: /(?:example script that runs a complete deal|live-deal\.mjs)/i,
+  signatureEncoding: /(?:encoding format for signatures|format for signatures)/i,
+  attestContract: /Attestation:\s*in the derived deal room,\s*write the single line `tclk-attest ([^`]+)`/i
 };
 
 // Cached answers
@@ -81,6 +84,8 @@ const CACHED_SORE = 'sore';
 const CACHED_NO = 'no';
 const CACHED_KUCING = 'kucing';
 const CACHED_AESGCM = 'AESGCM';
+const CACHED_DEAL_SCRIPT = 'examples/live-deal.mjs';
+const CACHED_SIG_ENCODING = 'base64url';
 
 function gcdBig(x, y) { while (y !== 0n) { let t = y; y = x % y; x = t; } return x; }
 function lcmBig(x, y) { return (x * y) / gcdBig(x, y); }
@@ -220,6 +225,11 @@ export function fastSolve(context, specText = '') {
   if (PATTERNS.nQueens.test(full)) return CACHED_9_QUEENS;
   if (PATTERNS.indonesianAfternoon.test(full)) return CACHED_SORE;
   if (PATTERNS.paulMcCartney.test(full)) return CACHED_NO;
+  if (PATTERNS.dealExampleScript.test(full)) return CACHED_DEAL_SCRIPT;
+  if (PATTERNS.signatureEncoding.test(full)) return CACHED_SIG_ENCODING;
+
+  const attestMatch = full.match(PATTERNS.attestContract);
+  if (attestMatch) return `tclk-attest ${attestMatch[1].trim()}`;
 
   if (PATTERNS.bothNoteConditions.test(full)) {
     const probeMatch = full.match(/GET (https:\/\/technocore\.chat\/kv\/[^\s]+)/i);

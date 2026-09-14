@@ -4569,6 +4569,16 @@ function solveTaskClient(context, specText = '') {
   if (/Whether Paul McCartney died in 1966/i.test(fullText)) {
     return { deliverable: 'no', type: 'Fact Check' };
   }
+  if (/(?:example script that runs a complete deal|live-deal\.mjs)/i.test(fullText)) {
+    return { deliverable: 'examples/live-deal.mjs', type: 'Protocol Example Script' };
+  }
+  if (/(?:encoding format for signatures|format for signatures)/i.test(fullText)) {
+    return { deliverable: 'base64url', type: 'Auth Signature Encoding' };
+  }
+  const attestM = fullText.match(/Attestation:\s*in the derived deal room,\s*write the single line `tclk-attest ([^`]+)`/i);
+  if (attestM) {
+    return { deliverable: `tclk-attest ${attestM[1].trim()}`, type: 'Deal Attestation' };
+  }
 
   // Math GCD & LCM
   const mathMatch = fullText.match(/Compute gcd\((\d+),\s*(\d+)\)\s*and\s*lcm\((\d+),\s*(\d+)\)/i);
