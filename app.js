@@ -196,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateWizardUI();
   initSonnet();
   updateQuickHudUI();
+  updateOverviewStats();
   updateSonnetStepperUI();
   fetchRoomMessages(true);
   syncCloudSniperStats();
@@ -616,7 +617,14 @@ function updateOverviewStats() {
     el.overviewStatVault.textContent = String(state.vaultMemories ? state.vaultMemories.length : 0);
   }
   if (el.globalIdentityDidShort) {
-    el.globalIdentityDidShort.textContent = state.keypair ? (state.keypair.did.slice(0, 16) + '...' + state.keypair.did.slice(-4)) : 'No Identity';
+    if (state.keypair) {
+      const isAsad = state.keypair.did.includes('z6Mkhefo');
+      el.globalIdentityDidShort.textContent = isAsad
+        ? `${state.keypair.did.slice(0, 14)}...23zJM4 (Asad)`
+        : `${state.keypair.did.slice(0, 14)}...${state.keypair.did.slice(-4)}`;
+    } else {
+      el.globalIdentityDidShort.textContent = 'No Identity (Guest)';
+    }
   }
 }
 
@@ -768,7 +776,12 @@ function setView(viewName) {
 
   if (viewName === 'bounty') {
     if (state.keypair && el.bountyTargetDid) {
-      el.bountyTargetDid.textContent = state.keypair.did;
+      const isAsad = state.keypair.did.includes('z6Mkhefo');
+      el.bountyTargetDid.textContent = isAsad
+        ? `${state.keypair.did} (Your Connected Cloud Wallet)`
+        : `${state.keypair.did} (Your Active Signer)`;
+    } else if (el.bountyTargetDid) {
+      el.bountyTargetDid.textContent = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4 (Cloud Runner)';
     }
     syncCloudSniperStats();
   }

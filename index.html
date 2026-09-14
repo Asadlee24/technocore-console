@@ -162,9 +162,10 @@
 
         <div class="header-right">
           <!-- Live FLOP Earnings Pill -->
-          <a href="#/bounty" id="header-flop-pill" class="connection-pill" style="text-decoration: none; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); color: #10B981; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;" title="View Live Bounty FLOP Earnings">
+          <a href="#/bounty" id="header-flop-pill" class="connection-pill" style="text-decoration: none; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); color: #10B981; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;" title="View Live Bounty FLOP Telemetry">
             <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10B981; box-shadow: 0 0 6px #10B981;"></span>
-            <span id="header-flop-val">3,100 FLOP</span>
+            <span style="opacity: 0.8; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;">Cloud Sniper:</span>
+            <span id="header-flop-val">20,800 FLOP</span>
           </a>
 
           <!-- Connection Pill -->
@@ -179,7 +180,7 @@
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
-            <span id="global-identity-did-short" class="font-mono">z6Mkhefo...23zJM4 (Asad)</span>
+            <span id="global-identity-did-short" class="font-mono">No Identity (Guest)</span>
           </button>
 
           <!-- Theme Toggle -->
@@ -193,13 +194,13 @@
       <div id="app-quick-hud" class="card app-quick-hud">
         <div style="display: flex; align-items: center; gap: var(--space-2);">
           <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">IDENTITY:</span>
-          <span id="hud-did-val" class="font-mono" style="color: var(--text-primary);">did:key:z6Mkhefo...23zJM4 (Asad Lee)</span>
+          <span id="hud-did-val" class="font-mono" style="color: var(--text-primary);">No Identity Loaded</span>
           <button id="hud-btn-copy-did" class="btn btn-secondary btn-sm" type="button" style="display: none; padding: 2px 8px; min-height: 24px;">Copy</button>
         </div>
         <div style="display: flex; align-items: center; gap: var(--space-4);">
           <div style="display: flex; align-items: center; gap: var(--space-2);">
-            <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">EARNINGS:</span>
-            <span id="hud-flop-val" class="font-mono" style="color: #10B981; font-weight: 800;">3,100 FLOP</span>
+            <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">CLOUD FLOP:</span>
+            <span id="hud-flop-val" class="font-mono" style="color: #10B981; font-weight: 800;">20,800 FLOP</span>
           </div>
           <div style="display: flex; align-items: center; gap: var(--space-2);">
             <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">SNIPER:</span>
@@ -1591,7 +1592,10 @@
                     <span id="bounty-status-badge" class="badge badge-success">🟢 Cloud Sniper Active (24/7)</span>
                   </div>
                   <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 2px;">
-                    Receiver DID: <span id="bounty-target-did" class="font-mono text-xs" style="color: var(--brand-accent);">did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4 (Asad Lee)</span>
+                    Active Engine DID: <span id="bounty-target-did" class="font-mono text-xs" style="color: var(--brand-accent);">did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4 (Cloud Runner)</span>
+                  </div>
+                  <div id="bounty-local-session-note" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+                    📡 <i>Streaming 24/7 cloud telemetry. To hunt with your own private identity in this browser, import your key in <a href="#/wizard" style="color: var(--brand-accent);">Identity Setup</a>.</i>
                   </div>
                 </div>
               </div>
