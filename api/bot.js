@@ -84,6 +84,18 @@ async function sendTelegramMessage(chatId, text, extra = {}) {
   }
 }
 
+async function fetchTechnocoreRoom(room, limit = 50) {
+  try {
+    const cleanRoom = encodeURIComponent((room || '').trim().toLowerCase());
+    const res = await fetch(`https://technocore.chat/r/${cleanRoom}?format=json&limit=${limit}`);
+    if (!res.ok) return { messages: [] };
+    return await res.json();
+  } catch (err) {
+    console.error(`fetchTechnocoreRoom error for ${room}:`, err);
+    return { messages: [] };
+  }
+}
+
 async function streamFindRegistration(targetDid) {
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ receipt: null, request: null }), 6000);
@@ -354,7 +366,8 @@ export default async function handler(req, res) {
       const hookRes = await fetch(`${TELEGRAM_API}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
       const hookData = await hookRes.json();
 
-      // 2. Register Telegram Menu Commands so typing '/' displays the menu
+      // 2. Delete old commands cache first, then register clean menu commands
+      await fetch(`${TELEGRAM_API}/deleteMyCommands`, { method: 'POST' });
       const cmdRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -373,6 +386,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         webhookUrl,
+        commandsList: BOT_COMMANDS.map(c => c.command),
         webhook: hookData,
         commands: cmdData,
         menuButton: btnData
