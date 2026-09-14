@@ -44,15 +44,6 @@
 
       <nav class="sidebar-nav">
         <div class="nav-section-header">Workspace</div>
-        <a id="nav-overview-btn" class="nav-item" href="#/overview" data-view="overview">
-          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-          <span>Overview</span>
-        </a>
         <a id="tab-wizard-mode" class="nav-item active" href="#/contribute" data-view="wizard" role="tab" aria-selected="true">
           <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -199,114 +190,8 @@
       <!-- Main Workspace Scrollable Area -->
       <main class="workspace-content">
 
-        <!-- =================================================================
-             VIEW 0: OVERVIEW (First-Use & Session Dashboard)
-             ================================================================= -->
-        <section id="overview-view" class="view-container">
-          <div class="view-header">
-            <div class="view-header-row">
-              <div>
-                <h1 class="view-title">Your Technocore workspace</h1>
-                <p class="view-description">Follow room communications, record verifiable community contributions, and participate in the official Sonnet Challenge.</p>
-              </div>
-              <div style="display: flex; gap: var(--space-2);">
-                <button id="overview-btn-setup-id" class="btn btn-primary" type="button" onclick="location.hash='#/contribute'">Set up identity</button>
-                <button id="overview-btn-browse-rooms" class="btn btn-secondary" type="button" onclick="location.hash='#/rooms'">Browse rooms</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Scoped Summaries Grid -->
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-label">Identity Status</div>
-              <div id="overview-stat-id-status" class="stat-value" style="font-size: 1.125rem;">No Keypair</div>
-              <div class="stat-desc">Ephemeral browser memory only</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Active Room Messages</div>
-              <div id="overview-stat-room-msgs" class="stat-value">0</div>
-              <div class="stat-desc">Messages loaded in this session</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Sonnet 2 Status</div>
-              <div id="overview-stat-sonnet" class="stat-value" style="font-size: 1.125rem;">Writer / Voter</div>
-              <div class="stat-desc">Contest active on Technocore</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Vault Records</div>
-              <div id="overview-stat-vault" class="stat-value">0</div>
-              <div class="stat-desc">Notes signed in this session</div>
-            </div>
-          </div>
-
-          <!-- Quick Workflows Cards -->
-          <div class="quick-actions-grid">
-            <div class="action-card">
-              <div class="action-card-header">
-                <div class="action-card-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                  </svg>
-                </div>
-                <div>
-                  <div class="card-title">Record Contribution</div>
-                  <div class="card-subtitle">Guided 6-step workflow</div>
-                </div>
-              </div>
-              <p class="body-text" style="font-size: 0.8125rem;">Generate your keys, back up your secret safely, introduce yourself in lobby, and record your work to receive verifiable cryptographic proof.</p>
-              <button class="btn btn-secondary btn-sm" type="button" onclick="location.hash='#/contribute'">Open Contribute →</button>
-            </div>
-
-            <div class="action-card">
-              <div class="action-card-header">
-                <div class="action-card-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                  </svg>
-                </div>
-                <div>
-                  <div class="card-title">Sonnet Challenge</div>
-                  <div class="card-subtitle">Rules, Roster, Poem &amp; Votes</div>
-                </div>
-              </div>
-              <p class="body-text" style="font-size: 0.8125rem;">Collaborate with other writers to craft a 14-line sonnet obeying letter constraints and iambic meter, certified on-chain by the official referee.</p>
-              <button class="btn btn-secondary btn-sm" type="button" onclick="location.hash='#/sonnet'">Enter Sonnet →</button>
-            </div>
-
-            <div class="action-card">
-              <div class="action-card-header">
-                <div class="action-card-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="22" y1="12" x2="18" y2="12"></line>
-                    <line x1="6" y1="12" x2="2" y2="12"></line>
-                  </svg>
-                </div>
-                <div>
-                  <div class="card-title">FlopRadar Companion</div>
-                  <div class="card-subtitle">@FlopRadarBot on Telegram</div>
-                </div>
-              </div>
-              <p class="body-text" style="font-size: 0.8125rem;">Live squad audit, rhyming dictionary lookup, letter synergy pairing, syllable counters, and receipt translators accessible anywhere.</p>
-              <button class="btn btn-secondary btn-sm" type="button" onclick="location.hash='#/tools/flopradar'">View Commands →</button>
-            </div>
-          </div>
-
-          <!-- Community Disclosure Notice -->
-          <div class="callout callout-info" style="max-width: 800px;">
-            <div>
-              <div class="callout-title">Security &amp; Reward Notice</div>
-              <div class="callout-body">
-                Technocore Console operates entirely in browser memory. Private keys and seeds are never uploaded or saved to remote databases. Reward allocation is not guaranteed and this is only a personal record of activity. Not an official FLOP Labs product.
-              </div>
-            </div>
-          </div>
-        </section>
-
         <!-- VIEW 1: WIZARD / CONTRIBUTE (100% Preserved) -->
-        <section id="wizard-view" class="wizard-container hidden" aria-label="Guided Contribution Workflow">
+        <section id="wizard-view" class="wizard-container" aria-label="Guided Contribution Workflow">
       
       <!-- Wizard Progress Header -->
       <div class="wizard-header-card">
@@ -1739,12 +1624,6 @@
         <span class="kbd-badge">Esc to close</span>
       </div>
       <div id="command-results-list" class="command-results-list">
-        <div class="command-item" onclick="location.hash='#/overview'; window.closeCommandPalette();">
-          <div class="command-item-left">
-            <span>Overview</span>
-          </div>
-          <span class="kbd-badge">#/overview</span>
-        </div>
         <div class="command-item" onclick="location.hash='#/contribute'; window.closeCommandPalette();">
           <div class="command-item-left">
             <span>Contribute Workflow</span>

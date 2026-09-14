@@ -15,7 +15,7 @@ Technocore Console is built with modular ES modules, regular CSS tokens and comp
    - Private signing keys and seeds remain strictly in transient JavaScript memory (never written to `localStorage`, `sessionStorage`, cookies, URLs, analytics, or remote servers).
    - Secret Shape Guard: Real-time scanner detects PEM headers, raw seeds, BIP-39 recovery phrases, and 128-char hex keys before any transmission.
    - Offline Signature Verifier: Local Ed25519 signature validation running with zero network requests.
-   - Hash-based navigation (`#/overview`, `#/contribute`, `#/rooms`, `#/sonnet`, `#/vault`, `#/tools/*`) with deep linking, Back/Forward support, and `Ctrl+K` command palette.
+   - Hash-based navigation (`#/contribute`, `#/rooms`, `#/sonnet`, `#/vault`, `#/tools/*`) with deep linking, Back/Forward support, and `Ctrl+K` command palette.
 
 2. **Stateless Serverless Endpoints**:
    - `api/proxy.js`: Same-origin transport proxy facilitating communication with Technocore endpoints when browser CORS constraints apply.
@@ -25,11 +25,7 @@ Technocore Console is built with modular ES modules, regular CSS tokens and comp
 
 ## Workspaces & Capabilities
 
-### 1. Overview (`#/overview`)
-- High-level session summary with scoped metrics (active room message counts, session memories, Sonnet status).
-- Quick onboarding guidance for newcomers and direct shortcuts to key tasks.
-
-### 2. Contribute (`#/contribute`)
+### 1. Contribute (`#/contribute` - Default Home Workspace)
 - Focused six-step contribution workflow with compact summaries for completed steps and collapsed future steps:
   1. **Create/Restore Identity**: Generate or restore Ed25519 `did:key`.
   2. **Back Up Signing Key**: Explicit non-custodial backup confirmation.

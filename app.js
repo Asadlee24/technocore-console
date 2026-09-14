@@ -617,11 +617,13 @@ function initVisualizer() {
  * Switch Navigation View (Enhanced for Redesigned Shell & Hash Router)
  */
 function setView(viewName) {
+  if (viewName === 'overview') {
+    viewName = 'wizard';
+  }
   state.activeView = viewName;
 
   // Header Title and Description Metadata
   const viewMeta = {
-    overview: { title: 'Overview', desc: 'Your Technocore workspace summary and next action' },
     wizard: { title: 'Contribute', desc: 'Six-step verified contribution pipeline' },
     direct: { title: 'Rooms', desc: 'Live room monitor and signed message composer' },
     sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts' },
@@ -639,7 +641,7 @@ function setView(viewName) {
   }
 
   // Sidebar Navigation Active States
-  if (el.navOverviewBtn) el.navOverviewBtn.classList.toggle('active', viewName === 'overview');
+  if (el.navOverviewBtn) el.navOverviewBtn.classList.toggle('active', false);
   if (el.tabWizardMode) {
     el.tabWizardMode.classList.toggle('active', viewName === 'wizard');
     el.tabWizardMode.setAttribute('aria-selected', String(viewName === 'wizard'));
@@ -664,7 +666,7 @@ function setView(viewName) {
   if (el.navToolsFlopradar) el.navToolsFlopradar.classList.toggle('active', viewName === 'tools-flopradar');
 
   // Toggle View Containers
-  if (el.overviewView) el.overviewView.classList.toggle('hidden', viewName !== 'overview');
+  if (el.overviewView) el.overviewView.classList.toggle('hidden', true);
   if (el.wizardView) el.wizardView.classList.toggle('hidden', viewName !== 'wizard');
   if (el.directView) el.directView.classList.toggle('hidden', viewName !== 'direct');
   if (el.sonnetView) el.sonnetView.classList.toggle('hidden', viewName !== 'sonnet');
@@ -675,7 +677,7 @@ function setView(viewName) {
 
   // Sync URL hash
   const hashMapping = {
-    overview: '#/overview',
+    overview: '#/contribute',
     wizard: '#/contribute',
     direct: '#/rooms',
     sonnet: '#/sonnet',
@@ -811,8 +813,7 @@ function bindEvents() {
   // Hash router
   window.addEventListener('hashchange', () => {
     const hash = window.location.hash.toLowerCase();
-    if (hash === '#/overview') setView('overview');
-    else if (hash === '#/contribute' || hash === '#/wizard') setView('wizard');
+    if (hash === '#/overview' || hash === '#/contribute' || hash === '#/wizard') setView('wizard');
     else if (hash === '#/rooms' || hash === '#/direct') setView('direct');
     else if (hash.startsWith('#/sonnet')) {
       setView('sonnet');
@@ -825,13 +826,13 @@ function bindEvents() {
     else if (hash === '#/tools/verifier' || hash === '#/verifier') setView('verifier');
     else if (hash === '#/tools/identity') setView('tools-identity');
     else if (hash === '#/tools/flopradar') setView('tools-flopradar');
+    else setView('wizard');
   });
 
   // Initial Route Check
   if (window.location.hash) {
     const initialHash = window.location.hash.toLowerCase();
-    if (initialHash === '#/overview') setView('overview');
-    else if (initialHash === '#/contribute' || initialHash === '#/wizard') setView('wizard');
+    if (initialHash === '#/overview' || initialHash === '#/contribute' || initialHash === '#/wizard') setView('wizard');
     else if (initialHash === '#/rooms' || initialHash === '#/direct') setView('direct');
     else if (initialHash.startsWith('#/sonnet')) {
       setView('sonnet');
@@ -844,9 +845,9 @@ function bindEvents() {
     else if (initialHash === '#/tools/verifier' || initialHash === '#/verifier') setView('verifier');
     else if (initialHash === '#/tools/identity') setView('tools-identity');
     else if (initialHash === '#/tools/flopradar') setView('tools-flopradar');
-    else setView('overview');
+    else setView('wizard');
   } else {
-    setView('overview');
+    setView('wizard');
   }
 
   // Theme toggle
