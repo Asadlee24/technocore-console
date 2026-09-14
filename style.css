@@ -564,8 +564,12 @@ a:hover {
 
 /* View Containers */
 .view-container {
-  display: none;
+  display: block;
   animation: fadeIn var(--transition-panel);
+}
+
+.view-container.hidden {
+  display: none !important;
 }
 
 .view-container.active-view {

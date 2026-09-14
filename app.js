@@ -694,14 +694,38 @@ function setView(viewName) {
 
   // Toggle View Containers
   if (el.overviewView) el.overviewView.classList.toggle('hidden', true);
-  if (el.wizardView) el.wizardView.classList.toggle('hidden', viewName !== 'wizard');
-  if (el.directView) el.directView.classList.toggle('hidden', viewName !== 'direct');
-  if (el.sonnetView) el.sonnetView.classList.toggle('hidden', viewName !== 'sonnet');
-  if (el.verifierView) el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
-  if (el.vaultView) el.vaultView.classList.toggle('hidden', viewName !== 'vault');
-  if (el.bountyView) el.bountyView.classList.toggle('hidden', viewName !== 'bounty');
-  if (el.toolsIdentityView) el.toolsIdentityView.classList.toggle('hidden', viewName !== 'tools-identity');
-  if (el.toolsFlopradarView) el.toolsFlopradarView.classList.toggle('hidden', viewName !== 'tools-flopradar');
+  if (el.wizardView) {
+    el.wizardView.classList.toggle('hidden', viewName !== 'wizard');
+    el.wizardView.classList.toggle('active-view', viewName === 'wizard');
+  }
+  if (el.directView) {
+    el.directView.classList.toggle('hidden', viewName !== 'direct');
+    el.directView.classList.toggle('active-view', viewName === 'direct');
+  }
+  if (el.sonnetView) {
+    el.sonnetView.classList.toggle('hidden', viewName !== 'sonnet');
+    el.sonnetView.classList.toggle('active-view', viewName === 'sonnet');
+  }
+  if (el.verifierView) {
+    el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
+    el.verifierView.classList.toggle('active-view', viewName === 'verifier');
+  }
+  if (el.vaultView) {
+    el.vaultView.classList.toggle('hidden', viewName !== 'vault');
+    el.vaultView.classList.toggle('active-view', viewName === 'vault');
+  }
+  if (el.bountyView) {
+    el.bountyView.classList.toggle('hidden', viewName !== 'bounty');
+    el.bountyView.classList.toggle('active-view', viewName === 'bounty');
+  }
+  if (el.toolsIdentityView) {
+    el.toolsIdentityView.classList.toggle('hidden', viewName !== 'tools-identity');
+    el.toolsIdentityView.classList.toggle('active-view', viewName === 'tools-identity');
+  }
+  if (el.toolsFlopradarView) {
+    el.toolsFlopradarView.classList.toggle('hidden', viewName !== 'tools-flopradar');
+    el.toolsFlopradarView.classList.toggle('active-view', viewName === 'tools-flopradar');
+  }
 
   // Sync URL hash
   const hashMapping = {
@@ -735,6 +759,12 @@ function setView(viewName) {
   if (viewName === 'direct') {
     if (visualizer && typeof visualizer.onResize === 'function') {
       setTimeout(() => visualizer.onResize(), 60);
+    }
+  }
+
+  if (viewName === 'bounty') {
+    if (state.keypair && el.bountyTargetDid) {
+      el.bountyTargetDid.textContent = state.keypair.did;
     }
   }
 
