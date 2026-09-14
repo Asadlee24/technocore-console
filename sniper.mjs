@@ -821,7 +821,14 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
   if (options.durationMs > 0) {
     await new Promise(r => setTimeout(r, options.durationMs));
     isRunning = false;
-    console.log(`\n⏱️ Run duration reached (${options.durationMs / 1000}s). Exiting cleanly.`);
+    clearInterval(heartbeatInterval);
+    console.log(`\n⏱️ Run duration reached (${options.durationMs / 1000}s). Finalizing telemetry...`);
+    await publishHunterTelemetry();
+    try {
+      httpsAgent.destroy();
+    } catch {}
+    console.log('✅ Cycle finished cleanly. Exiting with code 0.');
+    process.exit(0);
   } else {
     await Promise.all([p1, p2]);
   }
@@ -841,12 +848,17 @@ if (isMain) {
     }
   }
 
-  // Duration in minutes if passed as argument (e.g. node sniper.mjs 4.8)
+  // Duration in minutes if passed as argument (e.g. node sniper.mjs 25)
   const argMins = parseFloat(process.argv[2]) || 0;
   const durationMs = argMins > 0 ? Math.round(argMins * 60 * 1000) : 0;
 
-  runSniper(kp, { durationMs }).catch(err => {
-    console.error('Fatal sniper error:', err);
-    process.exit(1);
-  });
+  runSniper(kp, { durationMs })
+    .then(() => {
+      console.log('✅ Sniper cycle finished.');
+      process.exit(0);
+    })
+    .catch(err => {
+      console.error('Fatal sniper error:', err);
+      process.exit(1);
+    });
 }

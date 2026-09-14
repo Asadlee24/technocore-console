@@ -2,18 +2,22 @@ name: 24/7 Autonomous Bounty Sniper
 
 on:
   schedule:
-    # Runs every 5 minutes in GitHub's high-speed cloud datacenter (unlimited free minutes on public repos)
-    - cron: '*/5 * * * *'
+    # Overlapping 10-minute cron cycles in GitHub's high-speed cloud datacenter (24/7 continuous uptime)
+    - cron: '*/10 * * * *'
   push:
     branches:
       - main
   workflow_dispatch:
 
+permissions:
+  actions: write
+  contents: read
+
 jobs:
   bounty-sniper:
     name: ⚡ High-Frequency Bounty Sniper (Asad Lee)
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 25
 
     steps:
       - name: Checkout Repository
@@ -34,8 +38,16 @@ jobs:
           echo "🚀 STARTING HIGH-FREQUENCY BOUNTY SNIPER (ASAD LEE)"
           echo "Network: 15ms Azure Cloud Datacenter | Dual-Stream Polling"
           echo "============================================================"
-          # Run continuous dual-stream keep-alive sniper for 4.8 minutes (288 seconds)
-          node sniper.mjs 4.8
+          # Run continuous dual-stream keep-alive sniper for 20 minutes (1200 seconds)
+          node sniper.mjs 20
+
+      - name: 🔄 Auto-Chain Next 24/7 Cloud Runner Cycle
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🚀 Requesting next cloud runner cycle..."
+          gh workflow run bounty_hunter.yml --ref main || true
 
       - name: Fallback Ping to Vercel Auto-Hunt
         if: always()
