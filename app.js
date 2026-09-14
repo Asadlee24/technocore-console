@@ -229,6 +229,12 @@ function cacheElements() {
     currentViewDesc: document.getElementById('current-view-desc'),
     globalIdentityBtn: document.getElementById('global-identity-btn'),
     globalIdentityDidShort: document.getElementById('global-identity-did-short'),
+    appQuickHud: document.getElementById('app-quick-hud'),
+    hudDidVal: document.getElementById('hud-did-val'),
+    hudBtnCopyDid: document.getElementById('hud-btn-copy-did'),
+    hudRoleBadge: document.getElementById('hud-role-badge'),
+    hudTeamVal: document.getElementById('hud-team-val'),
+    hudNetText: document.getElementById('hud-net-text'),
     overviewStatIdStatus: document.getElementById('overview-stat-id-status'),
     overviewStatRoomMsgs: document.getElementById('overview-stat-room-msgs'),
     overviewStatSonnet: document.getElementById('overview-stat-sonnet'),
@@ -599,6 +605,24 @@ function updateOverviewStats() {
   if (el.globalIdentityDidShort) {
     el.globalIdentityDidShort.textContent = state.keypair ? (state.keypair.did.slice(0, 16) + '...' + state.keypair.did.slice(-4)) : 'No Identity';
   }
+  if (el.hudDidVal) {
+    el.hudDidVal.textContent = state.keypair ? state.keypair.did : 'No Identity Loaded';
+  }
+  if (el.hudBtnCopyDid) {
+    el.hudBtnCopyDid.style.display = state.keypair ? 'inline-flex' : 'none';
+  }
+  if (el.hudRoleBadge) {
+    if (state.sonnet && state.sonnet.role) {
+      el.hudRoleBadge.textContent = state.sonnet.role.toUpperCase();
+      el.hudRoleBadge.className = 'badge badge-success';
+    } else {
+      el.hudRoleBadge.textContent = 'Unregistered';
+      el.hudRoleBadge.className = 'badge badge-neutral';
+    }
+  }
+  if (el.hudTeamVal) {
+    el.hudTeamVal.textContent = (state.sonnet && state.sonnet.team) ? state.sonnet.team : '—';
+  }
 }
 
 /**
@@ -711,6 +735,11 @@ function setView(viewName) {
   if (el.appSidebar && el.appSidebar.classList.contains('mobile-open')) {
     el.appSidebar.classList.remove('mobile-open');
   }
+
+  // Close identity dropdown menu if open
+  if (typeof window.closeIdentityMenu === 'function') {
+    window.closeIdentityMenu();
+  }
 }
 
 /**
@@ -766,16 +795,48 @@ function bindEvents() {
     });
   }
 
-  // Global identity button
+  // Global identity popover dropdown menu controls
+  window.closeIdentityMenu = function() {
+    if (el.appQuickHud) el.appQuickHud.classList.remove('open');
+    if (el.globalIdentityBtn) el.globalIdentityBtn.setAttribute('aria-expanded', 'false');
+  };
+
+  window.toggleIdentityMenu = function(e) {
+    if (e) e.stopPropagation();
+    if (!el.appQuickHud) return;
+    const isOpen = el.appQuickHud.classList.contains('open');
+    if (isOpen) {
+      window.closeIdentityMenu();
+    } else {
+      el.appQuickHud.classList.add('open');
+      if (el.globalIdentityBtn) el.globalIdentityBtn.setAttribute('aria-expanded', 'true');
+    }
+  };
+
   if (el.globalIdentityBtn) {
-    el.globalIdentityBtn.addEventListener('click', () => {
+    el.globalIdentityBtn.addEventListener('click', (e) => {
+      window.toggleIdentityMenu(e);
+    });
+  }
+
+  if (el.hudBtnCopyDid) {
+    el.hudBtnCopyDid.addEventListener('click', (e) => {
+      e.stopPropagation();
       if (state.keypair) {
         copyToClipboard(state.keypair.did, 'DID copied to clipboard.');
-      } else {
-        setView('wizard');
       }
     });
   }
+
+  // Close identity menu on outside click
+  document.addEventListener('click', (e) => {
+    if (el.appQuickHud && el.appQuickHud.classList.contains('open')) {
+      const isInside = el.appQuickHud.contains(e.target) || (el.globalIdentityBtn && el.globalIdentityBtn.contains(e.target));
+      if (!isInside) {
+        window.closeIdentityMenu();
+      }
+    }
+  });
 
   // Command palette button & shortcuts
   if (el.btnCmdPaletteTrigger) {
@@ -805,6 +866,9 @@ function bindEvents() {
       }
     } else if (e.key === 'Escape') {
       window.closeCommandPalette();
+      if (typeof window.closeIdentityMenu === 'function') {
+        window.closeIdentityMenu();
+      }
     }
   });
 

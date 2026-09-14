@@ -152,49 +152,79 @@
 
         <div class="header-right">
           <!-- Connection Pill -->
-          <div class="connection-pill" title="Stateless proxy / Technocore lane status">
+          <div class="connection-pill" title="Technocore network lane status">
             <span id="global-status-dot" class="status-dot"></span>
-            <span id="global-status-text">Connected</span>
+            <span id="global-status-text" class="status-text-label">Ready</span>
           </div>
-
-          <!-- Quick Identity HUD button -->
-          <button id="global-identity-btn" class="identity-header-btn" type="button" title="View or manage session identity">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            <span id="global-identity-did-short" class="font-mono">No Identity</span>
-          </button>
 
           <!-- Theme Toggle -->
           <button id="theme-toggle" class="theme-toggle-btn" type="button" title="Toggle Theme (Dark/Light)" aria-label="Toggle Theme">
             Theme: Dark
           </button>
+
+          <!-- Identity Popover Menu Container -->
+          <div class="header-menu-container">
+            <button id="global-identity-btn" class="identity-header-btn" type="button" title="Session Identity Menu" aria-expanded="false" aria-haspopup="true">
+              <span class="user-avatar-dot"></span>
+              <span id="global-identity-did-short" class="font-mono">No Identity</span>
+              <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+
+            <!-- Quick Identity HUD Dropdown Menu -->
+            <div id="app-quick-hud" class="identity-dropdown-menu" role="menu">
+              <div class="dropdown-header">
+                <span class="dropdown-label">ACTIVE IDENTITY</span>
+                <span id="hud-net-text" class="badge badge-success">HTTP Ready</span>
+              </div>
+
+              <div class="dropdown-did-box">
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 0.625rem; font-weight: 600; color: var(--text-muted); margin-bottom: 2px;">PUBLIC DID:KEY</div>
+                  <span id="hud-did-val" class="font-mono text-xs did-val-text">No Identity Loaded</span>
+                </div>
+                <button id="hud-btn-copy-did" class="btn btn-secondary btn-sm" type="button" style="display: none; padding: 3px 8px; font-size: 0.6875rem;">Copy</button>
+              </div>
+
+              <div class="dropdown-meta-grid">
+                <div class="meta-item">
+                  <span class="meta-label">CONTEST ROLE</span>
+                  <span id="hud-role-badge" class="badge badge-neutral">Unregistered</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">SQUAD / TEAM</span>
+                  <span id="hud-team-val" class="font-mono text-xs">—</span>
+                </div>
+              </div>
+
+              <div class="dropdown-actions">
+                <button type="button" class="dropdown-action-btn" onclick="location.hash='#/contribute'; window.closeIdentityMenu();">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                  <span>Guided Contribution Pipeline</span>
+                </button>
+                <button type="button" class="dropdown-action-btn" onclick="location.hash='#/tools/identity'; window.closeIdentityMenu();">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span>Identity &amp; Registry Tools</span>
+                </button>
+                <button type="button" class="dropdown-action-btn danger" onclick="document.getElementById('btn-clear-identity')?.click(); window.closeIdentityMenu();">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>Wipe Key from Memory</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </header>
-
-      <!-- Quick Identity HUD Bar -->
-      <div id="app-quick-hud" class="card" style="margin: var(--space-4) var(--space-8) 0; padding: var(--space-3) var(--space-4); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); font-size: 0.8125rem;">
-        <div style="display: flex; align-items: center; gap: var(--space-2);">
-          <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">IDENTITY:</span>
-          <span id="hud-did-val" class="font-mono" style="color: var(--text-primary);">No Identity Loaded</span>
-          <button id="hud-btn-copy-did" class="btn btn-secondary btn-sm" type="button" style="display: none; padding: 2px 8px; min-height: 24px;">Copy</button>
-        </div>
-        <div style="display: flex; align-items: center; gap: var(--space-4);">
-          <div style="display: flex; align-items: center; gap: var(--space-2);">
-            <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">ROLE:</span>
-            <span id="hud-role-badge" class="badge badge-neutral">Unregistered</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: var(--space-2);">
-            <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">TEAM:</span>
-            <span id="hud-team-val" class="font-mono" style="color: var(--text-secondary);">—</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: var(--space-2);">
-            <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">NETWORK:</span>
-            <span id="hud-net-text" class="badge badge-success">HTTP Ready</span>
-          </div>
-        </div>
-      </div>
 
       <!-- Main Workspace Scrollable Area -->
       <main class="workspace-content">
