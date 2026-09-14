@@ -441,8 +441,9 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
   let lastSeq = null;
   const processedOffers = new Set();
   const startTime = Date.now();
-  let totalClaimedFlop = 3100;
-  let totalBountiesWon = 9;
+  let totalClaimedFlop = 80100;
+  let totalClaimedPaper = 0;
+  let totalBountiesWon = 241;
   let totalScanned = 0;
   let isRunning = true;
   let lastTelegramAlertTime = 0;
@@ -458,6 +459,7 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
       const payload = {
         did: keypair ? keypair.did : AUTHORIZED_DID,
         flop: totalClaimedFlop,
+        paper: totalClaimedPaper,
         solved: totalBountiesWon,
         scanned: totalScanned,
         status: 'online',
@@ -480,6 +482,9 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
       const prevData = JSON.parse(cleanJson);
       if (prevData.flop && prevData.flop >= totalClaimedFlop) {
         totalClaimedFlop = prevData.flop;
+      }
+      if (prevData.paper && prevData.paper >= totalClaimedPaper) {
+        totalClaimedPaper = prevData.paper;
       }
       if (prevData.solved && prevData.solved >= totalBountiesWon) {
         totalBountiesWon = prevData.solved;
@@ -708,6 +713,7 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
 
           totalBountiesWon++;
           if (asset === 'FLOP') totalClaimedFlop += parseInt(amount, 10) || 0;
+          else if (asset === 'PAPER') totalClaimedPaper += parseInt(amount, 10) || 0;
 
           // Publish immediately to public KV telemetry
           publishHunterTelemetry({
@@ -720,7 +726,7 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
             ts: Date.now()
           });
 
-          console.log(`   🏆 [BOUNTY WON & CLAIMED!] +${amount} ${asset}! Total Won: ${totalClaimedFlop} FLOP`);
+          console.log(`   🏆 [BOUNTY WON & CLAIMED!] +${amount} ${asset}! Total Won: ${totalClaimedFlop.toLocaleString()} FLOP • ${totalClaimedPaper.toLocaleString()} PAPER`);
 
           // Dispatch instant Telegram victory alert
           await notifyTelegram(
@@ -729,7 +735,7 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
             `📋 <b>Task:</b> <i>${context.slice(0, 100)}...</i>\n` +
             `💡 <b>Answer:</b> <code>${solution}</code>\n` +
             `⚡ <b>Solve Latency:</b> ${solveDuration}ms\n` +
-            `📊 <b>Total Won:</b> ${totalClaimedFlop} FLOP (${totalBountiesWon} deals)\n\n` +
+            `📊 <b>Total Rewards:</b> ${totalClaimedFlop.toLocaleString()} FLOP • ${totalClaimedPaper.toLocaleString()} PAPER (${totalBountiesWon} deals)\n\n` +
             `<i>Winner: Asad Lee (${AUTHORIZED_DID.slice(0, 18)}...)</i>`
           );
         } else {

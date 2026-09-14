@@ -235,9 +235,18 @@ function cacheElements() {
     bountyStatusBadge: document.getElementById('bounty-status-badge'),
     bountyTargetDid: document.getElementById('bounty-target-did'),
     bountyStatFlop: document.getElementById('bounty-stat-flop'),
+    bountyStatPaper: document.getElementById('bounty-stat-paper'),
     bountyStatSolved: document.getElementById('bounty-stat-solved'),
     bountyStatScanned: document.getElementById('bounty-stat-scanned'),
     bountyStatActive: document.getElementById('bounty-stat-active'),
+    bountyLocalSessionNote: document.getElementById('bounty-local-session-note'),
+    headerFlopPill: document.getElementById('header-flop-pill'),
+    headerFlopDot: document.getElementById('header-flop-dot'),
+    headerFlopLabel: document.getElementById('header-flop-label'),
+    headerFlopVal: document.getElementById('header-flop-val'),
+    hudFlopLabel: document.getElementById('hud-flop-label'),
+    hudFlopVal: document.getElementById('hud-flop-val'),
+    hudSniperBadge: document.getElementById('hud-sniper-badge'),
     bountyLiveFeed: document.getElementById('bounty-live-feed'),
     btnClearBountyFeed: document.getElementById('btn-clear-bounty-feed'),
     bountyPulseDot: document.getElementById('bounty-pulse-dot'),
@@ -775,14 +784,6 @@ function setView(viewName) {
   }
 
   if (viewName === 'bounty') {
-    if (state.keypair && el.bountyTargetDid) {
-      const isAsad = state.keypair.did.includes('z6Mkhefo');
-      el.bountyTargetDid.textContent = isAsad
-        ? `${state.keypair.did} (Your Connected Cloud Wallet)`
-        : `${state.keypair.did} (Your Active Signer)`;
-    } else if (el.bountyTargetDid) {
-      el.bountyTargetDid.textContent = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4 (Cloud Runner)';
-    }
     syncCloudSniperStats();
   }
 
@@ -1216,6 +1217,9 @@ function applyKeypairToUI(kp) {
   updateOverviewStats();
   const toolsDidInput = document.getElementById('tools-did-display');
   if (toolsDidInput) toolsDidInput.value = kp.did;
+
+  // Immediately refresh bounty view and HUD stats for newly applied identity
+  syncCloudSniperStats();
 }
 
 /**
@@ -1273,6 +1277,10 @@ function handleClearIdentity() {
   updatePublishPreview();
   updateWizardUI();
   updateSonnetStateUI();
+
+  // Reset bounty hunter and HUD back to guest state
+  syncCloudSniperStats();
+
   showDispatchResult('info', 'Identity wiped completely from transient memory.');
 }
 
@@ -4521,6 +4529,7 @@ let bountyLastSeq = null;
 const processedBountyIds = new Set();
 const bountyStats = {
   flop: 0,
+  paper: 0,
   solved: 0,
   scanned: 0,
   active: 0
@@ -4848,9 +4857,12 @@ async function processBrowserBountyOffer(offer) {
     bountyStats.solved++;
     if (asset === 'FLOP') {
       bountyStats.flop += parseInt(amount, 10) || 0;
+    } else if (asset === 'PAPER') {
+      bountyStats.paper += parseInt(amount, 10) || 0;
     }
     if (el.bountyStatSolved) el.bountyStatSolved.textContent = String(bountyStats.solved);
-    if (el.bountyStatFlop) el.bountyStatFlop.textContent = `${bountyStats.flop} FLOP`;
+    if (el.bountyStatFlop) el.bountyStatFlop.textContent = `${bountyStats.flop.toLocaleString()} FLOP`;
+    if (el.bountyStatPaper) el.bountyStatPaper.textContent = `${bountyStats.paper.toLocaleString()} PAPER`;
 
     showToast(`Bounty Claimed! +${amount} ${asset}`, 'success');
   } catch (err) {
@@ -4960,14 +4972,145 @@ function stopBountyHuntingUI() {
 }
 
 /**
- * Synchronize Live Telemetry from 24/7 Cloud Sniper
- * Reads from Technocore KV /kv/hunter-94/4eaca2c9b6251c
+ * Synchronize Live Telemetry from 24/7 Cloud Sniper (Strict Privacy & Identity Gated)
+ * Reads from Technocore KV /kv/hunter-94/4eaca2c9b6251c ONLY when authenticated as Asad Lee
  */
-let lastKnownFlop = 3100;
-let lastKnownSolved = 9;
-let lastKnownScanned = 150;
+let lastKnownFlop = 80100;
+let lastKnownPaper = 0;
+let lastKnownSolved = 241;
+let lastKnownScanned = 247;
+const ASAD_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 
 export async function syncCloudSniperStats(forceFeedback = false) {
+  const hasIdentity = Boolean(state.keypair && state.keypair.did);
+  const isAsad = hasIdentity && (state.keypair.did === ASAD_DID || state.keypair.did.includes('z6Mkhefo'));
+
+  // ==========================================
+  // 1. PUBLIC GUEST MODE (No Identity Loaded)
+  // ==========================================
+  if (!hasIdentity) {
+    // Top Navbar
+    const headerFlop = document.getElementById('header-flop-val');
+    if (headerFlop) headerFlop.textContent = 'Connect Key';
+    const headerPill = document.getElementById('header-flop-pill');
+    if (headerPill) {
+      headerPill.style.background = 'rgba(100, 116, 139, 0.15)';
+      headerPill.style.borderColor = 'rgba(100, 116, 139, 0.3)';
+      headerPill.style.color = 'var(--text-secondary)';
+    }
+    const headerDot = document.getElementById('header-flop-dot');
+    if (headerDot) {
+      headerDot.style.background = '#64748B';
+      headerDot.style.boxShadow = 'none';
+    }
+
+    // Quick HUD
+    const hudFlopVal = document.getElementById('hud-flop-val');
+    if (hudFlopVal) {
+      hudFlopVal.textContent = '-- (Connect Key)';
+      hudFlopVal.style.color = 'var(--text-muted)';
+    }
+    const hudFlopLabel = document.getElementById('hud-flop-label');
+    if (hudFlopLabel) hudFlopLabel.textContent = 'EARNINGS:';
+    const hudSniperBadge = document.getElementById('hud-sniper-badge');
+    if (hudSniperBadge) {
+      hudSniperBadge.textContent = 'Guest Mode';
+      hudSniperBadge.className = 'badge badge-secondary';
+    }
+
+    // Bounty View Elements
+    if (el.bountyStatusBadge && !isBountyHunting) {
+      el.bountyStatusBadge.textContent = '⚪ Guest / Standby Mode';
+      el.bountyStatusBadge.className = 'badge badge-secondary';
+    }
+    if (el.bountyPulseDot && !isBountyHunting) {
+      el.bountyPulseDot.style.background = '#64748B';
+      el.bountyPulseDot.style.boxShadow = 'none';
+    }
+    if (el.bountyTargetDid) {
+      el.bountyTargetDid.textContent = 'No Identity Loaded (Guest Mode)';
+      el.bountyTargetDid.style.color = 'var(--text-muted)';
+    }
+    if (el.bountyLocalSessionNote) {
+      el.bountyLocalSessionNote.innerHTML = '🔒 <i>Public Guest Mode: Personal earnings and cloud telemetry are hidden. To track your own bounties or run the solver, import or generate an identity in <a href="#/wizard" style="color: var(--brand-accent);">Identity Setup</a>.</i>';
+    }
+    if (el.bountyStatFlop) el.bountyStatFlop.textContent = '0 FLOP';
+    if (el.bountyStatPaper) el.bountyStatPaper.textContent = '0 PAPER';
+    if (el.bountyStatSolved) el.bountyStatSolved.textContent = '0';
+    if (el.bountyStatScanned) el.bountyStatScanned.textContent = '0';
+    if (el.bountyStatActive) el.bountyStatActive.textContent = '0';
+
+    if (forceFeedback) {
+      showToast('Please import or restore an identity in Identity Setup first.', 'info');
+    }
+    return null;
+  }
+
+  // ====================================================
+  // 2. CONNECTED VISITOR MODE (User loaded their own DID)
+  // ====================================================
+  if (!isAsad) {
+    const flopStr = `${bountyStats.flop.toLocaleString()} FLOP`;
+    const paperStr = `${bountyStats.paper.toLocaleString()} PAPER`;
+    const combinedStr = `${flopStr} • ${paperStr}`;
+
+    const headerFlop = document.getElementById('header-flop-val');
+    if (headerFlop) headerFlop.textContent = combinedStr;
+    const headerPill = document.getElementById('header-flop-pill');
+    if (headerPill) {
+      headerPill.style.background = 'rgba(56, 189, 248, 0.15)';
+      headerPill.style.borderColor = 'rgba(56, 189, 248, 0.35)';
+      headerPill.style.color = '#38BDF8';
+    }
+    const headerDot = document.getElementById('header-flop-dot');
+    if (headerDot) {
+      headerDot.style.background = isBountyHunting ? '#10B981' : '#38BDF8';
+      headerDot.style.boxShadow = '0 0 6px rgba(56, 189, 248, 0.5)';
+    }
+
+    const hudFlopVal = document.getElementById('hud-flop-val');
+    if (hudFlopVal) {
+      hudFlopVal.textContent = combinedStr;
+      hudFlopVal.style.color = '#38BDF8';
+    }
+    const hudFlopLabel = document.getElementById('hud-flop-label');
+    if (hudFlopLabel) hudFlopLabel.textContent = 'LOCAL EARNINGS:';
+    const hudSniperBadge = document.getElementById('hud-sniper-badge');
+    if (hudSniperBadge) {
+      hudSniperBadge.textContent = isBountyHunting ? '🟢 Hunting Live' : 'Browser Ready';
+      hudSniperBadge.className = isBountyHunting ? 'badge badge-success' : 'badge badge-info';
+    }
+
+    if (el.bountyStatusBadge) {
+      el.bountyStatusBadge.textContent = isBountyHunting ? '🟢 Browser Hunting Active' : '🟢 Solver Ready (Local)';
+      el.bountyStatusBadge.className = 'badge badge-success';
+    }
+    if (el.bountyPulseDot) {
+      el.bountyPulseDot.style.background = isBountyHunting ? '#10B981' : '#38BDF8';
+      el.bountyPulseDot.style.boxShadow = '0 0 10px rgba(56, 189, 248, 0.5)';
+    }
+    if (el.bountyTargetDid) {
+      el.bountyTargetDid.textContent = `${state.keypair.did} (Your Connected Signer)`;
+      el.bountyTargetDid.style.color = 'var(--brand-accent)';
+    }
+    if (el.bountyLocalSessionNote) {
+      el.bountyLocalSessionNote.innerHTML = '🚀 <i>Connected Signer: Click "Start Auto-Hunter" to hunt bounties in this browser using your own DID key.</i>';
+    }
+    if (el.bountyStatFlop) el.bountyStatFlop.textContent = flopStr;
+    if (el.bountyStatPaper) el.bountyStatPaper.textContent = paperStr;
+    if (el.bountyStatSolved) el.bountyStatSolved.textContent = String(bountyStats.solved);
+    if (el.bountyStatScanned) el.bountyStatScanned.textContent = String(bountyStats.scanned);
+    if (el.bountyStatActive) el.bountyStatActive.textContent = String(bountyStats.active);
+
+    if (forceFeedback) {
+      showToast('Browser solver is ready. Click Start Auto-Hunter to claim bounties for your DID.', 'info');
+    }
+    return null;
+  }
+
+  // ====================================================
+  // 3. AUTHENTICATED OWNER MODE (Asad Lee Cloud Runner)
+  // ====================================================
   try {
     const res = await fetchProtocol('kv/hunter-94/4eaca2c9b6251c');
     if (res && res.ok && res.text) {
@@ -4984,6 +5127,9 @@ export async function syncCloudSniperStats(forceFeedback = false) {
         if (typeof data.flop === 'number' && data.flop >= lastKnownFlop) {
           lastKnownFlop = data.flop;
         }
+        if (typeof data.paper === 'number' && data.paper >= lastKnownPaper) {
+          lastKnownPaper = data.paper;
+        }
         if (typeof data.solved === 'number' && data.solved >= lastKnownSolved) {
           lastKnownSolved = data.solved;
         }
@@ -4991,24 +5137,46 @@ export async function syncCloudSniperStats(forceFeedback = false) {
           lastKnownScanned = data.scanned;
         }
 
+        const flopStr = `${lastKnownFlop.toLocaleString()} FLOP`;
+        const paperStr = `${lastKnownPaper.toLocaleString()} PAPER`;
+        const combinedRewards = `${flopStr} • ${paperStr}`;
+
         // 1. Update Bounty Hunter Scorecards
-        if (el.bountyStatFlop) {
-          el.bountyStatFlop.textContent = `${lastKnownFlop.toLocaleString()} FLOP`;
-        }
-        if (el.bountyStatSolved) {
-          el.bountyStatSolved.textContent = String(lastKnownSolved);
-        }
-        if (el.bountyStatScanned) {
-          el.bountyStatScanned.textContent = String(lastKnownScanned);
-        }
+        if (el.bountyStatFlop) el.bountyStatFlop.textContent = flopStr;
+        if (el.bountyStatPaper) el.bountyStatPaper.textContent = paperStr;
+        if (el.bountyStatSolved) el.bountyStatSolved.textContent = String(lastKnownSolved);
+        if (el.bountyStatScanned) el.bountyStatScanned.textContent = `${lastKnownScanned}+`;
+        if (el.bountyStatActive) el.bountyStatActive.textContent = '0';
 
         // 2. Update Global Header & Quick HUD
         const headerFlop = document.getElementById('header-flop-val');
-        if (headerFlop) headerFlop.textContent = `${lastKnownFlop.toLocaleString()} FLOP`;
-        const hudFlop = document.getElementById('hud-flop-val');
-        if (hudFlop) hudFlop.textContent = `${lastKnownFlop.toLocaleString()} FLOP`;
+        if (headerFlop) headerFlop.textContent = combinedRewards;
+        const headerPill = document.getElementById('header-flop-pill');
+        if (headerPill) {
+          headerPill.style.background = 'rgba(16, 185, 129, 0.15)';
+          headerPill.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+          headerPill.style.color = '#10B981';
+        }
+        const headerDot = document.getElementById('header-flop-dot');
+        if (headerDot) {
+          headerDot.style.background = '#10B981';
+          headerDot.style.boxShadow = '0 0 6px #10B981';
+        }
 
-        // 3. Status Badge & Pulsing Light
+        const hudFlopVal = document.getElementById('hud-flop-val');
+        if (hudFlopVal) {
+          hudFlopVal.textContent = combinedRewards;
+          hudFlopVal.style.color = '#10B981';
+        }
+        const hudFlopLabel = document.getElementById('hud-flop-label');
+        if (hudFlopLabel) hudFlopLabel.textContent = 'CLOUD REWARDS:';
+        const hudSniperBadge = document.getElementById('hud-sniper-badge');
+        if (hudSniperBadge) {
+          hudSniperBadge.textContent = '24/7 Cloud Active';
+          hudSniperBadge.className = 'badge badge-success';
+        }
+
+        // 3. Status Badge & Target DID
         const isFresh = (Date.now() - (data.lastHeartbeat || data.updatedAt || 0)) < 15 * 60 * 1000;
         if (el.bountyStatusBadge && !isBountyHunting) {
           el.bountyStatusBadge.textContent = isFresh ? '🟢 Cloud Sniper Active (24/7)' : 'Online (Last Run Cached)';
@@ -5018,8 +5186,15 @@ export async function syncCloudSniperStats(forceFeedback = false) {
           el.bountyPulseDot.style.background = '#10B981';
           el.bountyPulseDot.style.boxShadow = '0 0 10px #10B981';
         }
+        if (el.bountyTargetDid) {
+          el.bountyTargetDid.textContent = `${ASAD_DID} (Asad Lee - Cloud Runner)`;
+          el.bountyTargetDid.style.color = 'var(--brand-accent)';
+        }
+        if (el.bountyLocalSessionNote) {
+          el.bountyLocalSessionNote.innerHTML = '👑 <i>Welcome Asad Lee: Authenticated Cloud Runner Owner. Streaming live 24/7 cloud telemetry from GitHub Actions Azure runner.</i>';
+        }
 
-        // 4. Populate Live Feed if showing initial placeholder
+        // 4. Populate Live Feed
         if (el.bountyLiveFeed) {
           const firstChild = el.bountyLiveFeed.firstElementChild;
           if (firstChild && (firstChild.style.fontStyle === 'italic' || el.bountyLiveFeed.childElementCount <= 1)) {
@@ -5034,25 +5209,19 @@ export async function syncCloudSniperStats(forceFeedback = false) {
                 );
               });
             } else {
-              appendBountyLog(`Verified ${lastKnownSolved} Bounties Won (${lastKnownFlop.toLocaleString()} FLOP Total) on Technocore protocol.`, 'success');
+              appendBountyLog(`Verified ${lastKnownSolved} Bounties Won (${combinedRewards} Total) on Technocore protocol.`, 'success');
             }
           }
         }
 
         if (forceFeedback) {
-          showToast(`Synced with Cloud: ${lastKnownFlop.toLocaleString()} FLOP verified!`, 'success');
+          showToast(`Synced with Cloud: ${combinedRewards} verified!`, 'success');
         }
         return data;
       }
     }
   } catch (err) {
     console.warn('Telemetry sync error:', err);
-  }
-
-  // Guaranteed fallback display if network is slow
-  if (el.bountyStatFlop && (el.bountyStatFlop.textContent === '0 FLOP' || el.bountyStatFlop.textContent === '0')) {
-    el.bountyStatFlop.textContent = `${lastKnownFlop.toLocaleString()} FLOP`;
-    if (el.bountyStatSolved) el.bountyStatSolved.textContent = String(lastKnownSolved);
   }
 }
 
