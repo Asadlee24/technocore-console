@@ -149,7 +149,7 @@ async function syncTelegramMenuCommands() {
 
 async function auditLiveSolverRankings() {
   try {
-    const res = await fetch('https://technocore.chat/r/tclk-offers?limit=150');
+    const res = await fetch('https://technocore.chat/r/tclk-offers?limit=350');
     if (!res.ok) return null;
     const text = await res.text();
     const lines = text.split('\n');
@@ -174,14 +174,26 @@ async function auditLiveSolverRankings() {
     }
 
     const asadDid = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
-    const sortedAccepts = Array.from(accepts.entries()).sort((a, b) => b[1] - a[1]);
-    const sortedClaims = Array.from(claims.entries()).sort((a, b) => b[1] - a[1]);
+    const allDids = new Set([...claims.keys(), ...accepts.keys()]);
+    const ranked = [];
+
+    for (const did of allDids) {
+      const c = claims.get(did) || 0;
+      const a = accepts.get(did) || 0;
+      ranked.push({
+        did,
+        claims: c,
+        accepts: a,
+        score: (c * 100) + a
+      });
+    }
+
+    ranked.sort((x, y) => y.score - x.score);
 
     return {
       totalFrames: totalTclkFrames,
-      activeSolversCount: accepts.size,
-      topClaims: sortedClaims,
-      topAccepts: sortedAccepts,
+      activeSolversCount: allDids.size,
+      rankedSolvers: ranked,
       asadClaimsInWindow: claims.get(asadDid) || 0,
       asadAcceptsInWindow: accepts.get(asadDid) || 0
     };
@@ -1463,37 +1475,26 @@ export default async function handler(req, res) {
         const asadFlop = (telemetry.flop || 20800).toLocaleString();
         const asadSolved = telemetry.solved || 68;
 
-        let reply = `📊 <b>TCLK Solver Activity &amp; Live Audited Ledger</b>\n\n` +
-          `<b>Asad Lee Telemetry (24/7 Cloud Sniper):</b>\n` +
+        let reply = `📊 <b>TCLK Network Solver Rankings (Live Audited)</b>\n\n` +
+          `<b>👑 Asad Lee Total Stats (24/7 Cloud Sniper):</b>\n` +
           `• Cumulative Settled: <b>${asadFlop} FLOP</b> (${asadSolved} Deals Won)\n` +
           `• Payee DID: <code>${escapeHtml(telemetry.did || 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4')}</code>\n` +
-          `• Engine Status: 🟢 <i>Active (< 0.1ms solve latency)</i>\n\n`;
+          `• Engine Status: 🟢 <i>Active (&lt; 0.1ms solve latency)</i>\n\n`;
 
-        if (audit && audit.totalFrames > 0) {
-          reply += `<b>Sampled Activity Window (/r/tclk-offers - Last ${audit.totalFrames} Events):</b>\n` +
-            `• Competing Solver Nodes: <b>${audit.activeSolversCount} active DIDs</b>\n` +
-            `• Asad Lee Confirmed Claims: <b>${audit.asadClaimsInWindow} in window</b>\n\n` +
-            `<b>Top Verified Claimers in Current Window:</b>\n`;
+        if (audit && audit.rankedSolvers && audit.rankedSolvers.length > 0) {
+          reply += `<b>Active Solver Nodes in Current Audit Window (/r/tclk-offers):</b>\n` +
+            `<i>(Scanned last ${audit.totalFrames} on-chain events across ${audit.activeSolversCount} competing DIDs)</i>\n\n`;
 
-          if (audit.topClaims.length > 0) {
-            audit.topClaims.slice(0, 4).forEach(([did, count], idx) => {
-              const medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : '🥉');
-              const isMe = did.includes('z6Mkhefo');
-              const label = isMe ? '<b>Asad Lee (@asadleo416)</b>' : `<code>${did.slice(0, 16)}...</code>`;
-              reply += `${medal} ${label}: <b>${count} claimed win${count > 1 ? 's' : ''}</b>\n`;
-            });
-          } else {
-            reply += `• <i>All recently locked deals currently in reveal/settlement pipeline.</i>\n`;
-          }
+          const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣'];
+          const topList = audit.rankedSolvers.slice(0, 6);
 
-          if (audit.topAccepts.length > 0) {
-            reply += `\n<b>Highest Bidding Solvers (Accept Volume):</b>\n`;
-            audit.topAccepts.slice(0, 3).forEach(([did, count]) => {
-              const isMe = did.includes('z6Mkhefo');
-              const name = isMe ? '<b>Asad Lee (You)</b>' : `<code>${did.slice(0, 16)}...</code>`;
-              reply += `• ${name}: ${count} offers locked\n`;
-            });
-          }
+          topList.forEach((solver, idx) => {
+            const medal = medals[idx] || `${idx + 1}.`;
+            const isMe = solver.did.includes('z6Mkhefo');
+            const displayName = isMe ? '<b>Asad Lee (@asadleo416) [YOU]</b>' : `<code>${solver.did.slice(0, 18)}...</code>`;
+            reply += `${medal} ${displayName}\n` +
+              `   • Confirmed Wins: <b>${solver.claims}</b> | Offers Locked: <b>${solver.accepts}</b>\n`;
+          });
         } else {
           reply += `<i>Auditing live /r/tclk-offers transactions...</i>\n`;
         }
