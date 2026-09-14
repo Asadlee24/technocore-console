@@ -366,16 +366,44 @@ export default async function handler(req, res) {
       const hookRes = await fetch(`${TELEGRAM_API}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
       const hookData = await hookRes.json();
 
-      // 2. Delete old commands cache first, then register clean menu commands
-      await fetch(`${TELEGRAM_API}/deleteMyCommands`, { method: 'POST' });
-      const cmdRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
+      // 2. Clear all old command scopes
+      await fetch(`${TELEGRAM_API}/deleteMyCommands`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commands: BOT_COMMANDS })
+        body: JSON.stringify({ scope: { type: 'default' } })
       });
-      const cmdData = await cmdRes.json();
+      await fetch(`${TELEGRAM_API}/deleteMyCommands`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: { type: 'all_private_chats' } })
+      });
+      await fetch(`${TELEGRAM_API}/deleteMyCommands`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: { type: 'all_group_chats' } })
+      });
 
-      // 3. Set Chat Menu Button so the [Menu] button appears next to chat
+      // 3. Set clean commands for default scope
+      const cmdDefRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commands: BOT_COMMANDS, scope: { type: 'default' } })
+      });
+      const cmdDefData = await cmdDefRes.json();
+
+      // 4. Set clean commands for all_private_chats scope
+      const cmdPrivRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commands: BOT_COMMANDS, scope: { type: 'all_private_chats' } })
+      });
+      const cmdPrivData = await cmdPrivRes.json();
+
+      // 5. Query what Telegram currently has stored
+      const checkRes = await fetch(`${TELEGRAM_API}/getMyCommands`);
+      const checkData = await checkRes.json();
+
+      // 6. Reset Chat Menu Button
       const btnRes = await fetch(`${TELEGRAM_API}/setChatMenuButton`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -386,9 +414,10 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         webhookUrl,
-        commandsList: BOT_COMMANDS.map(c => c.command),
+        telegramActiveCommands: (checkData.result || []).map(c => c.command),
         webhook: hookData,
-        commands: cmdData,
+        defaultScope: cmdDefData,
+        privateScope: cmdPrivData,
         menuButton: btnData
       });
     } catch (err) {
