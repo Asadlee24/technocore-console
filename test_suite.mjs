@@ -1973,8 +1973,69 @@ test('formatRecruitMessage formats rich squad recruitment message with letters, 
   assert.ok(msg.includes('DM @Asadlee24 on X to join!'), 'Should include DM call to action');
 });
 
+console.log('\n--- Section 15: Ultra-Fast Bounty Sniper Patterns & Solvers ---');
 
-console.log('\n========================================');
+import { fastSolve } from './sniper.mjs';
+
+test('fastSolve solves OpenAPI did:key pattern challenge', () => {
+  const res = fastSolve('From openapi.json: pattern that a did:key must match');
+  assert.strictEqual(res, '^did:key:z6Mk[1-9A-HJ-NP-Za-km-z]{44}$');
+});
+
+test('fastSolve solves protocol max length challenge', () => {
+  const res = fastSolve('What is the maximum character length for a message in this protocol?');
+  assert.strictEqual(res, '4096');
+});
+
+test('fastSolve solves TCLK payee response frame flow', () => {
+  const res = fastSolve('What frame does the payee send after receiving an offer?');
+  assert.strictEqual(res, 'accept');
+});
+
+test('fastSolve solves nonce replay status challenge', () => {
+  const res = fastSolve('Nonce replay on the signed lane: Report the HTTP status of the second req');
+  assert.strictEqual(res, '400');
+});
+
+test('fastSolve solves auth.md onboarding challenge', () => {
+  const res = fastSolve('From https://technocore.chat/auth.md: What is the simplest way to onboard as a full peer?');
+  assert.strictEqual(res, 'Send a request \u2014 that is the whole onboarding');
+});
+
+test('fastSolve solves llms.txt read method challenge', () => {
+  const res = fastSolve('From https://technocore.chat/llms.txt: What HTTP method and path is used to read the last 50 messages');
+  assert.strictEqual(res, 'GET /r/<room>');
+});
+
+test('fastSolve solves 9-queens distinct solutions challenge', () => {
+  const res = fastSolve('How many distinct solutions does the 9-queens problem have?');
+  assert.strictEqual(res, '352');
+});
+
+test('fastSolve solves BigInt GCD and LCM challenge in microseconds', () => {
+  const res = fastSolve('Compute gcd(120, 36) and lcm(120, 36)');
+  assert.strictEqual(res, 'gcd=12 lcm=360');
+});
+
+test('fastSolve counts offer and lock rows for specified DID in mtask table', () => {
+  const context = 'how many rows are offer frames posted by did:key:z6MkuzU5geHHGBge8voFNCS82TcpSAVJbGJbdjWZrQuojsQf, and how many are lock frames by the same sender?';
+  const spec = '3407453 | 10:09 | offer | did:key:z6MkuzU5geHHGBge8voFNCS82TcpSAVJbGJbdjWZrQuojsQf | 0xfa7614d1bc737a65\n3409751 | 10:13 | lock | did:key:z6MkuzU5geHHGBge8voFNCS82TcpSAVJbGJbdjWZrQuojsQf | 0x8816931ca7701b17\n3411505 | 10:16 | receipt | did:key:z6MkuzU5geHHGBge8voFNCS82TcpSAVJbGJbdjWZrQuojsQf | 0x8816931ca7701b17\n3416140 | 10:27 | offer | did:key:z6MkoWH7PCSzhm2KQ2NtcLQZS82kU55HJKiYB8ENmCcke8Lc | 0xbccc2bc4a2839cf7';
+  const res = fastSolve(context, spec);
+  assert.strictEqual(res, 'offers 1, locks 1');
+});
+
+test('fastSolve validates matching worker deliverable against reference answer', () => {
+  const context = 'Validate a deliverable. REFERENCE ANSWER the task author holds: "2: alpha, beta". DELIVERABLE submitted by a worker: "2 alpha beta". Reply PASS or FAIL, then one sentence.';
+  const res = fastSolve(context);
+  assert.strictEqual(res.startsWith('PASS'), true);
+});
+
+test('fastSolve solves single word challenges and trivia', () => {
+  assert.strictEqual(fastSolve('Reply with one Indonesian word for afternoon'), 'sore');
+  assert.strictEqual(fastSolve('Whether Paul McCartney died in 1966'), 'no');
+  assert.strictEqual(fastSolve('Reply with the single word: lightning'), 'lightning');
+});
+
 console.log(`TEST RESULTS: ${passedTests} passed, ${failedTests} failed`);
 console.log('========================================\n');
 

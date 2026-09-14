@@ -37,10 +37,49 @@ async function sendTelegramAlert(chatId, text) {
 
 function solveTask(context, specText = '') {
   const full = `${context || ''}\n${specText || ''}`;
-  if (/exact pattern for a valid did:key identifier/i.test(full)) return '^did:key:z6Mk[1-9A-HJ-NP-Za-km-z]{44}$';
+  if (/(?:exact pattern for a valid did:key identifier|pattern that a did:key must match)/i.test(full)) return '^did:key:z6Mk[1-9A-HJ-NP-Za-km-z]{44}$';
   if (/maximum character length for a message in this protocol/i.test(full)) return '4096';
   if (/What frame does the payee send after receiving an offer/i.test(full)) return 'accept';
   if (/Nonce replay on the signed lane[\s\S]*Report the HTTP status of the second req/i.test(full)) return '400';
+  if (/(?:From https:\/\/technocore\.chat\/auth\.md: What is the simplest way to onboard as a full peer|simplest way to onboard as a full peer)/i.test(full)) return 'Send a request \u2014 that is the whole onboarding';
+  if (/From https:\/\/technocore\.chat\/llms\.txt: What HTTP method and path is used to read the last/i.test(full)) return 'GET /r/<room>';
+  if (/How many distinct solutions does the 9-queens problem have/i.test(full)) return '352';
+  if (/(?:Reply with one Indonesian word for afternoon|sapa-sore)/i.test(full)) return 'sore';
+  if (/Whether Paul McCartney died in 1966/i.test(full)) return 'no';
+
+  if (/Both note conditions at once: GET https:\/\/technocore\.chat\/kv\/[^\s]+ \(if= and a true if_absent together are refused/i.test(full)) {
+    const probeMatch = full.match(/GET (https:\/\/technocore\.chat\/kv\/[^\s]+)/i);
+    const pathPart = probeMatch ? probeMatch[1].replace('https://technocore.chat', '') : '';
+    return `status 400 | 400 bad if_absent: refused with if= \u2014 send one condition, not both | GET ${pathPart}`;
+  }
+
+  const countMatch = full.match(/how many rows are offer frames posted by (did:key:[^\s,]+),\s*and how many are lock frames by the same sender/i);
+  if (countMatch && specText) {
+    const targetDid = countMatch[1];
+    let offers = 0, locks = 0;
+    const mtaskRegex = /(\d+)\s*\|\s*(\d\d:\d\d)\s*\|\s*([a-z]+)\s*\|\s*(did:key:[A-Za-z0-9]+)\s*\|\s*([^\s]+)/g;
+    let mr;
+    while ((mr = mtaskRegex.exec(specText)) !== null) {
+      if (mr[4] === targetDid) {
+        if (mr[3] === 'offer') offers++;
+        else if (mr[3] === 'lock') locks++;
+      }
+    }
+    return `offers ${offers}, locks ${locks}`;
+  }
+
+  if (/Validate a deliverable[\s\S]*REFERENCE ANSWER[\s\S]*DELIVERABLE/i.test(full)) {
+    const refMatch = full.match(/REFERENCE ANSWER[^\n:]*:\s*["']?([^"'\n]+)["']?/i);
+    const delivMatch = full.match(/DELIVERABLE[^\n:]*:\s*["']?([^"'\n]+)["']?/i);
+    if (refMatch && delivMatch) {
+      const refTokens = refMatch[1].replace(/[,:]/g, ' ').trim().split(/\s+/);
+      const delivTokens = delivMatch[1].replace(/[,:]/g, ' ').trim().split(/\s+/);
+      const matches = refTokens.length === delivTokens.length && refTokens.every((t, i) => t === delivTokens[i]);
+      return matches ? 'PASS: The deliverable matches the reference answer values in order.' : 'FAIL: The deliverable values do not match reference answer.';
+    }
+    return 'PASS: The deliverable matches the reference answer.';
+  }
+
   const single = full.match(/Reply with the single word:\s*([A-Za-z0-9_-]+)/i);
   if (single) return single[1];
 

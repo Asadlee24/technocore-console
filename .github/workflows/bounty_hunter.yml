@@ -1,8 +1,8 @@
-name: 24/7 Autonomous Bounty Hunter
+name: 24/7 Autonomous Bounty Sniper
 
 on:
   schedule:
-    # Trigger every 5 minutes in the GitHub cloud
+    # Runs every 5 minutes in GitHub's high-speed cloud datacenter (unlimited free minutes on public repos)
     - cron: '*/5 * * * *'
   push:
     branches:
@@ -10,14 +10,35 @@ on:
   workflow_dispatch:
 
 jobs:
-  bounty-hunt:
-    name: Scan & Solve Live Bounties
+  bounty-sniper:
+    name: ⚡ High-Frequency Bounty Sniper (Asad Lee)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
 
     steps:
-      - name: Trigger Vercel Auto-Hunt Engine
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run High-Frequency Bounty Sniper (Continuous Cloud Loop)
+        env:
+          TELEGRAM_CHAT_ID: '7080909965'
+          TELEGRAM_BOT_TOKEN: '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0'
+          SOLVER_SEED: ${{ secrets.SOLVER_SEED || secrets.TECHNOCORE_SEED }}
         run: |
-          echo "Triggering 24/7 Bounty Hunter on Vercel..."
-          RESPONSE=$(curl -s -X GET "https://technocore-console.vercel.app/api/auto-hunt")
-          echo "Response: $RESPONSE"
+          echo "============================================================"
+          echo "🚀 STARTING HIGH-FREQUENCY BOUNTY SNIPER (ASAD LEE)"
+          echo "Network: 15ms Azure Cloud Datacenter | Dual-Stream Polling"
+          echo "============================================================"
+          # Run continuous dual-stream keep-alive sniper for 4.8 minutes (288 seconds)
+          node sniper.mjs 4.8
+
+      - name: Fallback Ping to Vercel Auto-Hunt
+        if: always()
+        run: |
+          echo "Dispatched auxiliary pulse to Vercel..."
+          curl -s -X GET "https://technocore-console.vercel.app/api/auto-hunt" || true
