@@ -7,8 +7,27 @@ import https from 'https';
  * Powered by Asad Lee (@asadleo416) | Technocore Console
  */
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
+let activeBotToken = process.env.TELEGRAM_BOT_TOKEN || '';
+
+function resolveToken(req) {
+  const qToken = req?.query?.token;
+  if (typeof qToken === 'string' && qToken.includes(':')) {
+    activeBotToken = qToken;
+    return qToken;
+  }
+  const hToken = req?.headers?.['x-telegram-bot-token'];
+  if (typeof hToken === 'string' && hToken.includes(':')) {
+    activeBotToken = hToken;
+    return hToken;
+  }
+  return activeBotToken || process.env.TELEGRAM_BOT_TOKEN || '';
+}
+
+function getTelegramApi(req) {
+  const token = resolveToken(req);
+  return `https://api.telegram.org/bot${token}`;
+}
+
 const FOOTER = '\n\nPowered by <a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> | <a href="https://technocore-console.vercel.app">Technocore Console</a>';
 
 const BOT_COMMANDS = [
@@ -75,8 +94,9 @@ function escapeHtml(str) {
 
 async function sendTelegramMessage(chatId, text, extra = {}) {
   try {
+    const api = getTelegramApi();
     const fullText = text.includes('Powered by Asad Lee') ? text : `${text}${FOOTER}`;
-    const res = await fetch(`${TELEGRAM_API}/sendMessage`, {
+    const res = await fetch(`${api}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -91,7 +111,7 @@ async function sendTelegramMessage(chatId, text, extra = {}) {
     if (!data.ok) {
       console.warn('Telegram HTML send failed, retrying plain text:', data.description);
       const plainText = fullText.replace(/<[^>]*>/g, '');
-      const retryRes = await fetch(`${TELEGRAM_API}/sendMessage`, {
+      const retryRes = await fetch(`${api}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -192,25 +212,27 @@ async function fetchSniperTelemetry() {
 }
 
 async function syncTelegramMenuCommands() {
-  if (!BOT_TOKEN) return { ok: false, error: 'No BOT_TOKEN' };
+  const token = resolveToken();
+  if (!token) return { ok: false, error: 'No BOT_TOKEN' };
+  const api = getTelegramApi();
   try {
-    await fetch(`${TELEGRAM_API}/deleteMyCommands`, { method: 'POST' });
-    const cmdDefRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
+    await fetch(`${api}/deleteMyCommands`, { method: 'POST' });
+    const cmdDefRes = await fetch(`${api}/setMyCommands`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commands: BOT_COMMANDS, scope: { type: 'default' } })
     });
-    const cmdPrivRes = await fetch(`${TELEGRAM_API}/setMyCommands`, {
+    const cmdPrivRes = await fetch(`${api}/setMyCommands`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commands: BOT_COMMANDS, scope: { type: 'all_private_chats' } })
     });
-    const btnRes = await fetch(`${TELEGRAM_API}/setChatMenuButton`, {
+    const btnRes = await fetch(`${api}/setChatMenuButton`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ menu_button: { type: 'commands' } })
     });
-    const checkRes = await fetch(`${TELEGRAM_API}/getMyCommands`);
+    const checkRes = await fetch(`${api}/getMyCommands`);
     const checkData = await checkRes.json();
     return {
       ok: true,
@@ -664,9 +686,11 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  const currentToken = resolveToken(req);
   const host = (req.headers && req.headers.host) || 'technocore-console.vercel.app';
   const protocol = host.includes('localhost') ? 'http' : 'https';
-  const webhookUrl = `${protocol}://${host}/api/bot`;
+  const baseWebhookUrl = `${protocol}://${host}/api/bot`;
+  const webhookUrl = currentToken ? `${baseWebhookUrl}?token=${currentToken}` : baseWebhookUrl;
 
   // READ-ONLY STATUS OR SYNC (GET /api/bot)
   if (req.method === 'GET') {
@@ -675,7 +699,7 @@ export default async function handler(req, res) {
     if (isSyncRequested) {
       let hookData = null;
       try {
-        const hookRes = await fetch(`${TELEGRAM_API}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
+        const hookRes = await fetch(`${getTelegramApi(req)}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
         hookData = await hookRes.json();
       } catch (e) {
         hookData = { error: e.message };
@@ -696,7 +720,7 @@ export default async function handler(req, res) {
       ok: true,
       service: 'FlopRadarBot',
       status: 'online',
-      configured: Boolean(BOT_TOKEN),
+      configured: Boolean(currentToken),
       commands: BOT_COMMANDS.map(c => c.command),
       author: 'Asad Lee (@asadleo416)',
       notice: 'To sync Telegram app menu commands, visit /api/bot?sync=1'
@@ -1673,7 +1697,7 @@ export default async function handler(req, res) {
     if (query.action === 'set_webhook' || query.set_webhook) {
       const webhookUrl = query.url || `https://${req.headers?.host || 'technocore-console.vercel.app'}/api/bot`;
       try {
-        const setRes = await fetch(`${TELEGRAM_API}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
+        const setRes = await fetch(`${getTelegramApi(req)}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
         const setData = await setRes.json();
         return res.status(200).json({
           status: setData.ok ? 'success' : 'failed',
@@ -1690,7 +1714,7 @@ export default async function handler(req, res) {
 
     // Default Webhook & Bot Diagnostics
     try {
-      const infoRes = await fetch(`${TELEGRAM_API}/getWebhookInfo`);
+      const infoRes = await fetch(`${getTelegramApi(req)}/getWebhookInfo`);
       const infoData = await infoRes.json();
       return res.status(200).json({
         bot: '@FlopRadarBot',
