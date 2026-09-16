@@ -25,7 +25,7 @@ import { computeContractId, dealRoomName, stateNotePath, paperNotePath, ensureDi
 // Target Authorized Identity
 export const AUTHORIZED_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 const SECRETS_FILE = path.resolve(process.cwd(), 'solver_secrets.json');
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
 // Stats tracker
 const stats = {

@@ -6,7 +6,7 @@
 
 import crypto from 'crypto';
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 const AUTHORIZED_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 
@@ -120,8 +120,8 @@ function solveTask(context, specText = '') {
 
 export default async function handler(req, res) {
   try {
-    // 1. Get stored Telegram Chat ID (defaults to Asad Lee: 7080909965)
-    let targetChatId = process.env.TELEGRAM_CHAT_ID || '7080909965';
+    // 1. Get stored Telegram Chat ID
+    let targetChatId = process.env.TELEGRAM_CHAT_ID || '';
     if (!targetChatId) {
       try {
         const kvRes = await fetch('https://technocore.chat/kv/flopradar-alerts/chat_id');

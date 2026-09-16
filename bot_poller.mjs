@@ -8,7 +8,7 @@
 
 import botHandler from './api/bot.js';
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 let offset = 0;

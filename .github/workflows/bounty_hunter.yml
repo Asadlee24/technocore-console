@@ -34,8 +34,8 @@ jobs:
 
       - name: Run High-Frequency Bounty Sniper (Continuous Cloud Loop)
         env:
-          TELEGRAM_CHAT_ID: '7080909965'
-          TELEGRAM_BOT_TOKEN: '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0'
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           SOLVER_SEED: ${{ secrets.SOLVER_SEED || secrets.TECHNOCORE_SEED }}
         run: |
           echo "============================================================"

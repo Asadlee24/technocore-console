@@ -9,7 +9,7 @@
  * - Synchronous SHA-256 statement hash derivation (<0.005ms)
  * - Instant Ed25519 signing via TweetNaCl (<0.5ms)
  * - Parallel lock listener & sub-millisecond reveal dispatch
- * - Instant Telegram victory alert delivery to chat ID 7080909965
+ * - Instant Telegram victory alert delivery to authorized chat
  */
 
 import http from 'http';
@@ -28,8 +28,8 @@ import { restoreKeypair, signMessage, parseDidKey } from './crypto.js';
 import { globalNonceManager } from './nonce.js';
 
 export const AUTHORIZED_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
-export const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '7080909965';
-export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8814701073:AAF2gj_wL-37JyJoqA_2vTDSdPN5NwFKXI0';
+export const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
+export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
 // High-speed persistent HTTPS agent with keep-alive
 const httpsAgent = new https.Agent({
