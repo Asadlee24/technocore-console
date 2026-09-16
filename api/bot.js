@@ -1447,20 +1447,17 @@ export default async function handler(req, res) {
         }
 
         const totalTeams = Math.max(allTeams.size, 119);
-        const totalSubs = Math.max(submittedTeams.size, 28);
-        const activeWriting = Math.max(totalTeams - totalSubs, 0);
-
-        const regCount = regData.last_seq ? `${regData.last_seq}` : '95,900+';
-        const discCount = discData.last_seq ? `${discData.last_seq}` : '31,800+';
-        const votesCount = votesData.last_seq ? `${votesData.last_seq}` : '44,900+';
+        const regCount = regData.last_seq ? Number(regData.last_seq).toLocaleString() : '2,749,000+';
+        const discCount = discData.last_seq ? Number(discData.last_seq).toLocaleString() : '119,000+';
+        const votesCount = votesData.last_seq ? Number(votesData.last_seq).toLocaleString() : '360,000+';
 
         const reply = `<b>Sonnet-2 Contest Statistics</b>\n\n` +
           `• Total Contest Teams: <b>${totalTeams} Teams</b>\n` +
-          `• Poems Submitted: <b>${totalSubs} Teams</b>\n` +
+          `• Poems Submitted: <b>${totalSubs} Teams</b> (36 Accepted)\n` +
           `• Active in Writing: <b>${activeWriting} Teams</b>\n\n` +
-          `• Discovery Traffic: <b>${discCount} messages</b>\n` +
           `• Registration Traffic: <b>${regCount} messages</b>\n` +
-          `• Public Ballots Cast: <b>${votesCount} messages</b>\n\n` +
+          `• Public Ballots Cast: <b>${votesCount} votes</b>\n` +
+          `• Discovery Traffic: <b>${discCount} messages</b>\n\n` +
           `Prize Pool: 100,000 FLOP (50,000 Winning Poem + 50,000 Voter Pool)\n` +
           `Time Remaining: ${getCountdownText()}`;
 
