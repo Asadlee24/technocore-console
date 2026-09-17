@@ -350,9 +350,37 @@ const CONFIRMED_REGISTRATIONS = {
   }
 };
 
+function canonicalizeDid(did) {
+  if (!did) return '';
+  const trimmed = did.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower === 'did:key:z6mkhefosonhn5bayjn2dxvvotuyhjmuqfaz43qmjy23zjm4') {
+    return 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
+  }
+  if (lower === 'did:key:z6mkktefz9km25sxajhqtqjwrt3mxtzs2vkwbl2d8vdlniex') {
+    return 'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX';
+  }
+  for (const k of Object.keys(KNOWN_DIDS)) {
+    if (k.toLowerCase() === lower) return k;
+  }
+  return trimmed;
+}
+
+function findConfirmedRegistration(did) {
+  if (!did) return null;
+  const canonical = canonicalizeDid(did);
+  if (CONFIRMED_REGISTRATIONS[canonical]) return CONFIRMED_REGISTRATIONS[canonical];
+  const targetLower = did.trim().toLowerCase();
+  for (const [k, v] of Object.entries(CONFIRMED_REGISTRATIONS)) {
+    if (k.toLowerCase() === targetLower) return v;
+  }
+  return null;
+}
+
 async function streamFindRegistration(targetDid) {
-  // Fast path for confirmed on-chain entrants
-  const baseRequest = CONFIRMED_REGISTRATIONS[targetDid] || null;
+  const canonical = canonicalizeDid(targetDid);
+  const baseRequest = findConfirmedRegistration(canonical);
+  const targetLower = (canonical || '').toLowerCase();
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ receipt: null, request: baseRequest }), 8000);
@@ -366,7 +394,7 @@ async function streamFindRegistration(targetDid) {
         let lines = buffer.split('\n');
         buffer = lines.pop();
         for (const line of lines) {
-          if (line.includes(targetDid)) {
+          if (line.toLowerCase().includes(targetLower)) {
             try {
               const record = JSON.parse(line);
               const payload = JSON.parse(record.text);
@@ -1177,10 +1205,10 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: status [DID] (also alias: checkreg, reg)
-      if (command === 'status' || command === 'checkreg' || command === 'reg') {
-        const didMatch = rawText.match(/did:key:[a-zA-Z0-9]+/);
-        const targetDid = didMatch ? didMatch[0].trim() : 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
+      // COMMAND: status [DID] (also alias: checkreg, reg, ststus, staus, statsu, stat)
+      if (command === 'status' || command === 'ststus' || command === 'staus' || command === 'statsu' || command === 'checkreg' || command === 'reg' || command === 'stat') {
+        const didMatch = rawText.match(/did:key:[a-zA-Z0-9]+/i);
+        const targetDid = didMatch ? canonicalizeDid(didMatch[0]) : 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 
         await sendTelegramMessage(chatId, `Scanning Technocore registration ledger for <code>${targetDid.slice(0, 24)}...</code>`);
 
@@ -1190,8 +1218,9 @@ export default async function handler(req, res) {
         let reply = `<b>Registration Status Report</b>\n\n` +
           `DID: <code>${targetDid}</code>\n`;
 
-        if (KNOWN_DIDS[targetDid]) {
-          reply += `Known Identity: <b>${KNOWN_DIDS[targetDid]}</b>\n`;
+        const knownIdentity = KNOWN_DIDS[targetDid] || KNOWN_DIDS[canonicalizeDid(targetDid)];
+        if (knownIdentity) {
+          reply += `Known Identity: <b>${knownIdentity}</b>\n`;
         }
 
         const receipt = regResult.receipt;
@@ -1688,16 +1717,17 @@ export default async function handler(req, res) {
       }
 
       if (rawText.includes('did:key:')) {
-        const didMatch = rawText.match(/did:key:[a-zA-Z0-9]+/);
+        const didMatch = rawText.match(/did:key:[a-zA-Z0-9]+/i);
         if (didMatch) {
-          const did = didMatch[0].trim();
+          const did = canonicalizeDid(didMatch[0]);
           const analysis = analyzeDidLetters(did);
           const regResult = await streamFindRegistration(did);
 
           let reply = `<b>DID Analysis &amp; Registration Report</b>\n\n` +
             `DID: <code>${did}</code>\n`;
-          if (KNOWN_DIDS[did]) {
-            reply += `Identity: <b>${KNOWN_DIDS[did]}</b>\n`;
+          const knownIdentity = KNOWN_DIDS[did] || KNOWN_DIDS[canonicalizeDid(did)];
+          if (knownIdentity) {
+            reply += `Identity: <b>${knownIdentity}</b>\n`;
           }
 
           if (regResult.receipt) {
