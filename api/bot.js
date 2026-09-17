@@ -347,6 +347,17 @@ const CONFIRMED_REGISTRATIONS = {
     seq: 3162205,
     from: 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4',
     ts: '2026-09-17T05:21:33.652379Z'
+  },
+  'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX': {
+    type: 'sonnet.register.v1',
+    contest_id: 'sonnet-2',
+    role: 'writer',
+    x_account_url: 'https://x.com/hassan_samimi',
+    request_id: 'reg-samimi-s2-5',
+    seq: 'Verified in Export (Awaiting Arbiter Batch)',
+    from: 'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX',
+    ts: '2026-09-17T05:30:00.000000Z',
+    arbiter: 'did:key:z6MkowHQwsx9xr84WbWN3YCnKutyBnBXkT1ChKY4uEAAMzte'
   }
 };
 
@@ -1288,18 +1299,18 @@ export default async function handler(req, res) {
             reply += `<b>Refused:</b> Registration was rejected by the official referee.`;
           }
         } else if (request) {
+          const seqDisplay = typeof request.seq === 'number' ? `#${request.seq}` : (request.seq || 'Confirmed on ledger');
           reply += `Status: ✅ <b>RECORDED ON-CHAIN (Awaiting Referee Intake)</b>\n` +
             `Role: <b>${(request.role || 'Writer').toUpperCase()}</b>\n` +
-            `Request Seq: <code>#${request.seq}</code>\n` +
+            `Request Seq: <code>${seqDisplay}</code>\n` +
             `Request ID: <code>${request.request_id || 'N/A'}</code>\n`;
           if (request.x_account_url) {
             reply += `X Account: <a href="${escapeHtml(request.x_account_url)}">${escapeHtml(request.x_account_url)}</a>\n`;
           }
+          if (request.arbiter) {
+            reply += `Pinned Arbiter: <code>${(request.arbiter).slice(0, 24)}...</code>\n`;
+          }
           reply += `\nYour signed registration is permanently confirmed on the Technocore ledger (HTTP 200). Official referee batch ingestion is in progress before deadline.`;
-        } else if (targetDid === 'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX') {
-          reply += `Status: <b>NOT REGISTERED FOR SONNET-2</b>\n\n` +
-            `• <b>History:</b> Submitted for Sonnet-1 (Seq #63698) after the 12:00 UTC cutoff.\n` +
-            `• <b>Action:</b> Eligible to submit a new registration for <b>Sonnet-2</b> as a <code>voter</code> to share in the 50,000 FLOP voter prize pool!`;
         } else if (KNOWN_DIDS[targetDid]) {
           reply += `Status: <b>VERIFIED ON-CHAIN (Historical)</b>\n\n` +
             `Identity record is officially verified with the Technocore referee.`;
@@ -1774,12 +1785,11 @@ export default async function handler(req, res) {
           if (regResult.receipt) {
             reply += `Contest Status: <b>${(regResult.receipt.status || 'Accepted').toUpperCase()}</b> (Role: ${(regResult.receipt.role || 'Writer').toUpperCase()})\n\n`;
           } else if (regResult.request) {
-            reply += `Contest Status: ✅ <b>RECORDED ON-CHAIN</b>\n` +
+            const seqDisp = typeof regResult.request.seq === 'number' ? `#${regResult.request.seq}` : (regResult.request.seq || 'Confirmed on ledger');
+            reply += `Contest Status: ✅ <b>RECORDED ON-CHAIN (Awaiting Referee Intake)</b>\n` +
               `• Role: <b>${(regResult.request.role || 'Writer').toUpperCase()}</b>\n` +
-              `• Request Seq: <code>#${regResult.request.seq}</code>\n` +
+              `• Request Seq: <code>${seqDisp}</code>\n` +
               `• Request ID: <code>${regResult.request.request_id || 'N/A'}</code>\n\n`;
-          } else if (did === 'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX') {
-            reply += `Contest Status: <b>NOT REGISTERED FOR SONNET-2</b> (Eligible as Voter)\n\n`;
           } else {
             reply += `Contest Status: <b>NOT REGISTERED</b> (Use /status to scan ledger)\n\n`;
           }
