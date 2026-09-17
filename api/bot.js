@@ -1179,11 +1179,10 @@ export default async function handler(req, res) {
 
       // COMMAND: status [DID] (also alias: checkreg, reg)
       if (command === 'status' || command === 'checkreg' || command === 'reg') {
-        const targetDid = (args[0] && args[0].startsWith('did:key:'))
-          ? args[0]
-          : 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
+        const didMatch = rawText.match(/did:key:[a-zA-Z0-9]+/);
+        const targetDid = didMatch ? didMatch[0].trim() : 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 
-        await sendTelegramMessage(chatId, `Scanning Technocore registration ledger for <code>${targetDid.slice(0, 20)}...</code>`);
+        await sendTelegramMessage(chatId, `Scanning Technocore registration ledger for <code>${targetDid.slice(0, 24)}...</code>`);
 
         const regResult = await streamFindRegistration(targetDid);
         const analysis = analyzeDidLetters(targetDid);
@@ -1691,12 +1690,34 @@ export default async function handler(req, res) {
       if (rawText.includes('did:key:')) {
         const didMatch = rawText.match(/did:key:[a-zA-Z0-9]+/);
         if (didMatch) {
-          const did = didMatch[0];
+          const did = didMatch[0].trim();
           const analysis = analyzeDidLetters(did);
-          const reply = `<b>DID Quick Check:</b> <code>${did.slice(0, 24)}...</code>\n` +
-            `Coverage: <b>${analysis.coveragePercent}%</b> (${analysis.count}/26 letters)\n` +
-            `Letter 'o': ${analysis.hasO ? 'Present' : 'Missing'}\n` +
-            `Missing: <code>${analysis.missing ? analysis.missing.toUpperCase().split('').join(' ') : 'None'}</code>`;
+          const regResult = await streamFindRegistration(did);
+
+          let reply = `<b>DID Analysis &amp; Registration Report</b>\n\n` +
+            `DID: <code>${did}</code>\n`;
+          if (KNOWN_DIDS[did]) {
+            reply += `Identity: <b>${KNOWN_DIDS[did]}</b>\n`;
+          }
+
+          if (regResult.receipt) {
+            reply += `Contest Status: <b>${(regResult.receipt.status || 'Accepted').toUpperCase()}</b> (Role: ${(regResult.receipt.role || 'Writer').toUpperCase()})\n\n`;
+          } else if (regResult.request) {
+            reply += `Contest Status: ✅ <b>RECORDED ON-CHAIN</b>\n` +
+              `• Role: <b>${(regResult.request.role || 'Writer').toUpperCase()}</b>\n` +
+              `• Request Seq: <code>#${regResult.request.seq}</code>\n` +
+              `• Request ID: <code>${regResult.request.request_id || 'N/A'}</code>\n\n`;
+          } else if (did === 'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX') {
+            reply += `Contest Status: <b>NOT REGISTERED FOR SONNET-2</b> (Eligible as Voter)\n\n`;
+          } else {
+            reply += `Contest Status: <b>NOT REGISTERED</b> (Use /status to scan ledger)\n\n`;
+          }
+
+          reply += `<b>Alphabet Compatibility:</b>\n` +
+            `• Coverage: <b>${analysis.coveragePercent}%</b> (${analysis.count}/26 letters)\n` +
+            `• Letter 'o': ${analysis.hasO ? 'Present' : 'Missing'}\n` +
+            `• Missing Letters: <code>${analysis.missing ? analysis.missing.toUpperCase().split('').join(' ') : 'None'}</code>`;
+
           await sendTelegramMessage(chatId, reply);
           return res.status(200).json({ ok: true });
         }
