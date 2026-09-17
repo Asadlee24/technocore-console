@@ -382,12 +382,53 @@ async function streamFindRegistration(targetDid) {
   const baseRequest = findConfirmedRegistration(canonical);
   const targetLower = (canonical || '').toLowerCase();
 
+  let latestReceipt = null;
+  let latestRequest = baseRequest;
+
+  // 1. Fast check: d-sonnet-2-results for official referee receipt or identity additions
+  try {
+    const resResults = await fetch('https://technocore.chat/r/d-sonnet-2-results?format=json&limit=50');
+    if (resResults.ok) {
+      const dataResults = await resResults.json();
+      for (const m of (dataResults.messages || [])) {
+        if (m.text && m.text.toLowerCase().includes(targetLower)) {
+          try {
+            const p = JSON.parse(m.text);
+            if (p.type === 'sonnet.receipt.v1') {
+              latestReceipt = { ...p, seq: m.seq, from: m.from, ts: m.ts };
+              break;
+            } else if (p.type === 'sonnet.identities.v1' && p.additions) {
+              for (const [d, meta] of Object.entries(p.additions)) {
+                if (d.toLowerCase() === targetLower) {
+                  latestReceipt = {
+                    type: 'sonnet.receipt.v1',
+                    status: 'accepted',
+                    role: 'writer',
+                    seq: m.seq,
+                    intake_seq: p.intake_seq || m.seq,
+                    from: m.from,
+                    ts: m.ts
+                  };
+                  break;
+                }
+              }
+              if (latestReceipt) break;
+            }
+          } catch(e){}
+        }
+      }
+    }
+  } catch(e){}
+
+  if (latestReceipt) {
+    return { receipt: latestReceipt, request: latestRequest };
+  }
+
+  // 2. Stream export from mb-sonnet-2-registration
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve({ receipt: null, request: baseRequest }), 8000);
+    const timeout = setTimeout(() => resolve({ receipt: latestReceipt, request: latestRequest }), 5000);
     https.get('https://technocore.chat/r/mb-sonnet-2-registration/export', (res) => {
       let buffer = '';
-      let latestReceipt = null;
-      let latestRequest = baseRequest;
 
       res.on('data', chunk => {
         buffer += chunk;
@@ -414,7 +455,7 @@ async function streamFindRegistration(targetDid) {
       });
     }).on('error', () => {
       clearTimeout(timeout);
-      resolve({ receipt: null, request: baseRequest });
+      resolve({ receipt: latestReceipt, request: latestRequest });
     });
   });
 }
