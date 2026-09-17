@@ -1145,12 +1145,16 @@ export default async function handler(req, res) {
         }
 
         const analysis = analyzeDidLetters(targetDid);
-        const reply = `<b>DID Letter Analysis</b>\n\n` +
+        let reply = `<b>DID Letter Analysis</b>\n\n` +
           `DID: <code>${analysis.clean}</code>\n` +
           `Held (${analysis.count}/26): <code>${analysis.held.toUpperCase().split('').join(' ')}</code>\n` +
           `Missing: <code>${analysis.missing ? analysis.missing.toUpperCase().split('').join(' ') : 'None (100% Full Alphabet)'}</code>\n` +
           `Letter 'o': ${analysis.hasO ? 'Present' : 'Missing'}\n` +
           `Coverage: <b>${analysis.coveragePercent}%</b>`;
+
+        if (targetDid === 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4') {
+          reply += `\n\n💡 <i>To analyze your own or any other DID:</i>\n<code>/check &lt;DID&gt;</code>`;
+        }
 
         await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
@@ -1217,6 +1221,10 @@ export default async function handler(req, res) {
           `• Coverage: <b>${analysis.coveragePercent}%</b> (${analysis.count}/26 letters)\n` +
           `• Letter 'o': ${analysis.hasO ? 'Present (Can sign "to", "of", "you")' : 'Missing (Avoid "o" words)'}\n` +
           `• Missing Letters: <code>${analysis.missing ? analysis.missing.toUpperCase().split('').join(' ') : 'None (100% Full Alphabet)'}</code>`;
+
+        if (targetDid === 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4') {
+          reply += `\n\n💡 <i>To check your own or any other DID:</i>\n<code>/status &lt;DID&gt;</code>`;
+        }
 
         await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
