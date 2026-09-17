@@ -765,10 +765,10 @@ export default async function handler(req, res) {
           `<b>🎯 Sonnet Challenge #2 Commands:</b>\n` +
           `• <code>/audit &lt;team&gt;</code> - Pre-submission referee compliance audit of squad\n` +
           `• <code>/rhyme &lt;word&gt; [DID]</code> - Find legal rhyming words for your DID\n` +
-          `• <code>/word &lt;word&gt; &lt;DID&gt;</code> - Check if a DID can legally sign a word\n` +
+          `• <code>/word &lt;word&gt; [DID]</code> - Check if a DID can legally sign a word\n` +
           `• <code>/meter &lt;line&gt;</code> - Analyze line syllables (10 req)\n` +
           `• <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code> - Test alphabet synergy between 2 members\n` +
-          `• <code>/check &lt;DID&gt;</code> - View letters held and dictionary coverage\n` +
+          `• <code>/check [DID]</code> - View letters held and dictionary coverage\n` +
           `• <code>/team &lt;team-name&gt;</code> - Live room telemetry for any squad\n` +
           `• <code>/teams</code> - View active squads in contest\n` +
           `• <code>/rules</code> - 7 core rules of Sonnet Challenge #2\n` +
@@ -997,7 +997,7 @@ export default async function handler(req, res) {
             `Usage: <code>/rhyme &lt;word&gt; [DID]</code>\n\n` +
             `Examples:\n` +
             `• <code>/rhyme night</code>\n` +
-            `• <code>/rhyme night did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh</code>\n\n` +
+            `• <code>/rhyme night did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4</code>\n\n` +
             `Finds sonnet rhyming words and verifies which ones your DID can legally sign.`;
           await sendTelegramMessage(chatId, usage);
           return res.status(200).json({ ok: true });
@@ -1054,21 +1054,24 @@ export default async function handler(req, res) {
             `<b>Rhyming Words (${rhymes.length}):</b>\n` +
             rhymes.map(r => `• <b>${escapeHtml(r)}</b> (${countWordSyllables(r)} syl)`).join('\n') + `\n\n` +
             `<i>Tip: Pass your DID to see only words you can legally sign:</i>\n` +
-            `<code>/rhyme ${escapeHtml(targetWord)} &lt;YOUR_DID&gt;</code>`;
+            `<code>/rhyme ${escapeHtml(targetWord)} did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4</code>`;
           await sendTelegramMessage(chatId, reply);
           return res.status(200).json({ ok: true });
         }
       }
 
-      // COMMAND: word <word> <DID>
+      // COMMAND: word <word> [DID]
       if (command === 'word') {
-        if (args.length < 2) {
-          await sendTelegramMessage(chatId, `<b>Usage:</b> <code>/word &lt;WORD&gt; &lt;DID&gt;</code>\n\nExample:\n<code>/word beauty did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh</code>`);
+        const testWord = args[0];
+        const targetDid = (args[1] && args[1].startsWith('did:key:'))
+          ? args[1]
+          : (!args[1] ? 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4' : null);
+
+        if (!testWord || !targetDid) {
+          await sendTelegramMessage(chatId, `<b>Usage:</b> <code>/word &lt;WORD&gt; [DID]</code>\n\nExample:\n<code>/word beauty did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4</code>`);
           return res.status(200).json({ ok: true });
         }
 
-        const testWord = args[0];
-        const targetDid = args[1];
         const resWord = canSignWord(testWord, targetDid);
 
         const reply = `<b>Word Legality Check</b>\n\n` +
@@ -1103,7 +1106,7 @@ export default async function handler(req, res) {
       // COMMAND: pair or synergy
       if (command === 'pair' || command === 'synergy') {
         if (args.length < 2) {
-          await sendTelegramMessage(chatId, `<b>Usage:</b> <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code>`);
+          await sendTelegramMessage(chatId, `<b>Usage:</b> <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code>\n\nExample:\n<code>/pair did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4 &lt;PARTNER_DID&gt;</code>`);
           return res.status(200).json({ ok: true });
         }
 
@@ -1130,11 +1133,14 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: check <DID>
+      // COMMAND: check [DID]
       if (command === 'check') {
-        const targetDid = args[0];
-        if (!targetDid || !targetDid.startsWith('did:key:')) {
-          await sendTelegramMessage(chatId, `<b>Usage:</b> <code>/check &lt;DID&gt;</code>\n\nExample:\n<code>/check did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh</code>`);
+        const targetDid = (args[0] && args[0].startsWith('did:key:'))
+          ? args[0]
+          : (!args[0] ? 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4' : null);
+
+        if (!targetDid) {
+          await sendTelegramMessage(chatId, `<b>Usage:</b> <code>/check &lt;DID&gt;</code>\n\nExample:\n<code>/check did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4</code>`);
           return res.status(200).json({ ok: true });
         }
 
