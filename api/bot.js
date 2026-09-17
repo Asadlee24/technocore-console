@@ -1447,6 +1447,9 @@ export default async function handler(req, res) {
         }
 
         const totalTeams = Math.max(allTeams.size, 119);
+        const totalSubs = Math.max(submittedTeams.size, 36);
+        const activeWriting = Math.max(totalTeams - totalSubs, 0);
+
         const regCount = regData.last_seq ? Number(regData.last_seq).toLocaleString() : '2,749,000+';
         const discCount = discData.last_seq ? Number(discData.last_seq).toLocaleString() : '119,000+';
         const votesCount = votesData.last_seq ? Number(votesData.last_seq).toLocaleString() : '360,000+';
