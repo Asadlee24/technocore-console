@@ -54,6 +54,7 @@ const BOT_COMMANDS = [
 
 const KNOWN_DIDS = {
   'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': '<a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> (Leader)',
+  'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX': '<a href="https://x.com/hassan_samimi">Hassan Samimi (X: @hassan_samimi)</a>',
   'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh': 'SmartecVitalik (@Smartecio)',
   'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9': 'Aika Kurashi (@aika_kurashi)',
   'did:key:z6MkmGwVm4qswSyN1aDm8NRiabEzKzm5pcjqJqZ4nQYiZpWZ': 'wowyeahohno (@wowyeahohno)',
