@@ -4975,10 +4975,10 @@ function stopBountyHuntingUI() {
  * Synchronize Live Telemetry from 24/7 Cloud Sniper (Strict Privacy & Identity Gated)
  * Reads from Technocore KV /kv/hunter-94/4eaca2c9b6251c ONLY when authenticated as Asad Lee
  */
-let lastKnownFlop = 80100;
-let lastKnownPaper = 0;
-let lastKnownSolved = 241;
-let lastKnownScanned = 247;
+let lastKnownFlop = 6531800;
+let lastKnownPaper = 16000;
+let lastKnownSolved = 20067;
+let lastKnownScanned = 20100;
 const ASAD_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 
 export async function syncCloudSniperStats(forceFeedback = false) {

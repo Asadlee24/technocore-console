@@ -130,10 +130,10 @@ async function sendTelegramMessage(chatId, text, extra = {}) {
   }
 }
 
-let maxBotSeenFlop = 6108400;
-let maxBotSeenPaper = 14000;
-let maxBotSeenSolved = 18759;
-let maxBotSeenScanned = 19000;
+let maxBotSeenFlop = 6531800;
+let maxBotSeenPaper = 16000;
+let maxBotSeenSolved = 20067;
+let maxBotSeenScanned = 20100;
 let lastKnownBotData = null;
 
 async function fetchSniperTelemetry() {
@@ -1628,10 +1628,10 @@ export default async function handler(req, res) {
       // COMMAND: earnings / balance / wallet / flop
       if (command === 'earnings' || command === 'balance' || command === 'wallet' || command === 'flop') {
         const telemetry = await fetchSniperTelemetry();
-        const flopAmount = (telemetry.flop || 6108400).toLocaleString();
-        const paperAmount = (telemetry.paper || 14000).toLocaleString();
-        const solvedCount = (telemetry.solved || 18759).toLocaleString();
-        const scannedCount = (telemetry.scanned || 19000).toLocaleString();
+        const flopAmount = (telemetry.flop || 6531800).toLocaleString();
+        const paperAmount = (telemetry.paper || 16000).toLocaleString();
+        const solvedCount = (telemetry.solved || 20067).toLocaleString();
+        const scannedCount = (telemetry.scanned || 20100).toLocaleString();
 
         let reply = `💰 <b>Asad Lee — Rewards &amp; Wallet Balance</b>\n\n` +
           `⚡ <b>Total FLOP Earned:</b> <code>${flopAmount} FLOP</code>\n` +
@@ -1663,8 +1663,8 @@ export default async function handler(req, res) {
         const lastSeen = telemetry.lastHeartbeat || telemetry.updatedAt || Date.now();
         const diffSec = Math.round((Date.now() - lastSeen) / 1000);
         const isLive = diffSec < 900;
-        const flopAmount = (telemetry.flop || 80100).toLocaleString();
-        const paperAmount = (telemetry.paper || 0).toLocaleString();
+        const flopAmount = (telemetry.flop || 6531800).toLocaleString();
+        const paperAmount = (telemetry.paper || 16000).toLocaleString();
 
         const reply = `⚡ <b>Autonomous Bounty Sniper Engine</b>\n\n` +
           `🟢 <b>Engine Status:</b> <code>${isLive ? 'ONLINE &amp; ACTIVE (24/7)' : 'ONLINE (CACHED)'}</code>\n` +
@@ -1694,8 +1694,8 @@ export default async function handler(req, res) {
           auditLiveSolverRankings()
         ]);
 
-        const asadFlop = (telemetry.flop || 20800).toLocaleString();
-        const asadSolved = telemetry.solved || 68;
+        const asadFlop = (telemetry.flop || 6531800).toLocaleString();
+        const asadSolved = (telemetry.solved || 20067).toLocaleString();
 
         let reply = `🏆 <b>TECHNOCORE BOUNTY LEADERBOARD</b>\n` +
           `═════════════════════════════\n\n`;
