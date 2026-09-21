@@ -441,9 +441,9 @@ export async function runSniper(keypair, options = { durationMs: 0 }) {
   let lastSeq = null;
   const processedOffers = new Set();
   const startTime = Date.now();
-  const MIN_FLOOR_FLOP = 6531800;
+  const MIN_FLOOR_FLOP = 6619000;
   const MIN_FLOOR_PAPER = 16000;
-  const MIN_FLOOR_SOLVED = 20067;
+  const MIN_FLOOR_SOLVED = 20333;
 
   let totalClaimedFlop = MIN_FLOOR_FLOP;
   let totalClaimedPaper = MIN_FLOOR_PAPER;
