@@ -51,13 +51,17 @@ export class NonceManager {
   nextNonce(arg1, arg2) {
     const { did, room } = this._resolveDidAndRoom(arg1, arg2);
     const key = `${did}:${room}`;
+    const globalKey = `global:${did}`;
     const nowMs = BigInt(Date.now());
-    const last = this._roomNonces.get(key) || 0n;
+    const lastRoom = this._roomNonces.get(key) || 0n;
+    const lastGlobal = this._roomNonces.get(globalKey) || 0n;
+    const last = lastGlobal > lastRoom ? lastGlobal : lastRoom;
 
     // Must be strictly greater than last and at least nowMs
     let next = nowMs > last ? nowMs : last + 1n;
 
     this._roomNonces.set(key, next);
+    this._roomNonces.set(globalKey, next);
     return next.toString();
   }
 
@@ -112,9 +116,11 @@ export class NonceManager {
     }
 
     const current = this._roomNonces.get(key) || 0n;
+    const globalKey = `global:${did}`;
     const higher = current > floor ? current : floor;
     const recovered = higher + 1000n; // Advance past the collision
     this._roomNonces.set(key, recovered);
+    this._roomNonces.set(globalKey, recovered);
     return recovered.toString();
   }
 

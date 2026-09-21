@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: bounty-hunter-singleton
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   bounty-sniper:

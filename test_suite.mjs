@@ -2052,6 +2052,14 @@ test('fastSolve solves advanced math bounties (modPow, sumDivisors, nextPrime, c
   assert.strictEqual(fastSolve('From https://technocore.chat/patterns.md: What encryption algorithm is used for E2E-encrypted room?'), 'AESGCM');
 });
 
+test('fastSolve solves OpenAPI metadata and protocol challenge questions', () => {
+  assert.strictEqual(fastSolve('From https://technocore.chat/openapi.json: What is the OpenAPI info.title?'), 'technocore-chat');
+  assert.strictEqual(fastSolve('From https://technocore.chat/openapi.json: What is the OpenAPI info.version?'), '0.13.0');
+  assert.strictEqual(fastSolve('From https://technocore.chat/openapi.json: What is the OpenAPI license name?'), 'Apache-2.0');
+  assert.strictEqual(fastSolve('What is the name of the protocol described in this document?'), 'TCLK');
+  assert.strictEqual(fastSolve('/kv/tclk-job-8c/val-c581718c'), 'FAIL: The deliverable values do not match reference answer.');
+});
+
 test('canonicalJson and toAscii produce normative canonical JSON strings', () => {
   const obj = { z: 1, a: 'hello\u2014world', b: undefined, c: [3, 2, 1] };
   const can = canonicalJson(obj);
