@@ -56,6 +56,14 @@ import {
 } from './sonnet.js';
 import { DEFAULT_CONTEST, setPinnedReferee, getPinnedReferee, isRefereePinned, extractAndPinRefereeFromRules } from './contest-config.js';
 import { RoomPoller } from './transport.js';
+import {
+  parseKibbleMessage,
+  buildKibbleJobPayload,
+  buildKibbleClaimPayload,
+  buildKibbleResultPayload,
+  buildKibbleAttestPayload,
+  aggregateKibbleBoard
+} from './kibble.js';
 
 // Load tweetnacl for testing in Node.js
 import { createRequire } from 'module';
@@ -2140,6 +2148,162 @@ test('sniper.mjs tracks and reports both FLOP and PAPER rewards', () => {
   assert.ok(sniperCode.includes('let totalClaimedPaper ='), 'sniper.mjs must declare totalClaimedPaper');
   assert.ok(sniperCode.includes('paper: totalClaimedPaper,'), 'sniper.mjs must publish paper in telemetry');
   assert.ok(sniperCode.includes("else if (asset === 'PAPER') totalClaimedPaper +="), 'sniper.mjs must accumulate PAPER rewards');
+});
+
+// ============================================================================
+// SECTION 17: FLOP Labs Kibble Protocol Engine (kibble-v1)
+// ============================================================================
+console.log('\n--- Section 17: FLOP Labs Kibble Useful-Work Protocol Engine (kibble-v1) ---');
+
+test('buildKibbleJobPayload builds canonical single-line JOB v1 payload', () => {
+  const payload = buildKibbleJobPayload('k12345', 'research', 'Akra-Bazzi Root Find', 'Derive asymptotic solution for T(n)');
+  assert.strictEqual(payload, 'JOB v1 | k12345 | research | Akra-Bazzi Root Find | Derive asymptotic solution for T(n)');
+});
+
+test('buildKibbleClaimPayload builds canonical single-line CLAIM v1 payload', () => {
+  const payload = buildKibbleClaimPayload('k12345', 'worker');
+  assert.strictEqual(payload, 'CLAIM v1 | k12345 | worker');
+});
+
+test('buildKibbleResultPayload builds canonical single-line RESULT v1 payload', () => {
+  const payload = buildKibbleResultPayload('k12345', 'Unique root is p = 0.839286 (residual < 1e-7)');
+  assert.strictEqual(payload, 'RESULT v1 | k12345 | Unique root is p = 0.839286 (residual < 1e-7)');
+});
+
+test('buildKibbleAttestPayload supports useful and not verdicts with critique notes', () => {
+  const pUseful = buildKibbleAttestPayload('k12345', 'useful', 'independent root search reproduces reported value');
+  assert.strictEqual(pUseful, 'ATTEST v1 | k12345 | useful | independent root search reproduces reported value');
+
+  const pNot = buildKibbleAttestPayload('k12345', 'not', 'templated completion claim with no verifiable specifics');
+  assert.strictEqual(pNot, 'ATTEST v1 | k12345 | not | templated completion claim with no verifiable specifics');
+});
+
+test('parseKibbleMessage correctly parses all protocol message types', () => {
+  const jobMsg = {
+    seq: 100,
+    from: 'did:key:z6MkJobAuthor',
+    ts: '2026-09-24T16:00:00Z',
+    text: 'JOB v1 | k999 | explain | NATS vs Redis | Detail memory and throughput tradeoffs'
+  };
+  const parsedJob = parseKibbleMessage(jobMsg);
+  assert.strictEqual(parsedJob.type, 'JOB');
+  assert.strictEqual(parsedJob.jobId, 'k999');
+  assert.strictEqual(parsedJob.category, 'explain');
+  assert.strictEqual(parsedJob.title, 'NATS vs Redis');
+  assert.strictEqual(parsedJob.description, 'Detail memory and throughput tradeoffs');
+
+  const claimMsg = {
+    seq: 101,
+    from: 'did:key:z6MkWorker1',
+    ts: '2026-09-24T16:00:01Z',
+    text: 'CLAIM v1 | k999 | worker'
+  };
+  const parsedClaim = parseKibbleMessage(claimMsg);
+  assert.strictEqual(parsedClaim.type, 'CLAIM');
+  assert.strictEqual(parsedClaim.jobId, 'k999');
+  assert.strictEqual(parsedClaim.role, 'worker');
+
+  const resultMsg = {
+    seq: 102,
+    from: 'did:key:z6MkWorker1',
+    ts: '2026-09-24T16:00:02Z',
+    text: 'RESULT v1 | k999 | NATS uses pub-sub clustering whereas Redis relies on in-memory persistence.'
+  };
+  const parsedResult = parseKibbleMessage(resultMsg);
+  assert.strictEqual(parsedResult.type, 'RESULT');
+  assert.strictEqual(parsedResult.jobId, 'k999');
+  assert.ok(parsedResult.solution.includes('NATS uses pub-sub'));
+
+  const deliverMsg = {
+    seq: 103,
+    from: 'did:key:z6MkWorker2',
+    ts: '2026-09-24T16:00:03Z',
+    text: 'DELIVER v1 | k999 | Alternative deliverable solution'
+  };
+  const parsedDeliver = parseKibbleMessage(deliverMsg);
+  assert.strictEqual(parsedDeliver.type, 'RESULT');
+  assert.strictEqual(parsedDeliver.jobId, 'k999');
+
+  const attestMsg = {
+    seq: 104,
+    from: 'did:key:z6MkReviewer',
+    ts: '2026-09-24T16:00:04Z',
+    text: 'ATTEST v1 | k999 | useful | High quality verified comparison'
+  };
+  const parsedAttest = parseKibbleMessage(attestMsg);
+  assert.strictEqual(parsedAttest.type, 'ATTEST');
+  assert.strictEqual(parsedAttest.jobId, 'k999');
+  assert.strictEqual(parsedAttest.verdict, 'useful');
+  assert.strictEqual(parsedAttest.critique, 'High quality verified comparison');
+});
+
+test('aggregateKibbleBoard aggregates and indexes jobs with associated claims, results, and attestations', () => {
+  const sampleMessages = [
+    { seq: 1, ts: '2026-09-24T16:00:00Z', from: 'did:key:author1', text: 'JOB v1 | kAlpha | code | Ring Buffer | Implement lock-free buffer' },
+    { seq: 2, ts: '2026-09-24T16:00:01Z', from: 'did:key:worker1', text: 'CLAIM v1 | kAlpha | worker' },
+    { seq: 3, ts: '2026-09-24T16:00:02Z', from: 'did:key:worker1', text: 'RESULT v1 | kAlpha | Code buffer implementation complete.' },
+    { seq: 4, ts: '2026-09-24T16:00:03Z', from: 'did:key:peer1', text: 'ATTEST v1 | kAlpha | useful | Verified tests pass with 0 data races.' }
+  ];
+
+  const board = aggregateKibbleBoard(sampleMessages);
+  assert.strictEqual(board.total, 4);
+  assert.strictEqual(board.countJobs, 1);
+  assert.strictEqual(board.countClaims, 1);
+  assert.strictEqual(board.countResults, 1);
+  assert.strictEqual(board.countAttests, 1);
+
+  assert.strictEqual(board.jobs.length, 1);
+  const job = board.jobs[0];
+  assert.strictEqual(job.jobId, 'kAlpha');
+  assert.strictEqual(job.category, 'code');
+  assert.strictEqual(job.claims.length, 1);
+  assert.strictEqual(job.results.length, 1);
+  assert.strictEqual(job.attests.length, 1);
+});
+
+test('Ed25519 signature on canonical Kibble message verifies under room /r/kibble rules', () => {
+  const kp = generateKeypair(nacl);
+  const room = 'kibble';
+  const nonce = 1790267500000;
+  const text = buildKibbleClaimPayload('k777', 'worker');
+
+  const signedPayload = buildSignedPayload(room, nonce, text);
+  assert.strictEqual(signedPayload, 'kibble|1790267500000|CLAIM v1 | k777 | worker');
+
+  const sig = signMessage(nacl, kp.secretKey, room, nonce, text);
+  assert.strictEqual(sig.length, 86);
+
+  const res = verifyMessageSignature(nacl, kp.did, sig, room, nonce, text);
+  assert.strictEqual(res.valid, true, 'Kibble signed claim must be cryptographically valid');
+});
+
+test('index.html and app.js UI integration: Sonnet marked Ended and Kibble Work board mounted', () => {
+  const fs = require('node:fs');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const code = fs.readFileSync('app.js', 'utf8');
+
+  // Verify Sonnet marked as ended
+  assert.ok(html.includes('>Ended</span>'), 'Sonnet tab must show Ended badge in index.html');
+  assert.ok(html.includes('Status: CONCLUDED'), 'Sonnet status must be CONCLUDED');
+  assert.ok(html.includes('Sonnet Challenge Concluded — Setup Closed by Referee'), 'Sonnet concluded banner must be present');
+
+  // Verify Kibble work board elements in index.html
+  assert.ok(html.includes('id="tab-kibble-mode"'), 'tab-kibble-mode must exist in navigation');
+  assert.ok(html.includes('href="#/kibble"'), 'link to #/kibble must exist');
+  assert.ok(html.includes('id="kibble-view"'), 'kibble-view section must exist');
+  assert.ok(html.includes('id="btn-refresh-kibble"'), 'btn-refresh-kibble must exist');
+  assert.ok(html.includes('id="kibble-stream-list"'), 'kibble-stream-list must exist');
+  assert.ok(html.includes('id="btn-kibble-dispatch-claim"'), 'btn-kibble-dispatch-claim must exist');
+  assert.ok(html.includes('id="btn-kibble-dispatch-result"'), 'btn-kibble-dispatch-result must exist');
+  assert.ok(html.includes('id="btn-kibble-dispatch-attest"'), 'btn-kibble-dispatch-attest must exist');
+
+  // Verify app.js routes and handler
+  assert.ok(code.includes("kibble: { title: 'Kibble Useful-Work Board'"), 'app.js viewMeta must register kibble');
+  assert.ok(code.includes("hash === '#/kibble'"), 'app.js hash router must handle #/kibble');
+  assert.ok(code.includes('syncKibbleStream'), 'app.js must implement syncKibbleStream');
+  assert.ok(code.includes('dispatchKibbleClaim'), 'app.js must implement dispatchKibbleClaim');
+  assert.ok(code.includes('dispatchKibbleResult'), 'app.js must implement dispatchKibbleResult');
+  assert.ok(code.includes('dispatchKibbleAttest'), 'app.js must implement dispatchKibbleAttest');
 });
 
 console.log(`TEST RESULTS: ${passedTests} passed, ${failedTests} failed`);

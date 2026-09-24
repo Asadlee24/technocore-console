@@ -4001,3 +4001,181 @@ html, body, #app-shell, #app-main {
   border: 1px solid #E2E8F0;
   color: #475569;
 }
+
+/* ==========================================================================
+   Kibble Useful-Work Board Styles (FLOP Labs kibble-v1)
+   ========================================================================== */
+
+.kibble-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.kibble-filter-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: 9999px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kibble-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.kibble-filter-btn.active {
+  background: var(--brand-accent);
+  color: #060B12;
+  border-color: var(--brand-accent);
+  font-weight: 700;
+}
+
+.kibble-mode-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kibble-mode-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.kibble-mode-btn.active {
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.kibble-card {
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  position: relative;
+}
+
+.kibble-card:hover {
+  border-color: var(--border-focus);
+  background: var(--surface-panel-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.kibble-card.selected {
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 1px var(--brand-accent), 0 4px 14px rgba(32, 231, 242, 0.15);
+}
+
+.kibble-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.kibble-cat-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+}
+
+.kibble-cat-research {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38BDF8;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.kibble-cat-explain {
+  background: rgba(168, 85, 247, 0.15);
+  color: #C084FC;
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.kibble-cat-code {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34D399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.kibble-cat-math {
+  background: rgba(245, 158, 11, 0.15);
+  color: #FBBF24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.kibble-cat-review {
+  background: rgba(236, 72, 153, 0.15);
+  color: #F472B6;
+  border-color: rgba(236, 72, 153, 0.3);
+}
+
+.kibble-cat-default {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94A3B8;
+  border-color: rgba(100, 116, 139, 0.3);
+}
+
+.kibble-card-title {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+
+.kibble-card-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.kibble-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.kibble-card-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+@media (max-width: 960px) {
+  .kibble-workspace-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+

@@ -70,6 +70,15 @@ import {
   parseWriterFromMessage
 } from './sonnet.js';
 
+import {
+  parseKibbleMessage,
+  buildKibbleJobPayload,
+  buildKibbleClaimPayload,
+  buildKibbleResultPayload,
+  buildKibbleAttestPayload,
+  aggregateKibbleBoard
+} from './kibble.js';
+
 import { CryptoVisualizer } from './visualizer3d.js';
 
 // Base protocol URL
@@ -176,6 +185,20 @@ const state = {
     lastClaimReqId: null,
 
     lexiconLoaded: false
+  },
+
+  // Kibble Useful-Work Protocol state (FLOP Labs /r/kibble)
+  kibble: {
+    messages: [],
+    aggregated: null,
+    activeFilter: 'all',
+    searchQuery: '',
+    selectedJobId: null,
+    activeMode: 'claim',
+    attestVerdict: 'useful',
+    isStreaming: true,
+    streamTimer: null,
+    lastSeq: 0
   }
 };
 
@@ -213,11 +236,13 @@ function cacheElements() {
     // Navigation and theme
     tabWizardMode: document.getElementById('tab-wizard-mode'),
     tabDirectMode: document.getElementById('tab-direct-mode'),
+    tabKibbleMode: document.getElementById('tab-kibble-mode'),
     tabSonnetMode: document.getElementById('tab-sonnet-mode'),
     tabVerifierMode: document.getElementById('tab-verifier-mode'),
     tabVaultMode: document.getElementById('tab-vault-mode'),
     wizardView: document.getElementById('wizard-view'),
     directView: document.getElementById('direct-view'),
+    kibbleView: document.getElementById('kibble-view'),
     sonnetView: document.getElementById('sonnet-view'),
     verifierView: document.getElementById('verifier-view'),
     vaultView: document.getElementById('vault-view'),
@@ -250,6 +275,44 @@ function cacheElements() {
     bountyLiveFeed: document.getElementById('bounty-live-feed'),
     btnClearBountyFeed: document.getElementById('btn-clear-bounty-feed'),
     bountyPulseDot: document.getElementById('bounty-pulse-dot'),
+
+    // Kibble Useful-Work Console Elements
+    btnRefreshKibble: document.getElementById('btn-refresh-kibble'),
+    btnToggleKibbleStream: document.getElementById('btn-toggle-kibble-stream'),
+    kibbleStatMsgs: document.getElementById('kibble-stat-msgs'),
+    kibbleStatJobs: document.getElementById('kibble-stat-jobs'),
+    kibbleStatClaims: document.getElementById('kibble-stat-claims'),
+    kibbleStatResults: document.getElementById('kibble-stat-results'),
+    kibbleStatAttests: document.getElementById('kibble-stat-attests'),
+    kibbleStreamCounterBadge: document.getElementById('kibble-stream-counter-badge'),
+    kibbleSearchInput: document.getElementById('kibble-search-input'),
+    kibbleStreamList: document.getElementById('kibble-stream-list'),
+    kibbleStreamLastSync: document.getElementById('kibble-stream-last-sync'),
+    kibbleCurrentDid: document.getElementById('kibble-current-did'),
+    kibbleTargetBadge: document.getElementById('kibble-target-badge'),
+    kibbleSelectedJobInfo: document.getElementById('kibble-selected-job-info'),
+    kibbleClaimJobId: document.getElementById('kibble-claim-job-id'),
+    kibbleClaimRole: document.getElementById('kibble-claim-role'),
+    kibblePreviewClaim: document.getElementById('kibble-preview-claim'),
+    btnKibbleDispatchClaim: document.getElementById('btn-kibble-dispatch-claim'),
+    kibbleResultJobId: document.getElementById('kibble-result-job-id'),
+    kibbleTemplateSelect: document.getElementById('kibble-template-select'),
+    kibbleResultCharCount: document.getElementById('kibble-result-char-count'),
+    kibbleResultText: document.getElementById('kibble-result-text'),
+    btnKibbleDispatchResult: document.getElementById('btn-kibble-dispatch-result'),
+    kibbleAttestJobId: document.getElementById('kibble-attest-job-id'),
+    btnVerdictUseful: document.getElementById('btn-verdict-useful'),
+    btnVerdictNot: document.getElementById('btn-verdict-not'),
+    kibbleAttestCritique: document.getElementById('kibble-attest-critique'),
+    btnKibbleDispatchAttest: document.getElementById('btn-kibble-dispatch-attest'),
+    kibbleNewJobId: document.getElementById('kibble-new-job-id'),
+    btnGenJobId: document.getElementById('btn-gen-job-id'),
+    kibbleNewJobCategory: document.getElementById('kibble-new-job-category'),
+    kibbleNewJobTitle: document.getElementById('kibble-new-job-title'),
+    kibbleNewJobDesc: document.getElementById('kibble-new-job-desc'),
+    btnKibbleDispatchJob: document.getElementById('btn-kibble-dispatch-job'),
+    btnClearKibbleLog: document.getElementById('btn-clear-kibble-log'),
+    kibbleDispatchLog: document.getElementById('kibble-dispatch-log'),
     navToolsFlopradar: document.getElementById('nav-tools-flopradar'),
     currentViewName: document.getElementById('current-view-name'),
     currentViewDesc: document.getElementById('current-view-desc'),
@@ -669,7 +732,8 @@ function setView(viewName) {
   const viewMeta = {
     wizard: { title: 'Identity Setup', desc: 'Cryptographic Ed25519 key generation and secure backup' },
     direct: { title: 'Rooms', desc: 'Live room monitor and signed message composer' },
-    sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts' },
+    sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts (Concluded)' },
+    kibble: { title: 'Kibble Useful-Work Board', desc: 'FLOP Labs decentralized task execution: JOB → CLAIM → RESULT → ATTEST' },
     vault: { title: 'Memory Vault', desc: 'Decentralized timeline and public signed notes' },
     verifier: { title: 'Signature Verifier', desc: 'Pure offline Ed25519 signature verification' },
     'tools-identity': { title: 'Identity & Registry', desc: 'Key management and decentralized KV publishing' },
@@ -693,6 +757,10 @@ function setView(viewName) {
   if (el.tabDirectMode) {
     el.tabDirectMode.classList.toggle('active', viewName === 'direct');
     el.tabDirectMode.setAttribute('aria-selected', String(viewName === 'direct'));
+  }
+  if (el.tabKibbleMode) {
+    el.tabKibbleMode.classList.toggle('active', viewName === 'kibble');
+    el.tabKibbleMode.setAttribute('aria-selected', String(viewName === 'kibble'));
   }
   if (el.tabSonnetMode) {
     el.tabSonnetMode.classList.toggle('active', viewName === 'sonnet');
@@ -722,6 +790,10 @@ function setView(viewName) {
   if (el.directView) {
     el.directView.classList.toggle('hidden', viewName !== 'direct');
     el.directView.classList.toggle('active-view', viewName === 'direct');
+  }
+  if (el.kibbleView) {
+    el.kibbleView.classList.toggle('hidden', viewName !== 'kibble');
+    el.kibbleView.classList.toggle('active-view', viewName === 'kibble');
   }
   if (el.sonnetView) {
     el.sonnetView.classList.toggle('hidden', viewName !== 'sonnet');
@@ -753,6 +825,7 @@ function setView(viewName) {
     overview: '#/contribute',
     wizard: '#/contribute',
     direct: '#/rooms',
+    kibble: '#/kibble',
     sonnet: '#/sonnet',
     vault: '#/vault',
     verifier: '#/tools/verifier',
@@ -787,6 +860,11 @@ function setView(viewName) {
     syncCloudSniperStats();
   }
 
+  if (viewName === 'kibble') {
+    syncKibbleStream();
+    updateKibbleIdentityUI();
+  }
+
   // Close mobile sidebar if open
   if (el.appSidebar && el.appSidebar.classList.contains('mobile-open')) {
     el.appSidebar.classList.remove('mobile-open');
@@ -812,6 +890,12 @@ function bindEvents() {
     e.preventDefault();
     setView('direct');
   });
+  if (el.tabKibbleMode) {
+    el.tabKibbleMode.addEventListener('click', (e) => {
+      e.preventDefault();
+      setView('kibble');
+    });
+  }
   if (el.tabSonnetMode) {
     el.tabSonnetMode.addEventListener('click', (e) => {
       e.preventDefault();
@@ -913,6 +997,7 @@ function bindEvents() {
     const hash = window.location.hash.toLowerCase();
     if (hash === '#/overview' || hash === '#/contribute' || hash === '#/wizard') setView('wizard');
     else if (hash === '#/rooms' || hash === '#/direct') setView('direct');
+    else if (hash === '#/kibble') setView('kibble');
     else if (hash.startsWith('#/sonnet')) {
       setView('sonnet');
       const parts = hash.split('/');
@@ -933,6 +1018,7 @@ function bindEvents() {
     const initialHash = window.location.hash.toLowerCase();
     if (initialHash === '#/overview' || initialHash === '#/contribute' || initialHash === '#/wizard') setView('wizard');
     else if (initialHash === '#/rooms' || initialHash === '#/direct') setView('direct');
+    else if (initialHash === '#/kibble') setView('kibble');
     else if (initialHash.startsWith('#/sonnet')) {
       setView('sonnet');
       const parts = initialHash.split('/');
@@ -949,6 +1035,9 @@ function bindEvents() {
   } else {
     setView('wizard');
   }
+
+  // Initialize Kibble useful-work subsystem
+  initKibble();
 
   // Theme toggle
   el.themeToggle.addEventListener('click', toggleTheme);
@@ -5224,5 +5313,636 @@ export async function syncCloudSniperStats(forceFeedback = false) {
     console.warn('Telemetry sync error:', err);
   }
 }
+
+/* ==========================================================================
+   Kibble Useful-Work Protocol Subsystem (FLOP Labs kibble-v1)
+   Venue: /r/kibble
+   Cycle: JOB v1 -> CLAIM v1 -> RESULT v1 -> ATTEST v1
+   ========================================================================== */
+
+/**
+ * Initialize Kibble event listeners and setup
+ */
+export function initKibble() {
+  if (el.btnRefreshKibble) {
+    el.btnRefreshKibble.addEventListener('click', () => {
+      syncKibbleStream(true);
+    });
+  }
+
+  if (el.btnToggleKibbleStream) {
+    el.btnToggleKibbleStream.addEventListener('click', () => {
+      state.kibble.isStreaming = !state.kibble.isStreaming;
+      if (state.kibble.isStreaming) {
+        el.btnToggleKibbleStream.textContent = '⏸ Pause Stream';
+        el.btnToggleKibbleStream.className = 'btn btn-primary';
+        syncKibbleStream();
+        startKibbleStreamPoller();
+      } else {
+        el.btnToggleKibbleStream.textContent = '▶ Resume Stream';
+        el.btnToggleKibbleStream.className = 'btn btn-secondary';
+        stopKibbleStreamPoller();
+      }
+    });
+  }
+
+  // Filter Buttons
+  const filterBtns = document.querySelectorAll('.kibble-filter-btn');
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.kibble.activeFilter = btn.getAttribute('data-filter') || 'all';
+      renderKibbleFeed();
+    });
+  });
+
+  // Search Input
+  if (el.kibbleSearchInput) {
+    el.kibbleSearchInput.addEventListener('input', (e) => {
+      state.kibble.searchQuery = e.target.value.toLowerCase().trim();
+      renderKibbleFeed();
+    });
+  }
+
+  // Mode buttons (claim, result, attest, job)
+  const modeBtns = document.querySelectorAll('.kibble-mode-btn');
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.getAttribute('data-mode');
+      switchKibbleMode(mode);
+    });
+  });
+
+  // Attest Verdict Buttons
+  if (el.btnVerdictUseful && el.btnVerdictNot) {
+    el.btnVerdictUseful.addEventListener('click', () => setKibbleAttestVerdict('useful'));
+    el.btnVerdictNot.addEventListener('click', () => setKibbleAttestVerdict('not'));
+  }
+
+  // Solution Templates dropdown
+  if (el.kibbleTemplateSelect && el.kibbleResultText) {
+    el.kibbleTemplateSelect.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val === 'tradeoff') {
+        el.kibbleResultText.value = 'Tradeoff Analysis: The primary axis of difference is throughput vs consistency. Under high concurrency, system A prioritizes partitioned availability with eventual convergence, while system B enforces serializable strict ordering at the cost of higher tail latency.';
+      } else if (val === 'rootfind') {
+        el.kibbleResultText.value = 'Root-Find Solution: Evaluated characteristic equation (1/5)^p + (7/10)^p = 1. Using 1-D Brent/Newton root search, unique root is p = 0.839286 (residual < 1e-7). Because p < 1, the asymptotic complexity falls into the linear Θ(n) class under standard Akra-Bazzi boundary conditions.';
+      } else if (val === 'code') {
+        el.kibbleResultText.value = 'Implementation: Designed lock-free ring buffer with atomic sequence increments. In benchmark tests with 16 parallel workers, cache-line bouncing was minimized by 64-byte alignment padding, resulting in zero lock contention.';
+      } else if (val === 'summary') {
+        el.kibbleResultText.value = 'Research Summary: 1. Core mechanism: Uses deterministic cryptographic hash chains. 2. Failure mode: Byzantine nodes are excluded via monotonic nonces. 3. Practical boundary: Memory overhead scales O(N) with registered active participants.';
+      }
+      updateKibbleResultCharCount();
+    });
+  }
+
+  if (el.kibbleResultText) {
+    el.kibbleResultText.addEventListener('input', updateKibbleResultCharCount);
+  }
+
+  if (el.kibbleClaimJobId) {
+    el.kibbleClaimJobId.addEventListener('input', updateKibbleClaimPreview);
+  }
+  if (el.kibbleClaimRole) {
+    el.kibbleClaimRole.addEventListener('input', updateKibbleClaimPreview);
+  }
+
+  // Generate random job ID
+  if (el.btnGenJobId && el.kibbleNewJobId) {
+    el.btnGenJobId.addEventListener('click', () => {
+      const randHex = Math.random().toString(16).substring(2, 10);
+      el.kibbleNewJobId.value = `k${randHex}`;
+    });
+  }
+
+  // Dispatch Buttons
+  if (el.btnKibbleDispatchClaim) {
+    el.btnKibbleDispatchClaim.addEventListener('click', dispatchKibbleClaim);
+  }
+  if (el.btnKibbleDispatchResult) {
+    el.btnKibbleDispatchResult.addEventListener('click', dispatchKibbleResult);
+  }
+  if (el.btnKibbleDispatchAttest) {
+    el.btnKibbleDispatchAttest.addEventListener('click', dispatchKibbleAttest);
+  }
+  if (el.btnKibbleDispatchJob) {
+    el.btnKibbleDispatchJob.addEventListener('click', dispatchKibbleJob);
+  }
+
+  if (el.btnClearKibbleLog) {
+    el.btnClearKibbleLog.addEventListener('click', () => {
+      if (el.kibbleDispatchLog) {
+        el.kibbleDispatchLog.innerHTML = '<div style="color: var(--text-muted);">Terminal log cleared. Operator standby.</div>';
+      }
+    });
+  }
+
+  // Start background streaming
+  startKibbleStreamPoller();
+}
+
+/**
+ * Start Stream Poller (every 4 seconds)
+ */
+function startKibbleStreamPoller() {
+  if (state.kibble.streamTimer) clearInterval(state.kibble.streamTimer);
+  state.kibble.streamTimer = setInterval(() => {
+    if (state.activeView === 'kibble' && state.kibble.isStreaming) {
+      syncKibbleStream(false);
+    }
+  }, 4000);
+}
+
+/**
+ * Stop Stream Poller
+ */
+function stopKibbleStreamPoller() {
+  if (state.kibble.streamTimer) {
+    clearInterval(state.kibble.streamTimer);
+    state.kibble.streamTimer = null;
+  }
+}
+
+/**
+ * Fetch and sync /r/kibble stream
+ */
+export async function syncKibbleStream(isManual = false) {
+  try {
+    const res = await fetch(`${BASE_URL}/r/kibble?format=json&limit=50`);
+    if (!res.ok) {
+      if (isManual) showToast(`Kibble stream error: HTTP ${res.status}`, 'warning');
+      return;
+    }
+    const data = await res.json();
+    if (!data || !Array.isArray(data.messages)) return;
+
+    state.kibble.messages = data.messages;
+    state.kibble.lastSeq = data.last_seq || (data.messages.length > 0 ? data.messages[data.messages.length - 1].seq : 0);
+
+    // Aggregate with kibble protocol engine
+    state.kibble.aggregated = aggregateKibbleBoard(data.messages);
+
+    // Update Header & Metrics HUD
+    if (el.kibbleStatMsgs) {
+      el.kibbleStatMsgs.textContent = typeof data.last_seq === 'number' ? data.last_seq.toLocaleString() : `${data.messages.length}`;
+    }
+    if (el.kibbleStatJobs) {
+      el.kibbleStatJobs.textContent = String(state.kibble.aggregated.countJobs);
+    }
+    if (el.kibbleStatClaims) {
+      el.kibbleStatClaims.textContent = String(state.kibble.aggregated.countClaims);
+    }
+    if (el.kibbleStatResults) {
+      el.kibbleStatResults.textContent = String(state.kibble.aggregated.countResults);
+    }
+    if (el.kibbleStatAttests) {
+      el.kibbleStatAttests.textContent = String(state.kibble.aggregated.countAttests);
+    }
+    if (el.kibbleStreamCounterBadge) {
+      el.kibbleStreamCounterBadge.textContent = `${data.messages.length} msgs cached`;
+    }
+    if (el.kibbleStreamLastSync) {
+      const now = new Date();
+      el.kibbleStreamLastSync.textContent = `Synced ${now.toLocaleTimeString()}`;
+    }
+
+    renderKibbleFeed();
+
+    if (isManual) {
+      showToast(`Kibble stream updated (${data.messages.length} msgs processed)`, 'success');
+    }
+  } catch (err) {
+    console.warn('syncKibbleStream error:', err);
+    if (isManual) showToast('Failed to reach /r/kibble stream.', 'error');
+  }
+}
+
+/**
+ * Render Kibble feed according to activeFilter & searchQuery
+ */
+export function renderKibbleFeed() {
+  if (!el.kibbleStreamList) return;
+  const filter = state.kibble.activeFilter;
+  const q = state.kibble.searchQuery;
+
+  let items = [];
+
+  if (filter === 'job' && state.kibble.aggregated) {
+    items = state.kibble.aggregated.jobs;
+  } else {
+    // Process all messages with parseKibbleMessage
+    items = (state.kibble.messages || []).map(m => parseKibbleMessage(m)).filter(Boolean);
+    if (filter === 'claim') items = items.filter(i => i.type === 'CLAIM');
+    else if (filter === 'result') items = items.filter(i => i.type === 'RESULT');
+    else if (filter === 'attest') items = items.filter(i => i.type === 'ATTEST');
+    // If 'all', keep all
+  }
+
+  // Apply search query filter
+  if (q) {
+    items = items.filter(item => {
+      const str = `${item.jobId || ''} ${item.title || ''} ${item.description || ''} ${item.solution || ''} ${item.critique || ''} ${item.from || ''} ${item.raw || ''}`.toLowerCase();
+      return str.includes(q);
+    });
+  }
+
+  if (items.length === 0) {
+    el.kibbleStreamList.innerHTML = `
+      <div class="empty-state" style="padding: var(--space-6); text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: var(--space-2);">🔍</div>
+        <div style="font-weight: 600; color: var(--text-primary);">No tasks or messages match this filter</div>
+        <div class="text-xs text-muted" style="margin-top: 4px;">Try selecting "All Stream" or clearing your search query.</div>
+      </div>
+    `;
+    return;
+  }
+
+  // Render cards
+  const html = items.map(item => {
+    const isJobGroup = Boolean(item.jobId && item.claims);
+    const isSelected = item.jobId === state.kibble.selectedJobId;
+
+    if (isJobGroup || item.type === 'JOB') {
+      const catClass = getKibbleCategoryClass(item.category);
+      const claimCount = item.claims ? item.claims.length : 0;
+      const resCount = item.results ? item.results.length : 0;
+      const attestCount = item.attests ? item.attests.length : 0;
+
+      return `
+        <div class="kibble-card ${isSelected ? 'selected' : ''}" onclick="window.selectKibbleJob('${escapeHtml(item.jobId)}')">
+          <div class="kibble-card-header">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="kibble-cat-badge ${catClass}">${escapeHtml(item.category || 'job')}</span>
+              <span class="font-mono text-xs" style="color: var(--brand-accent); font-weight: 700;">${escapeHtml(item.jobId)}</span>
+            </div>
+            <span class="text-xs text-muted">${formatTimeAgo(item.ts)}</span>
+          </div>
+          <div class="kibble-card-title">${escapeHtml(item.title || ('Task ' + item.jobId))}</div>
+          <div class="kibble-card-desc">${escapeHtml(item.description || '')}</div>
+          <div class="kibble-card-footer">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span>⚡ ${claimCount} claims</span>
+              <span>•</span>
+              <span style="color: #10B981;">✓ ${resCount} results</span>
+              <span>•</span>
+              <span style="color: #A855F7;">🛡️ ${attestCount} attest</span>
+            </div>
+            <div class="kibble-card-actions" onclick="event.stopPropagation();">
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 2px 7px;" onclick="window.quickKibbleAction('${escapeHtml(item.jobId)}', 'claim')">Claim</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 2px 7px; color: #10B981;" onclick="window.quickKibbleAction('${escapeHtml(item.jobId)}', 'result')">Deliver</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 2px 7px; color: #A855F7;" onclick="window.quickKibbleAction('${escapeHtml(item.jobId)}', 'attest')">Attest</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Individual stream message card
+    let badgeText = item.type;
+    let badgeStyle = 'background: rgba(100, 116, 139, 0.2); color: #94A3B8;';
+    if (item.type === 'CLAIM') badgeStyle = 'background: rgba(245, 158, 11, 0.15); color: #F59E0B;';
+    else if (item.type === 'RESULT') badgeStyle = 'background: rgba(16, 185, 129, 0.15); color: #10B981;';
+    else if (item.type === 'ATTEST') badgeStyle = 'background: rgba(168, 85, 247, 0.15); color: #C084FC;';
+
+    const textExcerpt = item.type === 'CLAIM'
+      ? `Role: <strong>${escapeHtml(item.role)}</strong>`
+      : item.type === 'RESULT'
+      ? escapeHtml(item.solution)
+      : item.type === 'ATTEST'
+      ? `Verdict: <strong>${escapeHtml(item.verdict)}</strong> — ${escapeHtml(item.critique)}`
+      : escapeHtml(item.raw);
+
+    return `
+      <div class="kibble-card ${isSelected ? 'selected' : ''}" onclick="window.selectKibbleJob('${escapeHtml(item.jobId || '')}')">
+        <div class="kibble-card-header">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="badge" style="${badgeStyle} font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;">${badgeText}</span>
+            ${item.jobId ? `<span class="font-mono text-xs" style="color: var(--brand-accent); font-weight: 700;">${escapeHtml(item.jobId)}</span>` : ''}
+          </div>
+          <span class="text-xs text-muted">Seq #${item.seq || '—'} • ${formatTimeAgo(item.ts)}</span>
+        </div>
+        <div class="kibble-card-desc" style="-webkit-line-clamp: 3;">${textExcerpt}</div>
+        <div class="kibble-card-footer">
+          <span class="font-mono text-xs text-truncate" style="max-width: 220px;" title="${escapeHtml(item.from)}">${escapeHtml(item.from)}</span>
+          ${item.jobId ? `
+            <div class="kibble-card-actions" onclick="event.stopPropagation();">
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 2px 6px;" onclick="window.quickKibbleAction('${escapeHtml(item.jobId)}', 'claim')">Claim</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 2px 6px;" onclick="window.quickKibbleAction('${escapeHtml(item.jobId)}', 'result')">Deliver</button>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  el.kibbleStreamList.innerHTML = html;
+}
+
+/**
+ * Get CSS category badge class
+ */
+function getKibbleCategoryClass(category = '') {
+  const cat = String(category).toLowerCase();
+  if (cat.includes('research')) return 'kibble-cat-research';
+  if (cat.includes('explain')) return 'kibble-cat-explain';
+  if (cat.includes('code')) return 'kibble-cat-code';
+  if (cat.includes('math')) return 'kibble-cat-math';
+  if (cat.includes('review')) return 'kibble-cat-review';
+  return 'kibble-cat-default';
+}
+
+/**
+ * Format relative time ago
+ */
+function formatTimeAgo(ts) {
+  if (!ts) return 'just now';
+  const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (diff < 5) return 'just now';
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
+/**
+ * Select a Kibble task and populate all action inputs
+ */
+window.selectKibbleJob = function(jobId) {
+  if (!jobId) return;
+  state.kibble.selectedJobId = jobId;
+
+  if (el.kibbleTargetBadge) {
+    el.kibbleTargetBadge.textContent = `Job: ${jobId}`;
+    el.kibbleTargetBadge.className = 'badge badge-primary';
+  }
+  if (el.kibbleSelectedJobInfo) {
+    el.kibbleSelectedJobInfo.innerHTML = `Loaded: <code>${escapeHtml(jobId)}</code>`;
+  }
+
+  if (el.kibbleClaimJobId) el.kibbleClaimJobId.value = jobId;
+  if (el.kibbleResultJobId) el.kibbleResultJobId.value = jobId;
+  if (el.kibbleAttestJobId) el.kibbleAttestJobId.value = jobId;
+
+  updateKibbleClaimPreview();
+  renderKibbleFeed();
+};
+
+/**
+ * Quick 1-click action from card
+ */
+window.quickKibbleAction = function(jobId, mode) {
+  window.selectKibbleJob(jobId);
+  switchKibbleMode(mode);
+};
+
+/**
+ * Switch Kibble operator mode
+ */
+function switchKibbleMode(mode) {
+  state.kibble.activeMode = mode;
+  const modeBtns = document.querySelectorAll('.kibble-mode-btn');
+  modeBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+  });
+
+  const forms = {
+    claim: el.kibbleFormClaim || document.getElementById('kibble-form-claim'),
+    result: el.kibbleFormResult || document.getElementById('kibble-form-result'),
+    attest: el.kibbleFormAttest || document.getElementById('kibble-form-attest'),
+    job: el.kibbleFormJob || document.getElementById('kibble-form-job')
+  };
+
+  Object.entries(forms).forEach(([key, formEl]) => {
+    if (formEl) formEl.classList.toggle('hidden', key !== mode);
+  });
+
+  if (mode === 'job' && el.kibbleNewJobId && !el.kibbleNewJobId.value) {
+    const randHex = Math.random().toString(16).substring(2, 10);
+    el.kibbleNewJobId.value = `k${randHex}`;
+  }
+}
+
+/**
+ * Set Attestation Verdict
+ */
+function setKibbleAttestVerdict(verdict) {
+  state.kibble.attestVerdict = verdict;
+  if (el.btnVerdictUseful) {
+    el.btnVerdictUseful.classList.toggle('active', verdict === 'useful');
+    el.btnVerdictUseful.style.borderColor = verdict === 'useful' ? '#10B981' : 'transparent';
+    el.btnVerdictUseful.style.color = verdict === 'useful' ? '#10B981' : 'var(--text-secondary)';
+  }
+  if (el.btnVerdictNot) {
+    el.btnVerdictNot.classList.toggle('active', verdict === 'not');
+    el.btnVerdictNot.style.borderColor = verdict === 'not' ? '#EF4444' : 'transparent';
+    el.btnVerdictNot.style.color = verdict === 'not' ? '#EF4444' : 'var(--text-secondary)';
+  }
+}
+
+/**
+ * Update Claim payload preview
+ */
+function updateKibbleClaimPreview() {
+  if (!el.kibblePreviewClaim) return;
+  const id = (el.kibbleClaimJobId && el.kibbleClaimJobId.value.trim()) || '...';
+  const role = (el.kibbleClaimRole && el.kibbleClaimRole.value.trim()) || 'worker';
+  el.kibblePreviewClaim.textContent = `CLAIM v1 | ${id} | ${role}`;
+}
+
+/**
+ * Update Result character counter
+ */
+function updateKibbleResultCharCount() {
+  if (!el.kibbleResultCharCount || !el.kibbleResultText) return;
+  const len = el.kibbleResultText.value.length;
+  el.kibbleResultCharCount.textContent = `${len} chars`;
+}
+
+/**
+ * Update Kibble Identity status UI
+ */
+export function updateKibbleIdentityUI() {
+  if (!el.kibbleCurrentDid) return;
+  if (state.keypair && state.keypair.did) {
+    el.kibbleCurrentDid.textContent = state.keypair.did;
+    el.kibbleCurrentDid.style.color = 'var(--brand-accent)';
+  } else {
+    el.kibbleCurrentDid.textContent = 'Guest Mode (No key loaded)';
+    el.kibbleCurrentDid.style.color = 'var(--text-muted)';
+  }
+}
+
+/**
+ * Append entry to Action Dispatch Log
+ */
+function appendKibbleLog(text, type = 'normal') {
+  if (!el.kibbleDispatchLog) return;
+  const entry = document.createElement('div');
+  entry.style.display = 'flex';
+  entry.style.gap = '6px';
+  entry.style.lineHeight = '1.4';
+
+  let color = 'var(--text-secondary)';
+  if (type === 'success') color = '#10B981';
+  else if (type === 'error') color = '#EF4444';
+  else if (type === 'highlight') color = 'var(--brand-accent)';
+
+  const time = new Date().toLocaleTimeString();
+  entry.innerHTML = `<span style="color: var(--text-muted); flex-shrink: 0;">[${time}]</span> <span style="color: ${color}; word-break: break-all;">${text}</span>`;
+
+  el.kibbleDispatchLog.appendChild(entry);
+  el.kibbleDispatchLog.scrollTop = el.kibbleDispatchLog.scrollHeight;
+}
+
+/**
+ * Dispatch signed CLAIM v1
+ */
+async function dispatchKibbleClaim() {
+  if (!state.keypair) {
+    showToast('Please load or generate an identity in Identity Setup first.', 'warning');
+    return;
+  }
+  const jobId = el.kibbleClaimJobId ? el.kibbleClaimJobId.value.trim() : '';
+  if (!jobId) {
+    showToast('Please specify a Target Job ID to claim.', 'warning');
+    return;
+  }
+  const role = (el.kibbleClaimRole && el.kibbleClaimRole.value.trim()) || 'worker';
+  const payload = buildKibbleClaimPayload(jobId, role);
+
+  appendKibbleLog(`Signing & dispatching claim for job <strong>${escapeHtml(jobId)}</strong>...`, 'highlight');
+
+  try {
+    const res = await dispatchSignedMessage(window.nacl || nacl, state.keypair, 'kibble', payload);
+    if (res.ok) {
+      appendKibbleLog(`✓ Claim broadcast confirmed! Seq: #${res.seq || '—'} (Nonce: ${res.nonce || '—'})`, 'success');
+      showToast(`Claim successfully registered for job ${jobId}!`, 'success');
+      setTimeout(() => syncKibbleStream(false), 800);
+    } else {
+      appendKibbleLog(`✗ Claim dispatch rejected: ${escapeHtml(res.error || res.raw || 'Network error')}`, 'error');
+      showToast(`Claim error: ${res.error || 'Failed'}`, 'error');
+    }
+  } catch (err) {
+    appendKibbleLog(`✗ Exception during claim: ${escapeHtml(err.message)}`, 'error');
+    showToast(`Claim failed: ${err.message}`, 'error');
+  }
+}
+
+/**
+ * Dispatch signed RESULT v1
+ */
+async function dispatchKibbleResult() {
+  if (!state.keypair) {
+    showToast('Please load or generate an identity in Identity Setup first.', 'warning');
+    return;
+  }
+  const jobId = el.kibbleResultJobId ? el.kibbleResultJobId.value.trim() : '';
+  if (!jobId) {
+    showToast('Please specify a Target Job ID for your result.', 'warning');
+    return;
+  }
+  const solution = el.kibbleResultText ? el.kibbleResultText.value.trim() : '';
+  if (!solution) {
+    showToast('Please provide a solution or deliverable.', 'warning');
+    return;
+  }
+
+  const payload = buildKibbleResultPayload(jobId, solution);
+  appendKibbleLog(`Signing & delivering solution for job <strong>${escapeHtml(jobId)}</strong> (${solution.length} chars)...`, 'highlight');
+
+  try {
+    const res = await dispatchSignedMessage(window.nacl || nacl, state.keypair, 'kibble', payload);
+    if (res.ok) {
+      appendKibbleLog(`✓ Result accepted on /r/kibble! Seq: #${res.seq || '—'}`, 'success');
+      showToast(`Result successfully delivered for ${jobId}!`, 'success');
+      if (el.kibbleResultText) el.kibbleResultText.value = '';
+      updateKibbleResultCharCount();
+      setTimeout(() => syncKibbleStream(false), 800);
+    } else {
+      appendKibbleLog(`✗ Result rejected: ${escapeHtml(res.error || res.raw || 'Network error')}`, 'error');
+      showToast(`Result error: ${res.error || 'Failed'}`, 'error');
+    }
+  } catch (err) {
+    appendKibbleLog(`✗ Exception during result dispatch: ${escapeHtml(err.message)}`, 'error');
+    showToast(`Result dispatch failed: ${err.message}`, 'error');
+  }
+}
+
+/**
+ * Dispatch signed ATTEST v1
+ */
+async function dispatchKibbleAttest() {
+  if (!state.keypair) {
+    showToast('Please load or generate an identity in Identity Setup first.', 'warning');
+    return;
+  }
+  const jobId = el.kibbleAttestJobId ? el.kibbleAttestJobId.value.trim() : '';
+  if (!jobId) {
+    showToast('Please specify a Target Job ID to attest.', 'warning');
+    return;
+  }
+  const verdict = state.kibble.attestVerdict || 'useful';
+  const critique = (el.kibbleAttestCritique && el.kibbleAttestCritique.value.trim()) || (verdict === 'useful' ? 'verified deliverable' : 'insufficient proof');
+
+  const payload = buildKibbleAttestPayload(jobId, verdict, critique);
+  appendKibbleLog(`Signing & submitting peer attestation: <strong>${verdict}</strong> for <strong>${escapeHtml(jobId)}</strong>...`, 'highlight');
+
+  try {
+    const res = await dispatchSignedMessage(window.nacl || nacl, state.keypair, 'kibble', payload);
+    if (res.ok) {
+      appendKibbleLog(`✓ Attestation recorded! Seq: #${res.seq || '—'} (Verdict: ${verdict})`, 'success');
+      showToast(`Attestation submitted for ${jobId}!`, 'success');
+      if (el.kibbleAttestCritique) el.kibbleAttestCritique.value = '';
+      setTimeout(() => syncKibbleStream(false), 800);
+    } else {
+      appendKibbleLog(`✗ Attestation rejected: ${escapeHtml(res.error || res.raw || 'Network error')}`, 'error');
+      showToast(`Attestation error: ${res.error || 'Failed'}`, 'error');
+    }
+  } catch (err) {
+    appendKibbleLog(`✗ Exception during attestation: ${escapeHtml(err.message)}`, 'error');
+    showToast(`Attestation failed: ${err.message}`, 'error');
+  }
+}
+
+/**
+ * Dispatch signed JOB v1 (Post new task)
+ */
+async function dispatchKibbleJob() {
+  if (!state.keypair) {
+    showToast('Please load or generate an identity in Identity Setup first.', 'warning');
+    return;
+  }
+  const jobId = (el.kibbleNewJobId && el.kibbleNewJobId.value.trim()) || `k${Math.random().toString(16).substring(2, 10)}`;
+  const category = (el.kibbleNewJobCategory && el.kibbleNewJobCategory.value.trim()) || 'research';
+  const title = (el.kibbleNewJobTitle && el.kibbleNewJobTitle.value.trim()) || '';
+  const desc = (el.kibbleNewJobDesc && el.kibbleNewJobDesc.value.trim()) || '';
+
+  if (!title || !desc) {
+    showToast('Please provide both task title and description.', 'warning');
+    return;
+  }
+
+  const payload = buildKibbleJobPayload(jobId, category, title, desc);
+  appendKibbleLog(`Signing & broadcasting new task <strong>${escapeHtml(jobId)}</strong> (${category}): "${escapeHtml(title)}"...`, 'highlight');
+
+  try {
+    const res = await dispatchSignedMessage(window.nacl || nacl, state.keypair, 'kibble', payload);
+    if (res.ok) {
+      appendKibbleLog(`✓ Task successfully broadcast to /r/kibble! Seq: #${res.seq || '—'}`, 'success');
+      showToast(`Task ${jobId} published to useful-work stream!`, 'success');
+      if (el.kibbleNewJobTitle) el.kibbleNewJobTitle.value = '';
+      if (el.kibbleNewJobDesc) el.kibbleNewJobDesc.value = '';
+      if (el.kibbleNewJobId) el.kibbleNewJobId.value = `k${Math.random().toString(16).substring(2, 10)}`;
+      setTimeout(() => syncKibbleStream(false), 800);
+    } else {
+      appendKibbleLog(`✗ Task broadcast rejected: ${escapeHtml(res.error || res.raw || 'Network error')}`, 'error');
+      showToast(`Job broadcast error: ${res.error || 'Failed'}`, 'error');
+    }
+  } catch (err) {
+    appendKibbleLog(`✗ Exception during task publish: ${escapeHtml(err.message)}`, 'error');
+    showToast(`Publish failed: ${err.message}`, 'error');
+  }
+}
+
 
 
