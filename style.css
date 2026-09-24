@@ -4179,3 +4179,34 @@ html, body, #app-shell, #app-main {
   }
 }
 
+/* ==========================================================================
+   Agent Passport Styles (Pre-Contest Verifiable History)
+   ========================================================================== */
+
+.passport-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.passport-card {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.passport-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 35px rgba(245, 158, 11, 0.25) !important;
+}
+
+.passport-card.stamped {
+  border-color: #10B981 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 30px rgba(16, 185, 129, 0.3) !important;
+}
+
+@media (max-width: 960px) {
+  .passport-workspace-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+

@@ -235,18 +235,43 @@ function cacheElements() {
   el = {
     // Navigation and theme
     tabWizardMode: document.getElementById('tab-wizard-mode'),
+    tabPassportMode: document.getElementById('tab-passport-mode'),
     tabDirectMode: document.getElementById('tab-direct-mode'),
     tabKibbleMode: document.getElementById('tab-kibble-mode'),
     tabSonnetMode: document.getElementById('tab-sonnet-mode'),
     tabVerifierMode: document.getElementById('tab-verifier-mode'),
     tabVaultMode: document.getElementById('tab-vault-mode'),
     wizardView: document.getElementById('wizard-view'),
+    passportView: document.getElementById('passport-view'),
     directView: document.getElementById('direct-view'),
     kibbleView: document.getElementById('kibble-view'),
     sonnetView: document.getElementById('sonnet-view'),
     verifierView: document.getElementById('verifier-view'),
     vaultView: document.getElementById('vault-view'),
     themeToggle: document.getElementById('theme-toggle'),
+
+    // Agent Passport Elements
+    passportActiveDidVal: document.getElementById('passport-active-did-val'),
+    passportInputHandle: document.getElementById('passport-input-handle'),
+    passportSelectCategory: document.getElementById('passport-select-category'),
+    passportInputUrl: document.getElementById('passport-input-url'),
+    passportInputSummary: document.getElementById('passport-input-summary'),
+    btnStampPassport: document.getElementById('btn-stamp-passport'),
+    passportCard: document.getElementById('passport-card'),
+    passportCardStatusBadge: document.getElementById('passport-card-status-badge'),
+    passportCardStampPill: document.getElementById('passport-card-stamp-pill'),
+    passportCardAvatar: document.getElementById('passport-card-avatar'),
+    passportCardHandle: document.getElementById('passport-card-handle'),
+    passportCardDid: document.getElementById('passport-card-did'),
+    passportCardCategoryBadge: document.getElementById('passport-card-category-badge'),
+    passportCardLinkPreview: document.getElementById('passport-card-link-preview'),
+    passportCardSummary: document.getElementById('passport-card-summary'),
+    passportProofSeq: document.getElementById('passport-proof-seq'),
+    passportProofTs: document.getElementById('passport-proof-ts'),
+    passportProofSig: document.getElementById('passport-proof-sig'),
+    btnCopyPassportProof: document.getElementById('btn-copy-passport-proof'),
+    btnTweetPassport: document.getElementById('btn-tweet-passport'),
+    btnVerifyPassportSig: document.getElementById('btn-verify-passport-sig'),
 
     // Redesigned Shell & New Views
     overviewView: document.getElementById('overview-view'),
@@ -731,6 +756,7 @@ function setView(viewName) {
   // Header Title and Description Metadata
   const viewMeta = {
     wizard: { title: 'Identity Setup', desc: 'Cryptographic Ed25519 key generation and secure backup' },
+    passport: { title: 'Agent Passport', desc: 'Pre-contest verifiable history and cryptographic contribution proof' },
     direct: { title: 'Rooms', desc: 'Live room monitor and signed message composer' },
     sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts (Concluded)' },
     kibble: { title: 'Kibble Useful-Work Board', desc: 'FLOP Labs decentralized task execution: JOB → CLAIM → RESULT → ATTEST' },
@@ -753,6 +779,10 @@ function setView(viewName) {
   if (el.tabWizardMode) {
     el.tabWizardMode.classList.toggle('active', viewName === 'wizard');
     el.tabWizardMode.setAttribute('aria-selected', String(viewName === 'wizard'));
+  }
+  if (el.tabPassportMode) {
+    el.tabPassportMode.classList.toggle('active', viewName === 'passport');
+    el.tabPassportMode.setAttribute('aria-selected', String(viewName === 'passport'));
   }
   if (el.tabDirectMode) {
     el.tabDirectMode.classList.toggle('active', viewName === 'direct');
@@ -786,6 +816,10 @@ function setView(viewName) {
   if (el.wizardView) {
     el.wizardView.classList.toggle('hidden', viewName !== 'wizard');
     el.wizardView.classList.toggle('active-view', viewName === 'wizard');
+  }
+  if (el.passportView) {
+    el.passportView.classList.toggle('hidden', viewName !== 'passport');
+    el.passportView.classList.toggle('active-view', viewName === 'passport');
   }
   if (el.directView) {
     el.directView.classList.toggle('hidden', viewName !== 'direct');
@@ -824,6 +858,7 @@ function setView(viewName) {
   const hashMapping = {
     overview: '#/contribute',
     wizard: '#/contribute',
+    passport: '#/passport',
     direct: '#/rooms',
     kibble: '#/kibble',
     sonnet: '#/sonnet',
@@ -865,6 +900,10 @@ function setView(viewName) {
     updateKibbleIdentityUI();
   }
 
+  if (viewName === 'passport') {
+    updatePassportUI();
+  }
+
   // Close mobile sidebar if open
   if (el.appSidebar && el.appSidebar.classList.contains('mobile-open')) {
     el.appSidebar.classList.remove('mobile-open');
@@ -886,6 +925,12 @@ function bindEvents() {
     e.preventDefault();
     setView('wizard');
   });
+  if (el.tabPassportMode) {
+    el.tabPassportMode.addEventListener('click', (e) => {
+      e.preventDefault();
+      setView('passport');
+    });
+  }
   el.tabDirectMode.addEventListener('click', (e) => {
     e.preventDefault();
     setView('direct');
@@ -996,6 +1041,7 @@ function bindEvents() {
   window.addEventListener('hashchange', () => {
     const hash = window.location.hash.toLowerCase();
     if (hash === '#/overview' || hash === '#/contribute' || hash === '#/wizard') setView('wizard');
+    else if (hash === '#/passport') setView('passport');
     else if (hash === '#/rooms' || hash === '#/direct') setView('direct');
     else if (hash === '#/kibble') setView('kibble');
     else if (hash.startsWith('#/sonnet')) {
@@ -1017,6 +1063,7 @@ function bindEvents() {
   if (window.location.hash) {
     const initialHash = window.location.hash.toLowerCase();
     if (initialHash === '#/overview' || initialHash === '#/contribute' || initialHash === '#/wizard') setView('wizard');
+    else if (initialHash === '#/passport') setView('passport');
     else if (initialHash === '#/rooms' || initialHash === '#/direct') setView('direct');
     else if (initialHash === '#/kibble') setView('kibble');
     else if (initialHash.startsWith('#/sonnet')) {
@@ -1038,6 +1085,9 @@ function bindEvents() {
 
   // Initialize Kibble useful-work subsystem
   initKibble();
+
+  // Initialize Agent Passport subsystem
+  initPassport();
 
   // Theme toggle
   el.themeToggle.addEventListener('click', toggleTheme);
@@ -5943,6 +5993,287 @@ async function dispatchKibbleJob() {
     showToast(`Publish failed: ${err.message}`, 'error');
   }
 }
+
+/* ==========================================================================
+   Agent Passport Subsystem (Pre-Contest Verifiable History)
+   Venue: /r/lobby
+   ========================================================================== */
+
+let activePassport = null;
+
+/**
+ * Initialize Passport subsystem
+ */
+export function initPassport() {
+  // Load saved passport from localStorage
+  try {
+    const raw = localStorage.getItem('technocore_agent_passport');
+    if (raw) {
+      activePassport = JSON.parse(raw);
+    }
+  } catch (err) {
+    console.warn('Failed to load saved passport:', err);
+  }
+
+  // Real-time live card preview updates on input
+  if (el.passportInputHandle) {
+    el.passportInputHandle.addEventListener('input', updatePassportCardDraft);
+  }
+  if (el.passportSelectCategory) {
+    el.passportSelectCategory.addEventListener('change', updatePassportCardDraft);
+  }
+  if (el.passportInputUrl) {
+    el.passportInputUrl.addEventListener('input', updatePassportCardDraft);
+  }
+  if (el.passportInputSummary) {
+    el.passportInputSummary.addEventListener('input', updatePassportCardDraft);
+  }
+
+  // Stamp Passport Button
+  if (el.btnStampPassport) {
+    el.btnStampPassport.addEventListener('click', stampAgentPassport);
+  }
+
+  // Copy Full Proof Button
+  if (el.btnCopyPassportProof) {
+    el.btnCopyPassportProof.addEventListener('click', copyPassportProof);
+  }
+
+  // Tweet on X Button
+  if (el.btnTweetPassport) {
+    el.btnTweetPassport.addEventListener('click', sharePassportOnX);
+  }
+
+  // Verify Signature Button
+  if (el.btnVerifyPassportSig) {
+    el.btnVerifyPassportSig.addEventListener('click', verifyPassportSignatureInApp);
+  }
+
+  // Render initial card
+  renderPassportCard();
+}
+
+/**
+ * Update UI when Passport view is activated
+ */
+export function updatePassportUI() {
+  if (el.passportActiveDidVal) {
+    if (state.keypair && state.keypair.did) {
+      el.passportActiveDidVal.textContent = state.keypair.did;
+      el.passportActiveDidVal.style.color = 'var(--brand-accent)';
+    } else {
+      el.passportActiveDidVal.textContent = 'Guest Mode (No key loaded). Go to Identity Setup to create or restore your DID.';
+      el.passportActiveDidVal.style.color = 'var(--text-muted)';
+    }
+  }
+
+  updatePassportCardDraft();
+  renderPassportCard();
+}
+
+/**
+ * Update the Passport Card live draft
+ */
+function updatePassportCardDraft() {
+  if (activePassport) return; // If already stamped, show the stamped version
+
+  const handle = (el.passportInputHandle && el.passportInputHandle.value.trim()) || '@your_handle';
+  const category = (el.passportSelectCategory && el.passportSelectCategory.value) || '🐦 X Post / Thread';
+  const url = (el.passportInputUrl && el.passportInputUrl.value.trim()) || '#';
+  const summary = (el.passportInputSummary && el.passportInputSummary.value.trim()) || 'Your contribution summary will appear here once entered.';
+
+  if (el.passportCardHandle) el.passportCardHandle.textContent = handle.startsWith('@') ? handle : `@${handle}`;
+  if (el.passportCardDid) el.passportCardDid.textContent = (state.keypair && state.keypair.did) || 'did:key:z6Mk...';
+  if (el.passportCardCategoryBadge) el.passportCardCategoryBadge.textContent = category;
+  if (el.passportCardLinkPreview) {
+    el.passportCardLinkPreview.href = url !== '#' ? url : 'javascript:void(0)';
+    el.passportCardLinkPreview.style.display = url !== '#' ? 'inline' : 'none';
+  }
+  if (el.passportCardSummary) el.passportCardSummary.textContent = summary;
+}
+
+/**
+ * Render the Passport Card (Stamped vs Draft)
+ */
+function renderPassportCard() {
+  if (activePassport) {
+    if (el.passportCard) el.passportCard.classList.add('stamped');
+    if (el.passportCardStatusBadge) {
+      el.passportCardStatusBadge.textContent = '🟢 Verified On-Chain';
+      el.passportCardStatusBadge.className = 'badge badge-primary';
+      el.passportCardStatusBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+      el.passportCardStatusBadge.style.color = '#10B981';
+    }
+    if (el.passportCardStampPill) {
+      el.passportCardStampPill.textContent = '⭐ Pre-Contest Verified';
+      el.passportCardStampPill.style.background = 'rgba(16, 185, 129, 0.2)';
+      el.passportCardStampPill.style.color = '#10B981';
+    }
+    if (el.passportCardHandle) el.passportCardHandle.textContent = activePassport.handle;
+    if (el.passportCardDid) el.passportCardDid.textContent = activePassport.did;
+    if (el.passportCardCategoryBadge) el.passportCardCategoryBadge.textContent = activePassport.category;
+    if (el.passportCardLinkPreview) {
+      el.passportCardLinkPreview.href = activePassport.url || '#';
+      el.passportCardLinkPreview.style.display = activePassport.url ? 'inline' : 'none';
+    }
+    if (el.passportCardSummary) el.passportCardSummary.textContent = activePassport.summary;
+
+    if (el.passportProofSeq) el.passportProofSeq.textContent = `#${activePassport.seq ? activePassport.seq.toLocaleString() : '—'}`;
+    if (el.passportProofTs) {
+      const d = new Date(activePassport.ts);
+      el.passportProofTs.textContent = d.toLocaleDateString() + ' ' + d.toLocaleTimeString() + ' UTC';
+    }
+    if (el.passportProofSig) el.passportProofSig.textContent = activePassport.sig || 'Verified';
+
+    if (el.btnCopyPassportProof) el.btnCopyPassportProof.disabled = false;
+    if (el.btnTweetPassport) el.btnTweetPassport.disabled = false;
+    if (el.btnVerifyPassportSig) el.btnVerifyPassportSig.disabled = false;
+  } else {
+    if (el.passportCard) el.passportCard.classList.remove('stamped');
+    if (el.passportCardStatusBadge) {
+      el.passportCardStatusBadge.textContent = 'Ready to Stamp';
+      el.passportCardStatusBadge.className = 'badge badge-secondary';
+    }
+    if (el.passportProofSeq) el.passportProofSeq.textContent = '#Unstamped';
+    if (el.passportProofTs) el.passportProofTs.textContent = 'Pending dispatch';
+    if (el.passportProofSig) el.passportProofSig.textContent = 'Pending signature';
+
+    if (el.btnCopyPassportProof) el.btnCopyPassportProof.disabled = true;
+    if (el.btnTweetPassport) el.btnTweetPassport.disabled = true;
+    if (el.btnVerifyPassportSig) el.btnVerifyPassportSig.disabled = true;
+  }
+}
+
+/**
+ * Stamp Agent Passport (Real on-chain Technocore dispatch)
+ */
+async function stampAgentPassport() {
+  if (!state.keypair) {
+    showToast('Please load or generate an identity in Identity Setup first.', 'warning');
+    setView('wizard');
+    return;
+  }
+
+  let handle = (el.passportInputHandle && el.passportInputHandle.value.trim()) || '';
+  if (handle && !handle.startsWith('@')) handle = `@${handle}`;
+  if (!handle) handle = '@agent';
+
+  const category = (el.passportSelectCategory && el.passportSelectCategory.value) || 'X Post / Thread';
+  const url = (el.passportInputUrl && el.passportInputUrl.value.trim()) || '';
+  const summary = (el.passportInputSummary && el.passportInputSummary.value.trim()) || 'Pre-contest contribution';
+
+  if (!url) {
+    showToast('Please provide a public link (X post, thread, repo, or article).', 'warning');
+    return;
+  }
+
+  const payload = `PROOF v1 | ${handle} | ${category} | ${url} | ${summary}`;
+
+  if (el.btnStampPassport) {
+    el.btnStampPassport.disabled = true;
+    el.btnStampPassport.textContent = '⏳ Signing & Broadcasting to Technocore...';
+  }
+
+  try {
+    const res = await dispatchSignedMessage(window.nacl || nacl, state.keypair, 'lobby', payload);
+    if (res.ok) {
+      const serverSeq = res.seq || (res.json && res.json.posted ? res.json.posted.seq : null) || (res.json ? res.json.last_seq : null);
+      const serverTs = (res.json && res.json.posted && res.json.posted.ts) || new Date().toISOString();
+      const serverSig = (res.json && res.json.posted && res.json.posted.sig) || '';
+
+      activePassport = {
+        did: state.keypair.did,
+        handle: handle,
+        category: category,
+        url: url,
+        summary: summary,
+        room: 'lobby',
+        seq: serverSeq,
+        ts: serverTs,
+        nonce: res.nonce,
+        sig: serverSig,
+        payload: payload
+      };
+
+      try {
+        localStorage.setItem('technocore_agent_passport', JSON.stringify(activePassport));
+      } catch (err) {
+        console.warn('Storage error:', err);
+      }
+
+      renderPassportCard();
+      showToast(`🎉 Passport stamped! Sequence #${serverSeq ? serverSeq.toLocaleString() : ''} confirmed on-chain!`, 'success');
+    } else {
+      showToast(`Stamp rejected: ${res.error || res.raw || 'Network error'}`, 'error');
+    }
+  } catch (err) {
+    showToast(`Dispatch failed: ${err.message}`, 'error');
+  } finally {
+    if (el.btnStampPassport) {
+      el.btnStampPassport.disabled = false;
+      el.btnStampPassport.textContent = '⚡ Sign & Stamp Passport on Technocore';
+    }
+  }
+}
+
+/**
+ * Copy Full Proof to Clipboard
+ */
+function copyPassportProof() {
+  if (!activePassport) return;
+  const proofText = 
+`--- TECHNOCORE AGENT PASSPORT PROOF ---
+DID: ${activePassport.did}
+Handle: ${activePassport.handle}
+Category: ${activePassport.category}
+Contribution: ${activePassport.summary}
+Link: ${activePassport.url}
+Room: ${activePassport.room || 'lobby'}
+Sequence: #${activePassport.seq || '—'}
+Nonce: ${activePassport.nonce || '—'}
+Timestamp: ${activePassport.ts}
+Signature: ${activePassport.sig}
+Verify offline at: https://technocore-console.vercel.app/#/tools/verifier`;
+
+  copyToClipboard(proofText, 'Agent Passport proof copied to clipboard!');
+}
+
+/**
+ * Share Passport on X (Twitter Intent)
+ */
+function sharePassportOnX() {
+  if (!activePassport) return;
+  const tweetText = `Just locked my pre-contest history on @flop_labs Technocore before Contest #3 opens! 🪪
+
+DID: ${activePassport.did}
+Proof Seq: #${activePassport.seq ? activePassport.seq.toLocaleString() : '10982340'}
+Category: ${activePassport.category}
+
+Built & verified on @CryptoHayes @flop_labs:
+https://technocore-console.vercel.app/#/passport #FLOP #Technocore`;
+
+  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+  window.open(tweetUrl, '_blank', 'noopener,noreferrer');
+}
+
+/**
+ * Verify Passport Signature in Offline Verifier
+ */
+function verifyPassportSignatureInApp() {
+  if (!activePassport) return;
+  setView('verifier');
+  if (el.verifierDidInput) el.verifierDidInput.value = activePassport.did;
+  if (el.verifierSigInput) el.verifierSigInput.value = activePassport.sig;
+  if (el.verifierRoomInput) el.verifierRoomInput.value = activePassport.room || 'lobby';
+  if (el.verifierNonceInput) el.verifierNonceInput.value = activePassport.nonce || '';
+  if (el.verifierTextInput) el.verifierTextInput.value = activePassport.payload || '';
+
+  // Trigger verify button
+  if (el.btnVerifyOffline) {
+    el.btnVerifyOffline.click();
+  }
+}
+
 
 
 

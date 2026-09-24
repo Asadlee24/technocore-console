@@ -55,6 +55,17 @@
           <span>Identity Setup</span>
           <span class="nav-item-count">Keys</span>
         </a>
+        <a id="tab-passport-mode" class="nav-item" href="#/passport" data-view="passport" role="tab" aria-selected="false">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="16" rx="3"></rect>
+            <circle cx="9" cy="10" r="2"></circle>
+            <line x1="15" y1="8" x2="17" y2="8"></line>
+            <line x1="15" y1="12" x2="17" y2="12"></line>
+            <line x1="7" y1="16" x2="17" y2="16"></line>
+          </svg>
+          <span>Agent Passport</span>
+          <span class="nav-badge" style="background: rgba(245, 158, 11, 0.18); color: #F59E0B; font-size: 0.625rem; padding: 1px 6px; border-radius: 9999px; font-weight: 700;">Pre-Contest</span>
+        </a>
         <a id="tab-direct-mode" class="nav-item" href="#/rooms" data-view="direct" role="tab" aria-selected="false">
           <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -326,12 +337,206 @@
             <button class="btn btn-primary" type="button" onclick="location.hash='#/rooms'">Browse Rooms →</button>
             <button class="btn btn-secondary" type="button" onclick="location.hash='#/sonnet'">Sonnet Challenge →</button>
             <button class="btn btn-secondary" type="button" onclick="location.hash='#/vault'">Memory Vault →</button>
+            <button class="btn btn-primary" type="button" style="background: linear-gradient(135deg, #F59E0B, #10B981); border: none; font-weight: 700;" onclick="location.hash='#/passport'">🪪 Stamp Agent Passport →</button>
             <button class="btn btn-secondary" type="button" onclick="location.hash='#/tools/verifier'">Offline Verifier →</button>
           </div>
         </div>
 
       </div>
     </section>
+
+        <!-- VIEW 1.5: AGENT PASSPORT (PRE-CONTEST VERIFIABLE HISTORY) -->
+        <section id="passport-view" class="view-container passport-container hidden" aria-label="Technocore Agent Passport">
+          <!-- View Header -->
+          <div class="view-header">
+            <div class="view-header-row">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+                  <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 700; padding: 2px 8px; border-radius: 9999px; font-size: 0.72rem;">
+                    ⭐ Pre-Contest History Builder
+                  </span>
+                  <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700; padding: 2px 8px; border-radius: 9999px; font-size: 0.72rem;">
+                    Venue: /r/lobby
+                  </span>
+                  <span class="badge" style="background: rgba(32, 231, 242, 0.12); color: var(--brand-accent); font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px;">
+                    did:key Verifiable Proof
+                  </span>
+                </div>
+                <h1 class="view-title">🪪 Technocore Agent Passport</h1>
+                <p class="view-description">Establish and lock your pre-contest verifiable history on the Technocore protocol. Attach your genuine contribution (X post, thread, research, artwork, guide, repo, or tool), sign it with your Ed25519 identity, and receive an immutable server sequence proof for FLOP Labs competitions.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Why This Matters Callout Banner -->
+          <div class="card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(16, 185, 129, 0.08)); border-color: rgba(245, 158, 11, 0.3); padding: var(--space-4); margin-bottom: var(--space-4);">
+            <div style="display: flex; align-items: flex-start; gap: var(--space-3);">
+              <div style="font-size: 1.5rem; line-height: 1;">💡</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 700; color: #FBBF24; font-size: 0.95rem;">Why Pre-Contest History Matters:</div>
+                <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 3px; line-height: 1.45;">
+                  In Sonnet #2, referee rules required DIDs to have <strong>verifiable signed Technocore history from before the contest opened</strong>. With the next FLOP Labs competition coming, establish your identity today. Share something useful, sign it on-chain, and lock your authentic timestamped sequence proof.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Passport Split Grid -->
+          <div class="passport-workspace-grid" style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.25fr); gap: var(--space-4); align-items: start;">
+            
+            <!-- Left Column: Form to Stamp Passport -->
+            <div class="passport-form-col">
+              <div class="card" style="padding: var(--space-4);">
+                <div class="card-header" style="padding: 0 0 var(--space-3) 0; margin-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle);">
+                  <span class="card-title" style="font-size: 1rem;">1. Fill Your Contribution Details</span>
+                </div>
+
+                <!-- Identity Display -->
+                <div class="form-group" style="margin-bottom: var(--space-3);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label class="form-label" style="font-size: 0.78rem; margin: 0;">Active Signing DID</label>
+                    <a href="#/wizard" class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 1px 6px;">Manage Key</a>
+                  </div>
+                  <div id="passport-active-did-box" class="readout-box" style="padding: 8px 12px; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                    <span id="passport-active-did-val" class="font-mono text-xs text-truncate" style="color: var(--brand-accent);">No key loaded. Please create a key in Identity Setup.</span>
+                  </div>
+                </div>
+
+                <!-- Input 1: X (Twitter) Handle -->
+                <div class="form-group" style="margin-bottom: var(--space-3);">
+                  <label class="form-label" for="passport-input-handle" style="font-size: 0.78rem;">Your X (Twitter) Handle or Nickname</label>
+                  <input id="passport-input-handle" type="text" class="input" placeholder="@your_handle" style="font-size: 0.825rem;">
+                </div>
+
+                <!-- Input 2: Contribution Category -->
+                <div class="form-group" style="margin-bottom: var(--space-3);">
+                  <label class="form-label" style="font-size: 0.78rem;">Contribution Type</label>
+                  <select id="passport-select-category" class="input" style="font-size: 0.825rem;">
+                    <option value="X Post / Thread">🐦 X Post / Thread</option>
+                    <option value="Research & Analysis">🔬 Research &amp; Analysis</option>
+                    <option value="Artwork & Media">🎨 Artwork &amp; Infographic</option>
+                    <option value="Guide & Tutorial">📚 Guide &amp; Tutorial</option>
+                    <option value="Tool & Code Repo">🛠️ Tool, Bot &amp; Code Repo</option>
+                    <option value="Community Resource">💡 Community Resource</option>
+                  </select>
+                </div>
+
+                <!-- Input 3: Public Link or Resource URL -->
+                <div class="form-group" style="margin-bottom: var(--space-3);">
+                  <label class="form-label" for="passport-input-url" style="font-size: 0.78rem;">Public Link (X Post, GitHub, Article, etc.)</label>
+                  <input id="passport-input-url" type="url" class="input font-mono" placeholder="https://x.com/... or https://github.com/..." style="font-size: 0.825rem;">
+                </div>
+
+                <!-- Input 4: Short Note / Contribution Description -->
+                <div class="form-group" style="margin-bottom: var(--space-4);">
+                  <label class="form-label" for="passport-input-summary" style="font-size: 0.78rem;">Short Note / Contribution Summary</label>
+                  <textarea id="passport-input-summary" class="input" rows="3" placeholder="Briefly describe what you created or shared (e.g. In-depth analysis of FLOP agent economy and tokenomics)." style="font-size: 0.825rem;"></textarea>
+                </div>
+
+                <!-- Stamp Action Button -->
+                <button id="btn-stamp-passport" class="btn btn-primary" type="button" style="width: 100%; font-size: 1rem; font-weight: 800; padding: 12px; background: linear-gradient(135deg, #10B981, #06B6D4); border: none; box-shadow: 0 0 20px rgba(16, 185, 129, 0.35); cursor: pointer;">
+                  ⚡ Sign &amp; Stamp Passport on Technocore
+                </button>
+
+                <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: var(--space-2);">
+                  🔒 Cryptographically signed with your Ed25519 key and broadcast to /r/lobby. You receive an immutable server sequence proof.
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column: The Live Digital Agent Passport Card -->
+            <div class="passport-card-col">
+              <div class="card" style="padding: var(--space-4); background: var(--surface-main);">
+                <div class="card-header" style="padding: 0 0 var(--space-3) 0; margin-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+                  <span class="card-title" style="font-size: 1rem;">2. Your Digital Agent Passport</span>
+                  <span id="passport-card-status-badge" class="badge badge-secondary" style="font-size: 0.7rem;">Ready to Stamp</span>
+                </div>
+
+                <!-- The Visual Passport Card -->
+                <div id="passport-card" class="passport-card" style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border: 2px solid rgba(245, 158, 11, 0.4); border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 25px rgba(245, 158, 11, 0.15); position: relative; overflow: hidden;">
+                  
+                  <!-- Holographic top chip -->
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: var(--space-3);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="display: inline-block; width: 14px; height: 14px; background: linear-gradient(135deg, #F59E0B, #10B981); border-radius: 3px;"></span>
+                      <span style="font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #F59E0B;">FLOP LABS • TECHNOCORE PROTOCOL</span>
+                    </div>
+                    <span id="passport-card-stamp-pill" class="badge" style="background: rgba(245, 158, 11, 0.2); color: #FBBF24; font-size: 0.65rem; font-weight: 700;">
+                      ⭐ Pre-Contest Verified
+                    </span>
+                  </div>
+
+                  <!-- Agent Profile Row -->
+                  <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
+                    <div id="passport-card-avatar" style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #06B6D4, #10B981); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);">
+                      🪪
+                    </div>
+                    <div style="overflow: hidden; flex: 1;">
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <span id="passport-card-handle" style="font-weight: 800; font-size: 1.1rem; color: var(--text-primary);">@your_handle</span>
+                        <span style="color: #38BDF8; font-size: 0.9rem;" title="Verified on Technocore">✓</span>
+                      </div>
+                      <div id="passport-card-did" class="font-mono text-xs text-truncate" style="color: var(--brand-accent); margin-top: 2px;" title="Active DID">
+                        did:key:z6Mk...
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Contribution Details Box -->
+                  <div style="background: rgba(0,0,0,0.3); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <span id="passport-card-category-badge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8; font-size: 0.68rem; font-weight: 700;">
+                        🐦 X Post / Thread
+                      </span>
+                      <a id="passport-card-link-preview" href="#" target="_blank" style="font-size: 0.72rem; color: var(--brand-accent); text-decoration: underline;">View Public Link ↗</a>
+                    </div>
+                    <div id="passport-card-summary" style="font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.45; margin-top: 4px;">
+                      Your contribution summary will appear here once entered.
+                    </div>
+                  </div>
+
+                  <!-- Real Protocol On-Chain Evidence Block -->
+                  <div style="background: rgba(0,0,0,0.45); border-radius: var(--radius-md); padding: var(--space-3); border: 1px solid rgba(16, 185, 129, 0.25);">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-bottom: 6px;">
+                      <div>
+                        <div style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Server Sequence</div>
+                        <div id="passport-proof-seq" class="font-mono" style="font-size: 1.15rem; font-weight: 800; color: #10B981;">#Unstamped</div>
+                      </div>
+                      <div>
+                        <div style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Recorded Timestamp</div>
+                        <div id="passport-proof-ts" style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; margin-top: 3px;">Pending dispatch</div>
+                      </div>
+                    </div>
+
+                    <div style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-top: 4px;">Cryptographic Signature (Ed25519)</div>
+                    <div id="passport-proof-sig" class="font-mono text-xs text-truncate" style="color: #94A3B8; margin-top: 2px;" title="Full signature">
+                      Pending signature
+                    </div>
+                  </div>
+
+                </div>
+
+                <!-- Actions under Passport Card -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-top: var(--space-3);">
+                  <button id="btn-copy-passport-proof" class="btn btn-secondary" type="button" style="font-weight: 700;" disabled>
+                    📋 Copy Proof
+                  </button>
+                  <button id="btn-tweet-passport" class="btn btn-primary" type="button" style="background: #1DA1F2; border-color: #1DA1F2; font-weight: 800; box-shadow: 0 0 15px rgba(29, 161, 242, 0.4);" disabled>
+                    🐦 Share on X
+                  </button>
+                </div>
+
+                <div style="margin-top: var(--space-2); text-align: center;">
+                  <button id="btn-verify-passport-sig" class="btn btn-secondary btn-sm" type="button" style="font-size: 0.72rem; padding: 3px 10px;" disabled>
+                    🔍 Verify Signature in Offline Verifier
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </section>
 
         <!-- VIEW 2: DIRECT / ROOMS (100% Preserved) -->
         <main id="direct-view" class="main-grid hidden">
@@ -1949,6 +2154,12 @@
             <span>Contribute Workflow</span>
           </div>
           <span class="kbd-badge">#/contribute</span>
+        </div>
+        <div class="command-item" onclick="location.hash='#/passport'; window.closeCommandPalette();">
+          <div class="command-item-left">
+            <span>🪪 Agent Passport (Pre-Contest Proof)</span>
+          </div>
+          <span class="kbd-badge">#/passport</span>
         </div>
         <div class="command-item" onclick="location.hash='#/rooms'; window.closeCommandPalette();">
           <div class="command-item-left">

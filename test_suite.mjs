@@ -2306,6 +2306,37 @@ test('index.html and app.js UI integration: Sonnet marked Ended and Kibble Work 
   assert.ok(code.includes('dispatchKibbleAttest'), 'app.js must implement dispatchKibbleAttest');
 });
 
+test('Agent Passport Pre-Contest Verifiable History Engine & UI Integration', () => {
+  const fs = require('node:fs');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const code = fs.readFileSync('app.js', 'utf8');
+
+  // Verify navigation and section
+  assert.ok(html.includes('id="tab-passport-mode"'), 'tab-passport-mode must exist');
+  assert.ok(html.includes('href="#/passport"'), 'link to #/passport must exist');
+  assert.ok(html.includes('id="passport-view"'), 'passport-view section must exist');
+  assert.ok(html.includes('id="btn-stamp-passport"'), 'btn-stamp-passport must exist');
+  assert.ok(html.includes('id="passport-card"'), 'passport-card must exist');
+  assert.ok(html.includes('id="btn-copy-passport-proof"'), 'btn-copy-passport-proof must exist');
+  assert.ok(html.includes('id="btn-tweet-passport"'), 'btn-tweet-passport must exist');
+
+  // Verify app.js routes and handler
+  assert.ok(code.includes("passport: { title: 'Agent Passport'"), 'app.js viewMeta must register passport');
+  assert.ok(code.includes("hash === '#/passport'"), 'app.js hash router must handle #/passport');
+  assert.ok(code.includes('stampAgentPassport'), 'app.js must implement stampAgentPassport');
+  assert.ok(code.includes('sharePassportOnX'), 'app.js must implement sharePassportOnX');
+  assert.ok(code.includes('copyPassportProof'), 'app.js must implement copyPassportProof');
+
+  // Verify cryptographic validity of PROOF payload format
+  const kp = generateKeypair(nacl);
+  const room = 'lobby';
+  const nonce = 1790269000000;
+  const payload = 'PROOF v1 | @crypto_agent | X Post / Thread | https://x.com/flop_labs/status/123 | Pre-contest research';
+  const sig = signMessage(nacl, kp.secretKey, room, nonce, payload);
+  const res = verifyMessageSignature(nacl, kp.did, sig, room, nonce, payload);
+  assert.strictEqual(res.valid, true, 'Passport PROOF payload must be cryptographically valid');
+});
+
 console.log(`TEST RESULTS: ${passedTests} passed, ${failedTests} failed`);
 console.log('========================================\n');
 
