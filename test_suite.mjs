@@ -2106,39 +2106,26 @@ test('computeContractId derives normative TCLK contract hash', () => {
 
 console.log('\n--- Section 16: Public Guest Privacy & Multi-Asset (FLOP & PAPER) Invariants ---');
 
-test('index.html defaults to strict guest mode with zero private DID or earnings leaks', () => {
+test('index.html defaults to strict guest mode with zero private DID or bounty bloat leaks', () => {
   const fs = require('node:fs');
   const html = fs.readFileSync('index.html', 'utf8');
 
-  // Verify header pill defaults to Connect Key
-  assert.ok(html.includes('id="header-flop-val">Connect Key<'), 'Header pill must show Connect Key by default');
-  
-  // Verify HUD defaults to Connect Key / Guest Mode
-  assert.ok(html.includes('id="hud-flop-val" class="font-mono" style="color: var(--text-muted); font-weight: 800;">-- (Connect Key)<'), 'HUD must show -- (Connect Key) by default');
-  assert.ok(html.includes('id="hud-sniper-badge" class="badge badge-secondary">Guest Mode<'), 'HUD sniper badge must show Guest Mode');
-
-  // Verify Bounty view defaults to Guest Mode and does NOT leak Asad DID in initial markup
-  assert.ok(html.includes('id="bounty-status-badge" class="badge badge-secondary">⚪ Guest / Standby Mode<'), 'Bounty status badge must show Guest / Standby Mode');
-  assert.ok(html.includes('id="bounty-target-did" class="font-mono text-xs" style="color: var(--text-muted);">No Identity Loaded (Guest Mode)<'), 'Bounty target DID must show No Identity Loaded');
+  // Verify guest mode has no identity loaded
+  assert.ok(html.includes('No Identity (Guest)'), 'Header must default to No Identity (Guest)');
   assert.ok(!html.includes('did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4 (Cloud Runner)'), 'Asad DID must not be hardcoded as default in index.html');
 
-  // Verify both FLOP and PAPER scorecards exist in stats grid
-  assert.ok(html.includes('id="bounty-stat-flop"'), 'bounty-stat-flop card must exist');
-  assert.ok(html.includes('id="bounty-stat-paper"'), 'bounty-stat-paper card must exist');
-  assert.ok(html.includes('>0 FLOP<'), 'bounty-stat-flop must default to 0 FLOP');
-  assert.ok(html.includes('>0 PAPER<'), 'bounty-stat-paper must default to 0 PAPER');
+  // Verify bounty view and tabs are removed
+  assert.ok(!html.includes('id="tab-bounty-mode"'), 'tab-bounty-mode must be removed from navigation');
+  assert.ok(!html.includes('id="bounty-view"'), 'bounty-view must be removed from index.html');
 });
 
-test('app.js protects cloud sniper telemetry and gates private stats to authenticated owner', () => {
+test('app.js protects privacy and excludes bounty routing', () => {
   const fs = require('node:fs');
   const code = fs.readFileSync('app.js', 'utf8');
 
-  // Verify app.js checks for identity in syncCloudSniperStats
-  assert.ok(code.includes('const hasIdentity = Boolean(state.keypair && state.keypair.did);'), 'syncCloudSniperStats must check hasIdentity');
-  assert.ok(code.includes('if (!hasIdentity) {'), 'syncCloudSniperStats must branch for !hasIdentity');
-  assert.ok(code.includes("el.bountyStatFlop.textContent = '0 FLOP';"), 'Guest mode must show 0 FLOP');
-  assert.ok(code.includes("el.bountyStatPaper.textContent = '0 PAPER';"), 'Guest mode must show 0 PAPER');
-  assert.ok(code.includes('bountyStatPaper: document.getElementById(\'bounty-stat-paper\')'), 'app.js must cache bountyStatPaper');
+  // Verify bounty routing is removed
+  assert.ok(!code.includes("bounty: { title: 'TCLK Bounty Hunter'"), 'bounty must be removed from viewMeta');
+  assert.ok(!code.includes("hash === '#/bounty'"), 'hash router must not route to bounty');
 });
 
 test('sniper.mjs tracks and reports both FLOP and PAPER rewards', () => {

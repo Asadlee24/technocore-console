@@ -279,27 +279,6 @@ function cacheElements() {
     toolsFlopradarView: document.getElementById('tools-flopradar-view'),
     navOverviewBtn: document.getElementById('nav-overview-btn'),
     navToolsIdentity: document.getElementById('nav-tools-identity'),
-    tabBountyMode: document.getElementById('tab-bounty-mode'),
-    bountyView: document.getElementById('bounty-view'),
-    btnToggleHunter: document.getElementById('btn-toggle-hunter'),
-    bountyStatusBadge: document.getElementById('bounty-status-badge'),
-    bountyTargetDid: document.getElementById('bounty-target-did'),
-    bountyStatFlop: document.getElementById('bounty-stat-flop'),
-    bountyStatPaper: document.getElementById('bounty-stat-paper'),
-    bountyStatSolved: document.getElementById('bounty-stat-solved'),
-    bountyStatScanned: document.getElementById('bounty-stat-scanned'),
-    bountyStatActive: document.getElementById('bounty-stat-active'),
-    bountyLocalSessionNote: document.getElementById('bounty-local-session-note'),
-    headerFlopPill: document.getElementById('header-flop-pill'),
-    headerFlopDot: document.getElementById('header-flop-dot'),
-    headerFlopLabel: document.getElementById('header-flop-label'),
-    headerFlopVal: document.getElementById('header-flop-val'),
-    hudFlopLabel: document.getElementById('hud-flop-label'),
-    hudFlopVal: document.getElementById('hud-flop-val'),
-    hudSniperBadge: document.getElementById('hud-sniper-badge'),
-    bountyLiveFeed: document.getElementById('bounty-live-feed'),
-    btnClearBountyFeed: document.getElementById('btn-clear-bounty-feed'),
-    bountyPulseDot: document.getElementById('bounty-pulse-dot'),
 
     // Kibble Useful-Work Console Elements
     btnRefreshKibble: document.getElementById('btn-refresh-kibble'),
@@ -763,8 +742,7 @@ function setView(viewName) {
     vault: { title: 'Memory Vault', desc: 'Decentralized timeline and public signed notes' },
     verifier: { title: 'Signature Verifier', desc: 'Pure offline Ed25519 signature verification' },
     'tools-identity': { title: 'Identity & Registry', desc: 'Key management and decentralized KV publishing' },
-    'tools-flopradar': { title: 'FlopRadar Bot', desc: 'Telegram companion bot for Sonnet Challenge intelligence and referee audits' },
-    bounty: { title: 'TCLK Bounty Hunter', desc: 'Autonomous micro-task solver and FLOP reward harvester' }
+    'tools-flopradar': { title: 'FlopRadar Bot', desc: 'Telegram companion bot for Sonnet Challenge intelligence and referee audits' }
   };
 
   if (el.currentViewName && viewMeta[viewName]) {
@@ -804,10 +782,6 @@ function setView(viewName) {
     el.tabVaultMode.classList.toggle('active', viewName === 'vault');
     el.tabVaultMode.setAttribute('aria-selected', String(viewName === 'vault'));
   }
-  if (el.tabBountyMode) {
-    el.tabBountyMode.classList.toggle('active', viewName === 'bounty');
-    el.tabBountyMode.setAttribute('aria-selected', String(viewName === 'bounty'));
-  }
   if (el.navToolsIdentity) el.navToolsIdentity.classList.toggle('active', viewName === 'tools-identity');
   if (el.navToolsFlopradar) el.navToolsFlopradar.classList.toggle('active', viewName === 'tools-flopradar');
 
@@ -841,10 +815,6 @@ function setView(viewName) {
     el.vaultView.classList.toggle('hidden', viewName !== 'vault');
     el.vaultView.classList.toggle('active-view', viewName === 'vault');
   }
-  if (el.bountyView) {
-    el.bountyView.classList.toggle('hidden', viewName !== 'bounty');
-    el.bountyView.classList.toggle('active-view', viewName === 'bounty');
-  }
   if (el.toolsIdentityView) {
     el.toolsIdentityView.classList.toggle('hidden', viewName !== 'tools-identity');
     el.toolsIdentityView.classList.toggle('active-view', viewName === 'tools-identity');
@@ -864,7 +834,6 @@ function setView(viewName) {
     sonnet: '#/sonnet',
     vault: '#/vault',
     verifier: '#/tools/verifier',
-    bounty: '#/bounty',
     'tools-identity': '#/tools/identity',
     'tools-flopradar': '#/tools/flopradar'
   };
@@ -889,10 +858,6 @@ function setView(viewName) {
     if (visualizer && typeof visualizer.onResize === 'function') {
       setTimeout(() => visualizer.onResize(), 60);
     }
-  }
-
-  if (viewName === 'bounty') {
-    syncCloudSniperStats();
   }
 
   if (viewName === 'kibble') {
@@ -965,12 +930,6 @@ function bindEvents() {
     el.navToolsFlopradar.addEventListener('click', (e) => {
       e.preventDefault();
       setView('tools-flopradar');
-    });
-  }
-  if (el.tabBountyMode) {
-    el.tabBountyMode.addEventListener('click', (e) => {
-      e.preventDefault();
-      setView('bounty');
     });
   }
 
@@ -1055,7 +1014,6 @@ function bindEvents() {
     else if (hash === '#/tools/verifier' || hash === '#/verifier') setView('verifier');
     else if (hash === '#/tools/identity') setView('tools-identity');
     else if (hash === '#/tools/flopradar') setView('tools-flopradar');
-    else if (hash === '#/bounty' || hash === '#/bounties') setView('bounty');
     else setView('wizard');
   });
 
@@ -1077,7 +1035,6 @@ function bindEvents() {
     else if (initialHash === '#/tools/verifier' || initialHash === '#/verifier') setView('verifier');
     else if (initialHash === '#/tools/identity') setView('tools-identity');
     else if (initialHash === '#/tools/flopradar') setView('tools-flopradar');
-    else if (initialHash === '#/bounty' || initialHash === '#/bounties') setView('bounty');
     else setView('wizard');
   } else {
     setView('wizard');
@@ -1142,32 +1099,6 @@ function bindEvents() {
 
   // Direct Publish
   el.btnPublishIdentity.addEventListener('click', handlePublishIdentity);
-
-  // Bounty Hunter Actions
-  if (el.btnToggleHunter) {
-    el.btnToggleHunter.addEventListener('click', () => {
-      if (isBountyHunting) {
-        stopBountyHuntingUI();
-      } else {
-        startBountyHuntingUI();
-      }
-    });
-  }
-
-  if (el.btnClearBountyFeed) {
-    el.btnClearBountyFeed.addEventListener('click', () => {
-      if (el.bountyLiveFeed) {
-        el.bountyLiveFeed.innerHTML = '<div class="text-muted" style="font-style: italic;">Feed cleared. Waiting for events...</div>';
-      }
-    });
-  }
-
-  const btnRefreshBounty = document.getElementById('btn-refresh-bounty');
-  if (btnRefreshBounty) {
-    btnRefreshBounty.addEventListener('click', () => {
-      syncCloudSniperStats(true);
-    });
-  }
 
   // Wizard Step 1 Bindings
   el.wizardBtnGenerate.addEventListener('click', handleGenerateKey);
