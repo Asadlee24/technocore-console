@@ -70,15 +70,6 @@ import {
   parseWriterFromMessage
 } from './sonnet.js';
 
-import {
-  parseKibbleMessage,
-  buildKibbleJobPayload,
-  buildKibbleClaimPayload,
-  buildKibbleResultPayload,
-  buildKibbleAttestPayload,
-  aggregateKibbleBoard
-} from './kibble.js';
-
 import { CryptoVisualizer } from './visualizer3d.js';
 
 // Base protocol URL
@@ -185,20 +176,6 @@ const state = {
     lastClaimReqId: null,
 
     lexiconLoaded: false
-  },
-
-  // Kibble Useful-Work Protocol state (FLOP Labs /r/kibble)
-  kibble: {
-    messages: [],
-    aggregated: null,
-    activeFilter: 'all',
-    searchQuery: '',
-    selectedJobId: null,
-    activeMode: 'claim',
-    attestVerdict: 'useful',
-    isStreaming: true,
-    streamTimer: null,
-    lastSeq: 0
   }
 };
 
@@ -237,14 +214,12 @@ function cacheElements() {
     tabWizardMode: document.getElementById('tab-wizard-mode'),
     tabPassportMode: document.getElementById('tab-passport-mode'),
     tabDirectMode: document.getElementById('tab-direct-mode'),
-    tabKibbleMode: document.getElementById('tab-kibble-mode'),
     tabSonnetMode: document.getElementById('tab-sonnet-mode'),
     tabVerifierMode: document.getElementById('tab-verifier-mode'),
     tabVaultMode: document.getElementById('tab-vault-mode'),
     wizardView: document.getElementById('wizard-view'),
     passportView: document.getElementById('passport-view'),
     directView: document.getElementById('direct-view'),
-    kibbleView: document.getElementById('kibble-view'),
     sonnetView: document.getElementById('sonnet-view'),
     verifierView: document.getElementById('verifier-view'),
     vaultView: document.getElementById('vault-view'),
@@ -279,44 +254,6 @@ function cacheElements() {
     toolsFlopradarView: document.getElementById('tools-flopradar-view'),
     navOverviewBtn: document.getElementById('nav-overview-btn'),
     navToolsIdentity: document.getElementById('nav-tools-identity'),
-
-    // Kibble Useful-Work Console Elements
-    btnRefreshKibble: document.getElementById('btn-refresh-kibble'),
-    btnToggleKibbleStream: document.getElementById('btn-toggle-kibble-stream'),
-    kibbleStatMsgs: document.getElementById('kibble-stat-msgs'),
-    kibbleStatJobs: document.getElementById('kibble-stat-jobs'),
-    kibbleStatClaims: document.getElementById('kibble-stat-claims'),
-    kibbleStatResults: document.getElementById('kibble-stat-results'),
-    kibbleStatAttests: document.getElementById('kibble-stat-attests'),
-    kibbleStreamCounterBadge: document.getElementById('kibble-stream-counter-badge'),
-    kibbleSearchInput: document.getElementById('kibble-search-input'),
-    kibbleStreamList: document.getElementById('kibble-stream-list'),
-    kibbleStreamLastSync: document.getElementById('kibble-stream-last-sync'),
-    kibbleCurrentDid: document.getElementById('kibble-current-did'),
-    kibbleTargetBadge: document.getElementById('kibble-target-badge'),
-    kibbleSelectedJobInfo: document.getElementById('kibble-selected-job-info'),
-    kibbleClaimJobId: document.getElementById('kibble-claim-job-id'),
-    kibbleClaimRole: document.getElementById('kibble-claim-role'),
-    kibblePreviewClaim: document.getElementById('kibble-preview-claim'),
-    btnKibbleDispatchClaim: document.getElementById('btn-kibble-dispatch-claim'),
-    kibbleResultJobId: document.getElementById('kibble-result-job-id'),
-    kibbleTemplateSelect: document.getElementById('kibble-template-select'),
-    kibbleResultCharCount: document.getElementById('kibble-result-char-count'),
-    kibbleResultText: document.getElementById('kibble-result-text'),
-    btnKibbleDispatchResult: document.getElementById('btn-kibble-dispatch-result'),
-    kibbleAttestJobId: document.getElementById('kibble-attest-job-id'),
-    btnVerdictUseful: document.getElementById('btn-verdict-useful'),
-    btnVerdictNot: document.getElementById('btn-verdict-not'),
-    kibbleAttestCritique: document.getElementById('kibble-attest-critique'),
-    btnKibbleDispatchAttest: document.getElementById('btn-kibble-dispatch-attest'),
-    kibbleNewJobId: document.getElementById('kibble-new-job-id'),
-    btnGenJobId: document.getElementById('btn-gen-job-id'),
-    kibbleNewJobCategory: document.getElementById('kibble-new-job-category'),
-    kibbleNewJobTitle: document.getElementById('kibble-new-job-title'),
-    kibbleNewJobDesc: document.getElementById('kibble-new-job-desc'),
-    btnKibbleDispatchJob: document.getElementById('btn-kibble-dispatch-job'),
-    btnClearKibbleLog: document.getElementById('btn-clear-kibble-log'),
-    kibbleDispatchLog: document.getElementById('kibble-dispatch-log'),
     navToolsFlopradar: document.getElementById('nav-tools-flopradar'),
     currentViewName: document.getElementById('current-view-name'),
     currentViewDesc: document.getElementById('current-view-desc'),
@@ -738,7 +675,6 @@ function setView(viewName) {
     passport: { title: 'Agent Passport', desc: 'Pre-contest verifiable history and cryptographic contribution proof' },
     direct: { title: 'Rooms', desc: 'Live room monitor and signed message composer' },
     sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts (Concluded)' },
-    kibble: { title: 'Kibble Useful-Work Board', desc: 'FLOP Labs decentralized task execution: JOB → CLAIM → RESULT → ATTEST' },
     vault: { title: 'Memory Vault', desc: 'Decentralized timeline and public signed notes' },
     verifier: { title: 'Signature Verifier', desc: 'Pure offline Ed25519 signature verification' },
     'tools-identity': { title: 'Identity & Registry', desc: 'Key management and decentralized KV publishing' },
@@ -765,10 +701,6 @@ function setView(viewName) {
   if (el.tabDirectMode) {
     el.tabDirectMode.classList.toggle('active', viewName === 'direct');
     el.tabDirectMode.setAttribute('aria-selected', String(viewName === 'direct'));
-  }
-  if (el.tabKibbleMode) {
-    el.tabKibbleMode.classList.toggle('active', viewName === 'kibble');
-    el.tabKibbleMode.setAttribute('aria-selected', String(viewName === 'kibble'));
   }
   if (el.tabSonnetMode) {
     el.tabSonnetMode.classList.toggle('active', viewName === 'sonnet');
@@ -798,10 +730,6 @@ function setView(viewName) {
   if (el.directView) {
     el.directView.classList.toggle('hidden', viewName !== 'direct');
     el.directView.classList.toggle('active-view', viewName === 'direct');
-  }
-  if (el.kibbleView) {
-    el.kibbleView.classList.toggle('hidden', viewName !== 'kibble');
-    el.kibbleView.classList.toggle('active-view', viewName === 'kibble');
   }
   if (el.sonnetView) {
     el.sonnetView.classList.toggle('hidden', viewName !== 'sonnet');
@@ -860,11 +788,6 @@ function setView(viewName) {
     }
   }
 
-  if (viewName === 'kibble') {
-    syncKibbleStream();
-    updateKibbleIdentityUI();
-  }
-
   if (viewName === 'passport') {
     updatePassportUI();
   }
@@ -900,12 +823,6 @@ function bindEvents() {
     e.preventDefault();
     setView('direct');
   });
-  if (el.tabKibbleMode) {
-    el.tabKibbleMode.addEventListener('click', (e) => {
-      e.preventDefault();
-      setView('kibble');
-    });
-  }
   if (el.tabSonnetMode) {
     el.tabSonnetMode.addEventListener('click', (e) => {
       e.preventDefault();

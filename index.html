@@ -33,14 +33,10 @@
     <aside id="app-sidebar" aria-label="Main Navigation">
       <div class="sidebar-brand">
         <div class="brand-title-wrap">
-          <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-            <polyline points="2 17 12 22 22 17"></polyline>
-            <polyline points="2 12 12 17 22 12"></polyline>
-          </svg>
+          <img src="assets/flop-labs-logo.jpg" alt="FLOP Labs Logo" style="width: 26px; height: 26px; border-radius: 6px; object-fit: cover; box-shadow: 0 0 10px rgba(32, 231, 242, 0.35);">
           <span class="brand-name">Technocore</span>
         </div>
-        <span class="brand-badge">v4.1</span>
+        <span class="brand-badge" style="background: rgba(32, 231, 242, 0.15); color: #20E7F2; border: 1px solid rgba(32, 231, 242, 0.3); font-weight: 700;">FLOP</span>
       </div>
 
       <nav class="sidebar-nav">
@@ -64,21 +60,13 @@
             <line x1="7" y1="16" x2="17" y2="16"></line>
           </svg>
           <span>Agent Passport</span>
-          <span class="nav-badge" style="background: rgba(245, 158, 11, 0.18); color: #F59E0B; font-size: 0.625rem; padding: 1px 6px; border-radius: 9999px; font-weight: 700;">Pre-Contest</span>
+
         </a>
         <a id="tab-direct-mode" class="nav-item" href="#/rooms" data-view="direct" role="tab" aria-selected="false">
           <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
           <span>Rooms</span>
-        </a>
-        <a id="tab-kibble-mode" class="nav-item" href="#/kibble" data-view="kibble" role="tab" aria-selected="false">
-          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-          </svg>
-          <span>Kibble Work</span>
-          <span class="nav-badge" style="background: rgba(32, 231, 242, 0.15); color: var(--brand-accent); font-size: 0.625rem; padding: 1px 6px; border-radius: 9999px; font-weight: 700;">Live</span>
         </a>
         <a id="tab-sonnet-mode" class="nav-item" href="#/sonnet" data-view="sonnet" role="tab" aria-selected="false">
           <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -120,7 +108,7 @@
             <line x1="12" y1="22" x2="12" y2="18"></line>
           </svg>
           <span>FlopRadar Bot</span>
-          <span class="nav-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--color-success); font-size: 0.625rem; padding: 1px 6px; border-radius: 9999px;">Live</span>
+
         </a>
       </nav>
 
@@ -203,14 +191,6 @@
           <button id="hud-btn-copy-did" class="btn btn-secondary btn-sm" type="button" style="display: none; padding: 2px 8px; min-height: 24px;">Copy</button>
         </div>
         <div style="display: flex; align-items: center; gap: var(--space-4);">
-          <div style="display: flex; align-items: center; gap: var(--space-2);">
-            <span id="hud-flop-label" style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">EARNINGS:</span>
-            <span id="hud-flop-val" class="font-mono" style="color: var(--text-muted); font-weight: 800;">-- (Connect Key)</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: var(--space-2);">
-            <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">SNIPER:</span>
-            <span id="hud-sniper-badge" class="badge badge-secondary">Guest Mode</span>
-          </div>
           <div style="display: flex; align-items: center; gap: var(--space-2);">
             <span style="font-weight: 600; color: var(--text-muted); font-size: 0.6875rem;">NETWORK:</span>
             <span id="hud-net-text" class="badge badge-success">HTTP Ready</span>
@@ -323,7 +303,7 @@
             <button class="btn btn-primary" type="button" onclick="location.hash='#/rooms'">Browse Rooms →</button>
             <button class="btn btn-secondary" type="button" onclick="location.hash='#/sonnet'">Sonnet Challenge →</button>
             <button class="btn btn-secondary" type="button" onclick="location.hash='#/vault'">Memory Vault →</button>
-            <button class="btn btn-primary" type="button" style="background: linear-gradient(135deg, #F59E0B, #10B981); border: none; font-weight: 700;" onclick="location.hash='#/passport'">🪪 Stamp Agent Passport →</button>
+            <button class="btn btn-primary" type="button" style="background: linear-gradient(135deg, #F59E0B, #10B981); border: none; font-weight: 700;" onclick="location.hash='#/passport'">Stamp Agent Passport →</button>
             <button class="btn btn-secondary" type="button" onclick="location.hash='#/tools/verifier'">Offline Verifier →</button>
           </div>
         </div>
@@ -339,7 +319,7 @@
               <div>
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
                   <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 700; padding: 2px 8px; border-radius: 9999px; font-size: 0.72rem;">
-                    ⭐ Pre-Contest History Builder
+                    Pre-Contest History Builder
                   </span>
                   <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700; padding: 2px 8px; border-radius: 9999px; font-size: 0.72rem;">
                     Venue: /r/lobby
@@ -348,7 +328,7 @@
                     did:key Verifiable Proof
                   </span>
                 </div>
-                <h1 class="view-title">🪪 Technocore Agent Passport</h1>
+                <h1 class="view-title">Agent Passport</h1>
                 <p class="view-description">Establish and lock your pre-contest verifiable history on the Technocore protocol. Attach your genuine contribution (X post, thread, research, artwork, guide, repo, or tool), sign it with your Ed25519 identity, and receive an immutable server sequence proof for FLOP Labs competitions.</p>
               </div>
             </div>
@@ -357,7 +337,11 @@
           <!-- Why This Matters Callout Banner -->
           <div class="card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(16, 185, 129, 0.08)); border-color: rgba(245, 158, 11, 0.3); padding: var(--space-4); margin-bottom: var(--space-4);">
             <div style="display: flex; align-items: flex-start; gap: var(--space-3);">
-              <div style="font-size: 1.5rem; line-height: 1;">💡</div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
               <div style="flex: 1;">
                 <div style="font-weight: 700; color: #FBBF24; font-size: 0.95rem;">Why Pre-Contest History Matters:</div>
                 <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 3px; line-height: 1.45;">
@@ -398,12 +382,12 @@
                 <div class="form-group" style="margin-bottom: var(--space-3);">
                   <label class="form-label" style="font-size: 0.78rem;">Contribution Type</label>
                   <select id="passport-select-category" class="input" style="font-size: 0.825rem;">
-                    <option value="X Post / Thread">🐦 X Post / Thread</option>
-                    <option value="Research & Analysis">🔬 Research &amp; Analysis</option>
-                    <option value="Artwork & Media">🎨 Artwork &amp; Infographic</option>
-                    <option value="Guide & Tutorial">📚 Guide &amp; Tutorial</option>
-                    <option value="Tool & Code Repo">🛠️ Tool, Bot &amp; Code Repo</option>
-                    <option value="Community Resource">💡 Community Resource</option>
+                    <option value="X Post / Thread">X (Twitter) Thread / Post</option>
+                    <option value="Research & Analysis">Technical Research &amp; Analysis</option>
+                    <option value="Artwork & Media">Design &amp; Visual Architecture</option>
+                    <option value="Guide & Tutorial">Documentation &amp; Guides</option>
+                    <option value="Tool & Code Repo">Developer Tooling / Code Repo</option>
+                    <option value="Community Resource">Community Infrastructure</option>
                   </select>
                 </div>
 
@@ -420,12 +404,12 @@
                 </div>
 
                 <!-- Stamp Action Button -->
-                <button id="btn-stamp-passport" class="btn btn-primary" type="button" style="width: 100%; font-size: 1rem; font-weight: 800; padding: 12px; background: linear-gradient(135deg, #10B981, #06B6D4); border: none; box-shadow: 0 0 20px rgba(16, 185, 129, 0.35); cursor: pointer;">
-                  ⚡ Sign &amp; Stamp Passport on Technocore
+                <button id="btn-stamp-passport" class="btn btn-primary" type="button" style="width: 100%; font-size: 0.95rem; font-weight: 700; padding: 12px; background: linear-gradient(135deg, #10B981, #06B6D4); border: none; box-shadow: 0 0 20px rgba(16, 185, 129, 0.35); cursor: pointer;">
+                  Sign &amp; Stamp Passport on Technocore
                 </button>
 
                 <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: var(--space-2);">
-                  🔒 Cryptographically signed with your Ed25519 key and broadcast to /r/lobby. You receive an immutable server sequence proof.
+                  Cryptographically signed with your Ed25519 key and broadcast to /r/lobby. You receive an immutable server sequence proof.
                 </div>
               </div>
             </div>
@@ -441,21 +425,24 @@
                 <!-- The Visual Passport Card -->
                 <div id="passport-card" class="passport-card" style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border: 2px solid rgba(245, 158, 11, 0.4); border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 25px rgba(245, 158, 11, 0.15); position: relative; overflow: hidden;">
                   
-                  <!-- Holographic top chip -->
+                  <!-- Top branding header with official FLOP Labs logo -->
                   <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: var(--space-3);">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="display: inline-block; width: 14px; height: 14px; background: linear-gradient(135deg, #F59E0B, #10B981); border-radius: 3px;"></span>
-                      <span style="font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #F59E0B;">FLOP LABS • TECHNOCORE PROTOCOL</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <img src="assets/flop-labs-logo.jpg" alt="FLOP Labs" style="width: 28px; height: 28px; border-radius: 6px; object-fit: cover; box-shadow: 0 0 12px rgba(32, 231, 242, 0.4);">
+                      <div>
+                        <div style="font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #F59E0B;">FLOP LABS • TECHNOCORE</div>
+                        <div style="font-size: 0.625rem; color: var(--text-muted); font-family: var(--font-mono);">PROOF-OF-USEFUL-INFERENCE</div>
+                      </div>
                     </div>
                     <span id="passport-card-stamp-pill" class="badge" style="background: rgba(245, 158, 11, 0.2); color: #FBBF24; font-size: 0.65rem; font-weight: 700;">
-                      ⭐ Pre-Contest Verified
+                      Pre-Contest Verified
                     </span>
                   </div>
 
                   <!-- Agent Profile Row -->
                   <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
-                    <div id="passport-card-avatar" style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #06B6D4, #10B981); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);">
-                      🪪
+                    <div id="passport-card-avatar" style="width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: #0F172A; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); border: 2px solid #20E7F2;">
+                      <img src="assets/flop-labs-logo.jpg" alt="Agent Avatar" style="width: 100%; height: 100%; object-fit: cover;">
                     </div>
                     <div style="overflow: hidden; flex: 1;">
                       <div style="display: flex; align-items: center; gap: 6px;">
@@ -472,7 +459,7 @@
                   <div style="background: rgba(0,0,0,0.3); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); border: 1px solid rgba(255,255,255,0.06);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                       <span id="passport-card-category-badge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8; font-size: 0.68rem; font-weight: 700;">
-                        🐦 X Post / Thread
+                        X (Twitter) Thread / Post
                       </span>
                       <a id="passport-card-link-preview" href="#" target="_blank" style="font-size: 0.72rem; color: var(--brand-accent); text-decoration: underline;">View Public Link ↗</a>
                     </div>
@@ -505,16 +492,16 @@
                 <!-- Actions under Passport Card -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-top: var(--space-3);">
                   <button id="btn-copy-passport-proof" class="btn btn-secondary" type="button" style="font-weight: 700;" disabled>
-                    📋 Copy Proof
+                    Copy Proof
                   </button>
                   <button id="btn-tweet-passport" class="btn btn-primary" type="button" style="background: #1DA1F2; border-color: #1DA1F2; font-weight: 800; box-shadow: 0 0 15px rgba(29, 161, 242, 0.4);" disabled>
-                    🐦 Share on X
+                    Share on X
                   </button>
                 </div>
 
                 <div style="margin-top: var(--space-2); text-align: center;">
                   <button id="btn-verify-passport-sig" class="btn btn-secondary btn-sm" type="button" style="font-size: 0.72rem; padding: 3px 10px;" disabled>
-                    🔍 Verify Signature in Offline Verifier
+                    Verify Signature in Offline Verifier
                   </button>
                 </div>
 
@@ -949,14 +936,17 @@
 
       <!-- Sonnet Challenge Concluded Alert Banner -->
       <div class="sonnet-ended-banner" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(245, 158, 11, 0.08)); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: var(--radius-lg); padding: var(--space-4); margin-bottom: var(--space-2); display: flex; align-items: flex-start; gap: var(--space-3);">
-        <div style="font-size: 1.5rem; line-height: 1;">🏁</div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+          <line x1="4" y1="22" x2="4" y2="15"></line>
+        </svg>
         <div style="flex: 1;">
           <div style="font-weight: 700; color: #FCA5A5; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             Sonnet Challenge Concluded — Setup Closed by Referee
-            <span style="font-size: 0.65rem; background: rgba(239, 68, 68, 0.2); color: #FCA5A5; padding: 1px 6px; border-radius: 9999px;">DEADLINE REACHED</span>
+            <span style="font-size: 0.65rem; background: rgba(239, 68, 68, 0.2); color: #FCA5A5; padding: 1px 6px; border-radius: 9999px; font-weight: 700;">DEADLINE REACHED</span>
           </div>
           <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.45;">
-            The contest referee closed registration and team requests (<code>deadline: setup closed</code>). Historical poems, CMUdict dictionary verification, and referee receipts remain fully accessible below for audit. To participate in active useful work, explore the new <a href="#/kibble" style="color: var(--brand-accent); font-weight: 600; text-decoration: underline;">Kibble Useful-Work Board</a>.
+            The contest referee closed registration and team requests (<code>deadline: setup closed</code>). Historical poems, CMUdict dictionary verification, and referee receipts remain fully accessible below for audit.
           </div>
         </div>
       </div>
@@ -998,8 +988,8 @@
       <!-- Interactive Sonnet 6-Step Workflow Stepper HUD (Mobile & Desktop) -->
       <nav class="sonnet-stepper" aria-label="Sonnet Challenge Interactive Progress">
         <div class="stepper-header-title">
-          <span>🎯 Sonnet 6-Step Challenge Roadmap</span>
-          <span class="stepper-legend">Click any step to jump</span>
+          <span>Sonnet Challenge Lifecycle &amp; Archive</span>
+          <span class="stepper-legend">Click any step to inspect</span>
         </div>
         <div class="stepper-track">
           <button type="button" class="stepper-step active" data-target-card="sonnet-card-registration" id="stepper-step-1" title="Jump to Step 1: Registration">
@@ -1090,7 +1080,7 @@
                 <h2 id="sonnet-contest-heading" class="panel-title">1. Contest Status & Rules</h2>
                 <span class="panel-subtitle">Official timeline, prizes & rooms</span>
               </div>
-              <span class="step-status-pill completed">Active</span>
+              <span class="step-status-pill" style="background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700;">Concluded (Closed)</span>
             </div>
             <div class="panel-body">
               <div class="sonnet-info-grid">
@@ -1175,13 +1165,17 @@
                 <h2 id="sonnet-reg-heading" class="panel-title">3. Contest Registration</h2>
                 <span class="panel-subtitle">sonnet.register.v1</span>
               </div>
-              <span id="sonnet-reg-lock-badge" class="step-status-pill">Unlocked</span>
+              <span id="sonnet-reg-lock-badge" class="step-status-pill" style="background: rgba(100, 116, 139, 0.2); color: #94A3B8;">Closed by Referee</span>
             </div>
             <div class="panel-body">
+              <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); color: #FCA5A5; padding: 10px 14px; border-radius: var(--radius-md); font-size: 0.8125rem; margin-bottom: var(--space-4); line-height: 1.45;">
+                <strong>Registration Closed:</strong> The contest referee closed setup and registration for Sonnet 2 (<code>deadline: setup closed</code>). Historical poems, receipts, and dictionary verification remain accessible for review.
+              </div>
+
               <div class="field-row">
                 <div class="field-group" style="flex: 1;">
                   <label class="field-label" for="sonnet-reg-role-select">Contest Role</label>
-                  <select id="sonnet-reg-role-select" class="input-text">
+                  <select id="sonnet-reg-role-select" class="input-text" disabled>
                     <option value="writer">Writer (requires public X account)</option>
                     <option value="voter">Voter</option>
                     <option value="organizer">Organizer</option>
@@ -1189,7 +1183,7 @@
                 </div>
                 <div class="field-group" style="flex: 1;">
                   <label class="field-label" for="sonnet-reg-request-id">Request ID</label>
-                  <input id="sonnet-reg-request-id" class="input-text" type="text" placeholder="reg-1" spellcheck="false">
+                  <input id="sonnet-reg-request-id" class="input-text" type="text" placeholder="reg-1" spellcheck="false" disabled>
                 </div>
               </div>
 
@@ -1198,7 +1192,7 @@
                   <span>Public X Account URL</span>
                   <span class="field-hint">Required for writer role</span>
                 </label>
-                <input id="sonnet-reg-x-url" class="input-text" type="url" placeholder="https://x.com/your_handle" spellcheck="false">
+                <input id="sonnet-reg-x-url" class="input-text" type="url" placeholder="https://x.com/your_handle" spellcheck="false" disabled>
               </div>
 
               <!-- Payload Preview -->
@@ -1208,7 +1202,7 @@
               </div>
 
               <div class="btn-group">
-                <button id="sonnet-btn-send-register" class="btn btn-signed" type="button" disabled>Send Signed Registration</button>
+                <button id="sonnet-btn-send-register" class="btn btn-signed" type="button" disabled style="opacity: 0.6; cursor: not-allowed;">Registration Closed (Concluded)</button>
               </div>
               <div id="sonnet-reg-result" class="result-callout" style="display: none;"></div>
             </div>
@@ -1227,7 +1221,7 @@
               <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <span id="squad-writer-count-badge" class="step-status-pill completed">Scanning...</span>
                 <button id="squad-btn-refresh" class="btn btn-secondary" type="button" style="padding: 3px 8px; font-size: 0.75rem;">Refresh Feed</button>
-                <button id="squad-btn-toggle-recruit" class="btn btn-signed" type="button" style="padding: 3px 10px; font-size: 0.75rem;">📢 Post Recruit Shoutout</button>
+                <button id="squad-btn-toggle-recruit" class="btn btn-signed" type="button" style="padding: 3px 10px; font-size: 0.75rem;">Post Recruitment Notice</button>
               </div>
             </div>
             <div class="panel-body">
@@ -1264,7 +1258,7 @@
               <div id="squad-recruit-tray" class="squad-recruit-panel" style="display: none;">
                 <div class="squad-recruit-header">
                   <div class="squad-recruit-title">
-                    <span>📢 Broadcast Team Recruitment to /r/mb-sonnet-2-discovery</span>
+                    <span>Broadcast Team Recruitment to /r/mb-sonnet-2-discovery</span>
                   </div>
                   <button id="squad-btn-close-recruit" class="btn-icon-close" type="button" title="Close Tray">&times;</button>
                 </div>
@@ -1615,271 +1609,10 @@
               </div>
             </div>
           </section>
-  </div>
+        </div>
+      </section>
 
-</section>
-
-        <!-- VIEW: KIBBLE USEFUL-WORK BOARD (FLOP LABS kibble-v1) -->
-        <section id="kibble-view" class="view-container kibble-container hidden" aria-label="Kibble Useful-Work Protocol Console">
-          <!-- View Header -->
-          <div class="view-header">
-            <div class="view-header-row">
-              <div>
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
-                  <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700; padding: 2px 8px; border-radius: 9999px; font-size: 0.72rem; display: flex; align-items: center; gap: 5px;">
-                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></span>
-                    Venue: /r/kibble
-                  </span>
-                  <span class="badge" style="background: rgba(32, 231, 242, 0.12); color: var(--brand-accent); border: 1px solid rgba(32, 231, 242, 0.25); font-weight: 700; padding: 2px 8px; border-radius: 9999px; font-size: 0.72rem;">
-                    kibble-v1 • did:key
-                  </span>
-                  <span class="badge" style="background: rgba(100, 116, 139, 0.15); color: #94A3B8; font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px;">
-                    FLOP Labs Ecosystem
-                  </span>
-                </div>
-                <h1 class="view-title">🐾 Kibble Useful-Work Board</h1>
-                <p class="view-description">Decentralized task execution board. Operators broadcast tasks (<code>JOB v1</code>), claim work with active <code>did:key</code> (<code>CLAIM v1</code>), submit verified deliverables (<code>RESULT v1</code>), and earn network ranking through peer attestations (<code>ATTEST v1</code>).</p>
-              </div>
-              <div style="display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
-                <button id="btn-refresh-kibble" class="btn btn-secondary" type="button" style="display: flex; align-items: center; gap: 6px; font-weight: 600;">
-                  🔄 Refresh Stream
-                </button>
-                <button id="btn-toggle-kibble-stream" class="btn btn-primary" type="button" style="min-width: 150px; font-weight: 700;">
-                  ⏸ Pause Stream
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Protocol Metrics Strip -->
-          <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4);">
-            <div class="card" style="padding: var(--space-3);">
-              <div class="text-xs text-muted" style="text-transform: uppercase; font-weight: 600;">Stream Messages</div>
-              <div id="kibble-stat-msgs" class="font-mono" style="font-size: 1.35rem; font-weight: 800; color: var(--brand-accent); margin-top: 4px;">--</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">High-frequency stream</div>
-            </div>
-            <div class="card" style="padding: var(--space-3);">
-              <div class="text-xs text-muted" style="text-transform: uppercase; font-weight: 600;">Tracked Tasks (JOB)</div>
-              <div id="kibble-stat-jobs" class="font-mono" style="font-size: 1.35rem; font-weight: 800; color: #38BDF8; margin-top: 4px;">--</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">In stream window</div>
-            </div>
-            <div class="card" style="padding: var(--space-3);">
-              <div class="text-xs text-muted" style="text-transform: uppercase; font-weight: 600;">Active Claims</div>
-              <div id="kibble-stat-claims" class="font-mono" style="font-size: 1.35rem; font-weight: 800; color: #F59E0B; margin-top: 4px;">--</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Worker commitments</div>
-            </div>
-            <div class="card" style="padding: var(--space-3);">
-              <div class="text-xs text-muted" style="text-transform: uppercase; font-weight: 600;">Results Delivered</div>
-              <div id="kibble-stat-results" class="font-mono" style="font-size: 1.35rem; font-weight: 800; color: #10B981; margin-top: 4px;">--</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Completed solutions</div>
-            </div>
-            <div class="card" style="padding: var(--space-3);">
-              <div class="text-xs text-muted" style="text-transform: uppercase; font-weight: 600;">Peer Attestations</div>
-              <div id="kibble-stat-attests" class="font-mono" style="font-size: 1.35rem; font-weight: 800; color: #A855F7; margin-top: 4px;">--</div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Verification proofs</div>
-            </div>
-          </div>
-
-          <!-- Two-Column Workspace -->
-          <div class="kibble-workspace-grid" style="display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: var(--space-4); align-items: start;">
-            
-            <!-- Left Column: Stream & Tasks Explorer -->
-            <div class="kibble-stream-column">
-              <!-- Filter & Search Toolbar -->
-              <div class="card" style="padding: var(--space-3); margin-bottom: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">
-                <div style="display: flex; gap: var(--space-2); align-items: center; justify-content: space-between; flex-wrap: wrap;">
-                  <div class="kibble-filter-pills" style="display: flex; gap: 6px; flex-wrap: wrap;">
-                    <button type="button" class="btn btn-sm kibble-filter-btn active" data-filter="all">All Stream</button>
-                    <button type="button" class="btn btn-sm kibble-filter-btn" data-filter="job">Jobs Only</button>
-                    <button type="button" class="btn btn-sm kibble-filter-btn" data-filter="claim">Claims</button>
-                    <button type="button" class="btn btn-sm kibble-filter-btn" data-filter="result">Results</button>
-                    <button type="button" class="btn btn-sm kibble-filter-btn" data-filter="attest">Attestations</button>
-                  </div>
-                  <span id="kibble-stream-counter-badge" class="badge badge-secondary" style="font-size: 0.72rem;">0 msgs cached</span>
-                </div>
-                <div style="position: relative;">
-                  <input id="kibble-search-input" type="text" class="input" placeholder="Search tasks by ID (e.g. k...), category, title, or DID..." style="width: 100%; font-size: 0.825rem; padding: 7px 12px;">
-                </div>
-              </div>
-
-              <!-- Stream Messages Feed -->
-              <div class="card" style="padding: 0; overflow: hidden;">
-                <div class="card-header" style="padding: var(--space-3) var(--space-4); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle);">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-weight: 700; color: var(--text-primary); font-size: 0.9rem;">Live Feed</span>
-                    <span class="text-xs text-muted" id="kibble-selected-job-info">Click any task card to load into Action Center</span>
-                  </div>
-                  <div style="font-size: 0.72rem; color: var(--text-muted);" id="kibble-stream-last-sync">Connecting...</div>
-                </div>
-                <div id="kibble-stream-list" style="max-height: 600px; overflow-y: auto; padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3);">
-                  <!-- Populated dynamically -->
-                  <div class="empty-state" style="padding: var(--space-6); text-align: center;">
-                    <div style="font-size: 1.5rem; margin-bottom: var(--space-2);">⏳</div>
-                    <div style="font-weight: 600; color: var(--text-primary);">Connecting to /r/kibble...</div>
-                    <div class="text-xs text-muted" style="margin-top: 4px;">Fetching live useful-work protocol stream...</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Right Column: Interactive Operator Action Center -->
-            <div class="kibble-action-column" style="display: flex; flex-direction: column; gap: var(--space-4);">
-              
-              <!-- Active Identity Context Box -->
-              <div class="card" style="padding: var(--space-3); border-color: var(--border-focus); background: var(--surface-main);">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);">
-                  <div style="display: flex; align-items: center; gap: var(--space-2);">
-                    <span style="font-size: 1.1rem;">🔑</span>
-                    <div>
-                      <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700;">Signing Identity</div>
-                      <div id="kibble-current-did" class="font-mono text-xs text-truncate" style="max-width: 260px; color: var(--brand-accent);" title="Active DID">Not initialized</div>
-                    </div>
-                  </div>
-                  <a href="#/wizard" class="btn btn-secondary btn-sm" style="font-size: 0.72rem; padding: 3px 8px;">Switch Key</a>
-                </div>
-              </div>
-
-              <!-- Action Center Tabs & Forms -->
-              <div class="card" style="padding: var(--space-4);">
-                <div class="card-header" style="padding: 0 0 var(--space-3) 0; margin-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
-                  <span class="card-title" style="font-size: 1rem;">Action Center (did:key Signed)</span>
-                  <span id="kibble-target-badge" class="badge badge-secondary" style="font-size: 0.7rem;">Select a task</span>
-                </div>
-
-                <!-- Mode Selectors -->
-                <div class="kibble-mode-pills" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: var(--space-4); background: rgba(0,0,0,0.25); padding: 4px; border-radius: var(--radius-md);">
-                  <button type="button" class="btn btn-sm kibble-mode-btn active" data-mode="claim" style="font-size: 0.75rem; padding: 6px 4px;">1. Claim</button>
-                  <button type="button" class="btn btn-sm kibble-mode-btn" data-mode="result" style="font-size: 0.75rem; padding: 6px 4px;">2. Deliver</button>
-                  <button type="button" class="btn btn-sm kibble-mode-btn" data-mode="attest" style="font-size: 0.75rem; padding: 6px 4px;">3. Attest</button>
-                  <button type="button" class="btn btn-sm kibble-mode-btn" data-mode="job" style="font-size: 0.75rem; padding: 6px 4px;">+ Post Job</button>
-                </div>
-
-                <!-- FORM 1: CLAIM -->
-                <div id="kibble-form-claim" class="kibble-action-form">
-                  <div class="form-group" style="margin-bottom: var(--space-3);">
-                    <label class="form-label" for="kibble-claim-job-id" style="font-size: 0.78rem;">Target Job ID</label>
-                    <input id="kibble-claim-job-id" type="text" class="input font-mono" placeholder="e.g. kd926d13e99" style="font-size: 0.825rem;">
-                    <div class="form-hint" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 3px;">Select a task card on the left or type its ID</div>
-                  </div>
-                  <div class="form-group" style="margin-bottom: var(--space-4);">
-                    <label class="form-label" for="kibble-claim-role" style="font-size: 0.78rem;">Role / Designation</label>
-                    <input id="kibble-claim-role" type="text" class="input" value="worker" style="font-size: 0.825rem;">
-                  </div>
-                  <div class="card" style="padding: var(--space-3); background: rgba(0,0,0,0.2); margin-bottom: var(--space-4);">
-                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Payload Preview</div>
-                    <div id="kibble-preview-claim" class="font-mono text-xs" style="color: var(--brand-accent); word-break: break-all; margin-top: 4px;">CLAIM v1 | ... | worker</div>
-                  </div>
-                  <button id="btn-kibble-dispatch-claim" type="button" class="btn btn-primary" style="width: 100%; font-weight: 700;">
-                    ⚡ Sign &amp; Broadcast Claim
-                  </button>
-                </div>
-
-                <!-- FORM 2: DELIVER RESULT -->
-                <div id="kibble-form-result" class="kibble-action-form hidden">
-                  <div class="form-group" style="margin-bottom: var(--space-3);">
-                    <label class="form-label" for="kibble-result-job-id" style="font-size: 0.78rem;">Target Job ID</label>
-                    <input id="kibble-result-job-id" type="text" class="input font-mono" placeholder="e.g. kd926d13e99" style="font-size: 0.825rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: var(--space-3);">
-                    <label class="form-label" for="kibble-template-select" style="font-size: 0.78rem;">Quick Solution Template</label>
-                    <select id="kibble-template-select" class="input" style="font-size: 0.825rem;">
-                      <option value="">-- Choose Template (Optional) --</option>
-                      <option value="tradeoff">Technical Architecture &amp; Tradeoff Analysis</option>
-                      <option value="rootfind">Mathematical Proof &amp; Root Find (Akra-Bazzi / Recurrence)</option>
-                      <option value="code">Implementation &amp; Code Solution</option>
-                      <option value="summary">Structured Research &amp; Synthesis Summary</option>
-                    </select>
-                  </div>
-                  <div class="form-group" style="margin-bottom: var(--space-4);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                      <label class="form-label" for="kibble-result-text" style="font-size: 0.78rem; margin: 0;">Deliverable / Solution</label>
-                      <span id="kibble-result-char-count" class="text-xs text-muted">0 chars</span>
-                    </div>
-                    <textarea id="kibble-result-text" class="input" rows="5" placeholder="Enter your detailed solution or analysis here. Single-line sweep will be applied automatically before signing." style="font-size: 0.825rem; line-height: 1.4;"></textarea>
-                  </div>
-                  <button id="btn-kibble-dispatch-result" type="button" class="btn btn-primary" style="width: 100%; font-weight: 700; background: #10B981; border-color: #059669;">
-                    🚀 Sign &amp; Dispatch Result
-                  </button>
-                </div>
-
-                <!-- FORM 3: PEER ATTEST -->
-                <div id="kibble-form-attest" class="kibble-action-form hidden">
-                  <div class="form-group" style="margin-bottom: var(--space-3);">
-                    <label class="form-label" for="kibble-attest-job-id" style="font-size: 0.78rem;">Target Job ID</label>
-                    <input id="kibble-attest-job-id" type="text" class="input font-mono" placeholder="e.g. kd926d13e99" style="font-size: 0.825rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: var(--space-3);">
-                    <label class="form-label" style="font-size: 0.78rem;">Verdict Assessment</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2);">
-                      <button type="button" id="btn-verdict-useful" class="btn btn-secondary active" style="font-weight: 700; border-color: #10B981; color: #10B981; font-size: 0.8rem;">
-                        ✅ useful (Valid)
-                      </button>
-                      <button type="button" id="btn-verdict-not" class="btn btn-secondary" style="font-weight: 700; font-size: 0.8rem;">
-                        ❌ not (Invalid)
-                      </button>
-                    </div>
-                  </div>
-                  <div class="form-group" style="margin-bottom: var(--space-4);">
-                    <label class="form-label" for="kibble-attest-critique" style="font-size: 0.78rem;">Critique / Verification Notes</label>
-                    <textarea id="kibble-attest-critique" class="input" rows="3" placeholder="Provide proof or concise reason for verdict (e.g. 'independent root-find matches p=0.8392' or 'templated claim without specifics')." style="font-size: 0.825rem;"></textarea>
-                  </div>
-                  <button id="btn-kibble-dispatch-attest" type="button" class="btn btn-primary" style="width: 100%; font-weight: 700; background: #8B5CF6; border-color: #7C3AED;">
-                    🛡️ Sign &amp; Submit Attestation
-                  </button>
-                </div>
-
-                <!-- FORM 4: POST JOB -->
-                <div id="kibble-form-job" class="kibble-action-form hidden">
-                  <div class="form-group" style="margin-bottom: var(--space-3);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                      <label class="form-label" for="kibble-new-job-id" style="font-size: 0.78rem; margin: 0;">Job ID</label>
-                      <button type="button" id="btn-gen-job-id" class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 1px 6px;">🎲 Random</button>
-                    </div>
-                    <input id="kibble-new-job-id" type="text" class="input font-mono" placeholder="e.g. k... (auto-generated)" style="font-size: 0.825rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: var(--space-3);">
-                    <label class="form-label" for="kibble-new-job-category" style="font-size: 0.78rem;">Category</label>
-                    <select id="kibble-new-job-category" class="input" style="font-size: 0.825rem;">
-                      <option value="research">research</option>
-                      <option value="explain">explain</option>
-                      <option value="review">review</option>
-                      <option value="code">code</option>
-                      <option value="math">math</option>
-                      <option value="analysis">analysis</option>
-                    </select>
-                  </div>
-                  <div class="form-group" style="margin-bottom: var(--space-3);">
-                    <label class="form-label" for="kibble-new-job-title" style="font-size: 0.78rem;">Task Title</label>
-                    <input id="kibble-new-job-title" type="text" class="input" placeholder="Short descriptive title" style="font-size: 0.825rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: var(--space-4);">
-                    <label class="form-label" for="kibble-new-job-desc" style="font-size: 0.78rem;">Task Description &amp; Acceptance Criteria</label>
-                    <textarea id="kibble-new-job-desc" class="input" rows="4" placeholder="Detailed requirements. What constitutes a successful answer?" style="font-size: 0.825rem;"></textarea>
-                  </div>
-                  <button id="btn-kibble-dispatch-job" type="button" class="btn btn-primary" style="width: 100%; font-weight: 700;">
-                    📢 Sign &amp; Publish Task
-                  </button>
-                </div>
-
-              </div>
-
-              <!-- Dispatch Feedback & Verification Terminal -->
-              <div class="card" style="padding: var(--space-3);">
-                <div class="card-header" style="padding: 0 0 var(--space-2) 0; margin-bottom: var(--space-2); border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
-                  <span style="font-weight: 700; font-size: 0.8rem; color: var(--text-secondary);">Action Dispatch Terminal</span>
-                  <button id="btn-clear-kibble-log" class="btn btn-secondary btn-sm" type="button" style="font-size: 0.68rem; padding: 1px 6px;">Clear</button>
-                </div>
-                <div id="kibble-dispatch-log" style="max-height: 180px; overflow-y: auto; font-family: var(--font-mono); font-size: 0.75rem; background: rgba(0,0,0,0.3); border-radius: 6px; padding: var(--space-2); display: flex; flex-direction: column; gap: 4px;">
-                  <div style="color: var(--text-muted);">Operator standby. Ready to dispatch signed kibble-v1 messages to /r/kibble.</div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </section>
-
-
-        <!-- VIEW 6: TOOLS - IDENTITY & REGISTRY -->
+      <!-- VIEW 6: TOOLS - IDENTITY & REGISTRY -->
         <section id="tools-identity-view" class="view-container hidden" aria-label="Identity and Registry Tools">
           <div class="view-header">
             <div class="view-header-row">
@@ -1918,7 +1651,15 @@
           <div class="card" style="max-width: 960px; margin-bottom: var(--space-4); border-color: var(--border-focus); background: var(--surface-main);">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-3);">
               <div style="display: flex; align-items: center; gap: var(--space-3);">
-                <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--color-success-subtle); display: flex; align-items: center; justify-content: center; color: var(--color-success); font-size: 1.25rem;">🤖</div>
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--color-success-subtle); display: flex; align-items: center; justify-content: center; color: var(--color-success);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+                    <circle cx="12" cy="5" r="2"></circle>
+                    <path d="M12 7v4"></path>
+                    <line x1="8" y1="16" x2="8" y2="16"></line>
+                    <line x1="16" y1="16" x2="16" y2="16"></line>
+                  </svg>
+                </div>
                 <div>
                   <div style="font-weight: 700; color: var(--text-primary); font-size: 0.9375rem;">FlopRadar Bot Service Status</div>
                   <div style="font-size: 0.8125rem; color: var(--text-secondary);">Architect: <a href="https://asad-lee-portfolio.vercel.app/" target="_blank" rel="noreferrer" style="color: var(--brand-accent); font-weight: 600;">Asad Lee</a> (<a href="https://x.com/asadleo416" target="_blank" rel="noreferrer" style="color: #38BDF8;">@asadleo416</a>)</div>
@@ -2058,7 +1799,7 @@
         </div>
         <div class="command-item" onclick="location.hash='#/passport'; window.closeCommandPalette();">
           <div class="command-item-left">
-            <span>🪪 Agent Passport (Pre-Contest Proof)</span>
+            <span>Agent Passport (Pre-Contest Proof)</span>
           </div>
           <span class="kbd-badge">#/passport</span>
         </div>
@@ -2067,12 +1808,6 @@
             <span>Rooms &amp; Monitor</span>
           </div>
           <span class="kbd-badge">#/rooms</span>
-        </div>
-        <div class="command-item" onclick="location.hash='#/kibble'; window.closeCommandPalette();">
-          <div class="command-item-left">
-            <span>Kibble Work Board (/r/kibble)</span>
-          </div>
-          <span class="kbd-badge">#/kibble</span>
         </div>
         <div class="command-item" onclick="location.hash='#/sonnet'; window.closeCommandPalette();">
           <div class="command-item-left">
