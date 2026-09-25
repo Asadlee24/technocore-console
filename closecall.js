@@ -8,7 +8,7 @@
  * Top 3 profitable accounts win 1,000,000 FLOP after Oct 4, 2026.
  */
 
-import { encodeBase64Url, sweepSingleLine } from './crypto.js';
+import { encodeBase64Url, sweepSingleLine, generateKeypair, restoreKeypair } from './crypto.js';
 import { dispatchSignedMessage, fetchProtocol } from './transport.js';
 
 export const CLOSE_CALL_CONFIG = {
@@ -550,6 +550,58 @@ export function initCloseCallUI(domElements, appState, naclInstance, toastFuncti
     });
   }
 
+  // Bind Quick In-Page Key Loader controls
+  const btnKeyToggle = document.getElementById('btn-closecall-key-toggle');
+  const quickKeyBox = document.getElementById('closecall-quick-key-box');
+  const btnRestoreKey = document.getElementById('btn-closecall-restore-key');
+  const inputKey = document.getElementById('closecall-key-input');
+  const btnQuickGen = document.getElementById('btn-closecall-quick-generate');
+
+  if (btnKeyToggle && quickKeyBox) {
+    btnKeyToggle.addEventListener('click', () => {
+      const isHidden = quickKeyBox.style.display === 'none' || !quickKeyBox.style.display;
+      quickKeyBox.style.display = isHidden ? 'block' : 'none';
+    });
+  }
+
+  if (btnRestoreKey && inputKey) {
+    btnRestoreKey.addEventListener('click', () => {
+      const rawVal = (inputKey.value || '').trim();
+      if (!rawVal) {
+        _toast('Please paste a 32-byte seed or 64-byte secret key.', 'error');
+        return;
+      }
+      try {
+        const kp = restoreKeypair(rawVal, _nacl || window.nacl);
+        if (_state) {
+          _state.keypair = kp;
+        }
+        inputKey.value = '';
+        if (quickKeyBox) quickKeyBox.style.display = 'none';
+        updateCloseCallUI();
+        _toast(`Identity restored! Active DID: ${kp.did.slice(0, 14)}...${kp.did.slice(-4)}`, 'success');
+      } catch (err) {
+        _toast(`Failed to restore key: ${err.message}`, 'error');
+      }
+    });
+  }
+
+  if (btnQuickGen) {
+    btnQuickGen.addEventListener('click', () => {
+      try {
+        const kp = generateKeypair(_nacl || window.nacl);
+        if (_state) {
+          _state.keypair = kp;
+        }
+        if (quickKeyBox) quickKeyBox.style.display = 'none';
+        updateCloseCallUI();
+        _toast(`Fresh key generated! Active DID: ${kp.did.slice(0, 14)}...${kp.did.slice(-4)}. Back up in Identity Setup!`, 'success');
+      } catch (err) {
+        _toast(`Failed to generate key: ${err.message}`, 'error');
+      }
+    });
+  }
+
   // Start 1-second countdown clock for 5-minute referee sweeps
   if (_countdownTimer) clearInterval(_countdownTimer);
   _countdownTimer = setInterval(updateCountdownClock, 1000);
@@ -628,15 +680,23 @@ export function updateCloseCallUI() {
     loadUserStorage(did);
   }
 
-  // Active DID
+  // Active DID & Quick Key box visibility
   const activeDidEl = document.getElementById('closecall-active-did');
+  const quickKeyBox = document.getElementById('closecall-quick-key-box');
+  const btnKeyToggle = document.getElementById('btn-closecall-key-toggle');
   if (activeDidEl) {
     if (did) {
       activeDidEl.textContent = did;
       activeDidEl.style.color = 'var(--brand-accent)';
+      if (btnKeyToggle) btnKeyToggle.textContent = '🔑 Switch / Load Key';
+      if (quickKeyBox && quickKeyBox.style.display !== 'block') {
+        quickKeyBox.style.display = 'none';
+      }
     } else {
-      activeDidEl.textContent = 'No key loaded. Please generate or restore key in Identity Setup.';
+      activeDidEl.textContent = 'No key loaded. Paste key or generate below to trade.';
       activeDidEl.style.color = 'var(--text-muted)';
+      if (btnKeyToggle) btnKeyToggle.textContent = '🔑 Load Key';
+      if (quickKeyBox) quickKeyBox.style.display = 'block';
     }
   }
 

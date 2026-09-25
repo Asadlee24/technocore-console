@@ -608,8 +608,28 @@
                   </div>
                 </div>
 
-                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
-                  Active Key: <code id="closecall-active-did" style="font-size: 0.6875rem; color: var(--brand-accent); word-break: break-all;">No key loaded</code>
+                <!-- Trading Identity Status & In-Page Key Loader -->
+                <div id="closecall-identity-section" style="margin-bottom: var(--space-3); padding: 10px 12px; background: rgba(0,0,0,0.3); border-radius: 6px; border: 1px solid var(--border-subtle);">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                    <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Trader Identity:</div>
+                    <button id="btn-closecall-key-toggle" type="button" class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 2px 8px; min-height: 22px;">🔑 Switch / Load Key</button>
+                  </div>
+                  <div style="margin-top: 4px; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4;">
+                    Active Key: <code id="closecall-active-did" style="font-size: 0.6875rem; color: var(--brand-accent); word-break: break-all;">No key loaded</code>
+                  </div>
+                  
+                  <!-- Quick In-Page Key Loader (Collapsible) -->
+                  <div id="closecall-quick-key-box" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 4px;">Paste 32-byte seed or 64-byte secret key (hex/base64):</div>
+                    <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                      <input id="closecall-key-input" class="input-text" type="text" placeholder="Paste secret key hex or base64" autocomplete="off" spellcheck="false" style="font-size: 0.75rem; padding: 4px 8px;">
+                      <button id="btn-closecall-restore-key" class="btn btn-secondary btn-sm" type="button" style="padding: 4px 10px; font-size: 0.72rem; white-space: nowrap; font-weight: 700;">Restore</button>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                      <span style="font-size: 0.68rem; color: var(--text-muted);">New to Close Call?</span>
+                      <button id="btn-closecall-quick-generate" class="btn btn-secondary btn-sm" type="button" style="font-size: 0.68rem; padding: 2px 8px;">⚡ 1-Click Generate Key</button>
+                    </div>
+                  </div>
                 </div>
 
                 <button id="btn-closecall-claim-mint" class="btn btn-secondary btn-sm" type="button" style="width: 100%; border-color: var(--brand-accent); color: var(--brand-accent); font-weight: 600;">
