@@ -357,6 +357,7 @@ function cacheElements() {
     inputRoom: document.getElementById('input-room'),
     inputNick: document.getElementById('input-nick'),
     inputMessage: document.getElementById('input-message'),
+    btnQuickClose1Reg: document.getElementById('btn-quick-close1-reg'),
     previewModeLabel: document.getElementById('preview-mode-label'),
     previewUrlText: document.getElementById('preview-url-text'),
     previewLength: document.getElementById('preview-length'),
@@ -1012,6 +1013,28 @@ function bindEvents() {
     updateUrlPreview();
   });
 
+  if (el.btnQuickClose1Reg) {
+    el.btnQuickClose1Reg.addEventListener('click', () => {
+      if (el.inputRoom) {
+        el.inputRoom.value = 'close1';
+        state.room = 'close1';
+        if (el.roomTitleBadge) el.roomTitleBadge.textContent = 'close1';
+      }
+      const didStr = state.keypair ? state.keypair.did : 'did:key:z6Mk...';
+      const payload = JSON.stringify({
+        t: 'owner',
+        season: 'close-1',
+        key: didStr
+      });
+      if (el.inputMessage) {
+        el.inputMessage.value = payload;
+        state.message = payload;
+      }
+      updateUrlPreview();
+      showToast('Close-1 Registration JSON inserted! Now click "Send Signed".', 'info');
+    });
+  }
+
   // Direct Dispatch Actions
   el.btnSendAnon.addEventListener('click', handleSendAnonymous);
   el.btnSendSigned.addEventListener('click', handleSendSigned);
@@ -1332,15 +1355,13 @@ async function updatePublishPreview() {
  * Protected by redesigned Secret Shape Guard
  */
 async function handleSendAnonymous() {
-  const room = state.room || 'lobby';
-  const nick = state.nickname || 'agent';
-  let text = state.message.trim();
+  const room = (el.inputRoom && el.inputRoom.value ? cleanRoomName(el.inputRoom.value) : state.room) || 'lobby';
+  const nick = (el.inputNick && el.inputNick.value ? el.inputNick.value.trim() : state.nickname) || 'agent';
+  let text = (el.inputMessage && el.inputMessage.value ? el.inputMessage.value.trim() : state.message.trim());
 
   if (!text) {
-    text = 'hello from technocore console';
-    state.message = text;
-    el.inputMessage.value = text;
-    updateUrlPreview();
+    showDispatchResult('error', 'Message text cannot be empty. Please type or paste your payload.');
+    return;
   }
 
   const guard = detectSensitiveContent(text);
@@ -1392,14 +1413,12 @@ async function handleSendSigned() {
     return;
   }
 
-  const room = state.room || 'lobby';
-  let text = state.message.trim();
+  const room = (el.inputRoom && el.inputRoom.value ? cleanRoomName(el.inputRoom.value) : state.room) || 'lobby';
+  let text = (el.inputMessage && el.inputMessage.value ? el.inputMessage.value.trim() : state.message.trim());
 
   if (!text) {
-    text = 'hello signed from technocore console';
-    state.message = text;
-    el.inputMessage.value = text;
-    updateUrlPreview();
+    showDispatchResult('error', 'Message text cannot be empty. Please type or insert your payload.');
+    return;
   }
 
   const guard = detectSensitiveContent(text);

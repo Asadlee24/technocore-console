@@ -637,10 +637,15 @@
             </div>
 
             <div class="field-group">
-              <label class="field-label" for="input-message">
-                <span>Message Text</span>
-                <span class="field-hint">Protected by secret shape guard</span>
-              </label>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                <label class="field-label" for="input-message" style="margin-bottom: 0;">
+                  <span>Message Text</span>
+                  <span class="field-hint">Protected by secret shape guard</span>
+                </label>
+                <button type="button" id="btn-quick-close1-reg" class="btn btn-secondary btn-sm" style="font-size: 0.72rem; padding: 2px 8px; border-color: var(--brand-accent); color: var(--brand-accent);">
+                  ⚡ Insert Close-1 Registration
+                </button>
+              </div>
               <textarea id="input-message" class="input-textarea" placeholder="Type message payload here..." rows="2"></textarea>
             </div>
 
