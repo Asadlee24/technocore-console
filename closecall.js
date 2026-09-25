@@ -743,18 +743,44 @@ function renderLeaderboardList() {
   top.slice(0, 10).forEach((entry, idx) => {
     const rank = idx + 1;
     const rankMedal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
-    const did = entry.key || entry.did || 'Unknown';
+    
+    let did = 'Unknown';
+    let pnl = 0;
+    let bal = 10000;
+
+    if (Array.isArray(entry)) {
+      did = entry[0] || 'Unknown';
+      pnl = parseFloat(entry[1]) || 0;
+      bal = 10000 + pnl;
+    } else if (typeof entry === 'object' && entry !== null) {
+      did = entry.key || entry.did || 'Unknown';
+      pnl = entry.pnl !== undefined ? parseFloat(entry.pnl) : (parseFloat(entry.bal || 10000) - 10000);
+      bal = entry.bal !== undefined ? parseFloat(entry.bal) : 10000 + pnl;
+    }
+
     const shortDid = did.length > 20 ? `${did.substring(0, 12)}...${did.substring(did.length - 6)}` : did;
-    const pnl = entry.pnl !== undefined ? parseFloat(entry.pnl) : (parseFloat(entry.bal || 10000) - 10000);
-    const bal = entry.bal !== undefined ? parseFloat(entry.bal) : 10000;
+    const isOwn = _state && _state.keypair && _state.keypair.did && did.toLowerCase() === _state.keypair.did.toLowerCase();
     const pnlColor = pnl >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
     const pnlSign = pnl > 0 ? '+' : '';
 
+    if (isOwn) {
+      const balDisplay = document.getElementById('closecall-balance-display');
+      if (balDisplay) {
+        balDisplay.textContent = bal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      const regBadge = document.getElementById('closecall-reg-badge');
+      if (regBadge) {
+        regBadge.className = 'step-status-pill complete';
+        regBadge.textContent = `Rank #${rank} (PnL: ${pnlSign}${pnl.toFixed(2)} POLF)`;
+      }
+    }
+
     html += `
-      <tr>
+      <tr style="${isOwn ? 'background: rgba(32, 231, 242, 0.08); font-weight: 700;' : ''}">
         <td style="font-weight: 800; font-size: 0.875rem;">${rankMedal}</td>
         <td>
-          <code style="font-size: 0.72rem; color: var(--brand-accent);" title="${did}">${shortDid}</code>
+          <code style="font-size: 0.72rem; color: ${isOwn ? '#20E7F2' : 'var(--brand-accent)'};" title="${did}">${shortDid}</code>
+          ${isOwn ? '<span class="badge" style="background: rgba(32, 231, 242, 0.2); color: #20E7F2; font-size: 0.625rem; font-weight: 700; margin-left: 4px;">YOU</span>' : ''}
         </td>
         <td style="text-align: right; font-family: var(--font-mono); font-weight: 700; color: ${pnlColor};">
           ${pnlSign}${pnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} POLF
