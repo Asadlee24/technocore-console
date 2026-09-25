@@ -176,6 +176,20 @@ const state = {
     lastClaimReqId: null,
 
     lexiconLoaded: false
+  },
+
+  // Kibble Useful-Work Subsystem state
+  kibble: {
+    isStreaming: true,
+    streamTimer: null,
+    activeFilter: 'all',
+    searchQuery: '',
+    messages: [],
+    lastSeq: 0,
+    aggregated: null,
+    selectedJobId: null,
+    activeMode: 'claim',
+    attestVerdict: 'useful'
   }
 };
 
@@ -4375,7 +4389,9 @@ function renderSonnetPoemLines() {
       html += `<div class="stanza-header">${stanzaTitles[i]}</div>`;
     }
 
-    const lineData = poemValidation.lines[i] || { syllables: 0, words: [], valid: true };
+    const sylCount = (poemValidation && poemValidation.syllablesPerLine && poemValidation.syllablesPerLine[i]) || 0;
+    const wordsArr = (Array.isArray(state.sonnet.words) && state.sonnet.words[i]) ? [state.sonnet.words[i]] : [];
+    const lineData = (poemValidation && poemValidation.lines && poemValidation.lines[i]) || { syllables: sylCount, words: wordsArr, valid: true };
     const meterPercent = Math.min(100, Math.round((lineData.syllables / 10) * 100));
     const wordsText = lineData.words && lineData.words.length > 0 ? lineData.words.join(' ') : '';
 
@@ -4397,8 +4413,17 @@ function renderSonnetPoemLines() {
   el.sonnetMeterSummary.textContent = `${poemValidation.totalSyllables} / 140 Syllables`;
   el.sonnetStatSyllables.textContent = `${poemValidation.totalSyllables} / 140`;
 
-  const canonical = formatCanonicalPoem(state.sonnet.words);
-  el.sonnetCanonicalTextArea.value = canonical || 'Waiting for referee accepted words...';
+  let canonical = '';
+  if (poemValidation && poemValidation.valid) {
+    try {
+      canonical = formatCanonicalPoem(state.sonnet.words);
+    } catch (e) {
+      canonical = '';
+    }
+  }
+  if (el.sonnetCanonicalTextArea) {
+    el.sonnetCanonicalTextArea.value = canonical || 'Waiting for referee accepted words...';
+  }
 
   if (poemValidation.valid) {
     calculatePoemSha256(canonical).then((sha) => {
