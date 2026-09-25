@@ -1,11 +1,42 @@
 import https from 'https';
-import { createRequire } from 'module';
-import { deriveDidKey, bytesToHex } from '../crypto.js';
+import crypto from 'crypto';
 
-const require = createRequire(import.meta.url);
-if (typeof self === 'undefined') globalThis.self = globalThis;
-require('../vendor/nacl-fast.min.js');
-const nacl = globalThis.nacl;
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function encodeBase58(bytes) {
+  let zeros = 0;
+  while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  const digits = [0];
+  for (let i = 0; i < bytes.length; i++) {
+    let carry = bytes[i];
+    for (let j = 0; j < digits.length; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = (carry / 58) | 0;
+    }
+  }
+  let str = '1'.repeat(zeros);
+  for (let i = digits.length - 1; i >= 0; i--) str += BASE58_ALPHABET[digits[i]];
+  return str;
+}
+
+function deriveDidKey(publicKey32) {
+  const prefixed = Buffer.concat([Buffer.from([0xed, 0x01]), Buffer.from(publicKey32)]);
+  return `did:key:z${encodeBase58(prefixed)}`;
+}
+
+function generateEd25519Key() {
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519');
+  const pubBytes = publicKey.export({ type: 'spki', format: 'der' }).subarray(-32);
+  const privBytes = privateKey.export({ type: 'pkcs8', format: 'der' }).subarray(-32);
+  return {
+    did: deriveDidKey(pubBytes),
+    secretHex: privBytes.toString('hex')
+  };
+}
 
 /**
  * FlopRadar Telegram Bot (@FlopRadarBot)
@@ -1197,9 +1228,9 @@ export default async function handler(req, res) {
         let secretKeyHex = '';
 
         if (targetDid.toLowerCase() === 'new') {
-          const kp = nacl.sign.keyPair();
-          targetDid = deriveDidKey(kp.publicKey);
-          secretKeyHex = bytesToHex(kp.secretKey);
+          const gen = generateEd25519Key();
+          targetDid = gen.did;
+          secretKeyHex = gen.secretHex;
           isNew = true;
           USER_DIDS.set(String(chatId), targetDid);
         } else if (targetDid.startsWith('did:key:z')) {
