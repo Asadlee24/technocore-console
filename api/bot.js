@@ -1,4 +1,11 @@
 import https from 'https';
+import { createRequire } from 'module';
+import { deriveDidKey, bytesToHex } from '../crypto.js';
+
+const require = createRequire(import.meta.url);
+if (typeof self === 'undefined') globalThis.self = globalThis;
+require('../vendor/nacl-fast.min.js');
+const nacl = globalThis.nacl;
 
 /**
  * FlopRadar Telegram Bot (@FlopRadarBot)
@@ -35,25 +42,14 @@ const BOT_COMMANDS = [
   { command: 'pnl', description: 'Official Close Call referee leaderboard & top 10 rankings' },
   { command: 'orders', description: 'Scan live open counterparty trade offers in /r/close1' },
   { command: 'positions', description: 'Close Call global positions telemetry (Longs vs Shorts)' },
+  { command: 'register', description: 'Claim 10,000 POLF starting stack for contest' },
+  { command: 'bounties', description: 'Scan live open TCLK micro-contracts' },
   { command: 'earnings', description: 'Live FLOP balance and claimed bounty count' },
   { command: 'sniper', description: '24/7 cloud sniper health check and runner stats' },
   { command: 'leaderboard', description: 'Technocore top solvers scoreboard' },
-  { command: 'bounties', description: 'Scan live open TCLK micro-contracts' },
-  { command: 'status', description: 'Check registration & sniper status' },
+  { command: 'status', description: 'Check registration & identity status' },
   { command: 'menu', description: 'Interactive command menu and quick guide' },
-  { command: 'audit', description: 'Referee compliance audit of any squad' },
-  { command: 'rhyme', description: 'Find legal rhyming words for your DID' },
-  { command: 'word', description: 'Test if a DID can legally sign a word' },
-  { command: 'meter', description: 'Count line syllables (10 req)' },
-  { command: 'pair', description: 'Calculate alphabet synergy of 2 DIDs' },
-  { command: 'check', description: 'Analyze DID letter coverage' },
-  { command: 'team', description: 'Live status of any squad (e.g. /team leidream)' },
-  { command: 'teams', description: 'List active squads in contest' },
-  { command: 'rules', description: 'Sonnet-2 official contest rules' },
-  { command: 'deadline', description: 'Contest closing countdown' },
-  { command: 'stats', description: 'Contest statistics and submissions' },
-  { command: 'explain', description: 'Translate message or receipt into plain English' },
-  { command: 'help', description: 'Overview and usage guide' }
+  { command: 'help', description: 'How to trade, register, and win 1,000,000 FLOP' }
 ];
 
 const KNOWN_DIDS = {
@@ -879,28 +875,22 @@ export default async function handler(req, res) {
         // Asynchronously keep Telegram native commands menu up-to-date
         syncTelegramMenuCommands().catch(() => {});
 
-        const welcome = `<b>FlopRadar - Technocore Console &amp; Bounty Sniper</b>\n\n` +
+        const welcome = `<b>FlopRadar - Close Call Trading Desk &amp; Intelligence Bot</b>\n\n` +
           `Autonomous agent companion by Asad Lee (@asadleo416):\n\n` +
-          `<b>⚡ Bounty Sniper &amp; Earnings:</b>\n` +
-          `• <code>/earnings</code> - Check your live FLOP balance &amp; won bounties\n` +
-          `• <code>/sniper</code> - 24/7 Cloud Sniper engine health, uptime &amp; telemetry\n` +
-          `• <code>/leaderboard</code> - Technocore top bounty hunter rankings\n` +
+          `<b>📈 Close Call Trading Desk (close-1):</b>\n` +
+          `• <code>/closecall</code> - Live NVDA perp price, 5% sweep limits &amp; bankroll\n` +
+          `• <code>/pnl</code> - Official Referee Leaderboard &amp; Top 10 rankings\n` +
+          `• <code>/orders</code> - Scan open P2P trade offers in /r/close1\n` +
+          `• <code>/positions</code> - Global Longs vs Shorts open interest telemetry\n` +
+          `• <code>/register [DID]</code> - Claim 10,000 POLF starting stack ($1/POLF)\n\n` +
+          `<b>⚡ Technocore Bounties &amp; Sniper:</b>\n` +
           `• <code>/bounties</code> - Scan live open TCLK micro-contracts\n` +
-          `• <code>/status [DID]</code> - Check registration &amp; sniper status\n\n` +
-          `<b>🎯 Sonnet Challenge #2 Commands:</b>\n` +
-          `• <code>/audit &lt;team&gt;</code> - Pre-submission referee compliance audit of squad\n` +
-          `• <code>/rhyme &lt;word&gt; [DID]</code> - Find legal rhyming words for your DID\n` +
-          `• <code>/word &lt;word&gt; [DID]</code> - Check if a DID can legally sign a word\n` +
-          `• <code>/meter &lt;line&gt;</code> - Analyze line syllables (10 req)\n` +
-          `• <code>/pair &lt;DID1&gt; &lt;DID2&gt;</code> - Test alphabet synergy between 2 members\n` +
-          `• <code>/check [DID]</code> - View letters held and dictionary coverage\n` +
-          `• <code>/team &lt;team-name&gt;</code> - Live room telemetry for any squad\n` +
-          `• <code>/teams</code> - View active squads in contest\n` +
-          `• <code>/rules</code> - 7 core rules of Sonnet Challenge #2\n` +
-          `• <code>/deadline</code> - Countdown to contest close\n` +
-          `• <code>/stats</code> - Contest dashboard and submissions\n` +
-          `• <code>/explain &lt;text&gt;</code> - Translate raw JSON/receipt into plain English\n\n` +
-          `<i>Tip: Tap the <b>[/]</b> Menu button on your keyboard or type any command with or without slash '/'.</i>`;
+          `• <code>/earnings</code> - Check live FLOP balance &amp; claimed bounties\n` +
+          `• <code>/sniper</code> - 24/7 Cloud Sniper engine health &amp; telemetry\n` +
+          `• <code>/status</code> - Check registration &amp; identity status\n\n` +
+          `🌐 <b>Web Trading Console:</b>\n` +
+          `<a href="https://technocore-console.vercel.app/#/closecall">Open Close Call Desk &amp; Trade →</a>\n\n` +
+          `<i>Tip: Tap the <b>[/]</b> Menu button on your keyboard for quick 1-tap commands.</i>`;
 
         await sendTelegramMessage(chatId, welcome);
         return res.status(200).json({ ok: true });
@@ -912,11 +902,12 @@ export default async function handler(req, res) {
         if (syncRes.ok) {
           await sendTelegramMessage(chatId, `✅ <b>Telegram Menu Updated!</b>\n\n` +
             `All ${BOT_COMMANDS.length} commands are now active in your Telegram app's <b>[/]</b> Menu popup button:\n\n` +
-            `• <code>/earnings</code> - Live FLOP balance\n` +
-            `• <code>/sniper</code> - Cloud engine health &amp; stats\n` +
-            `• <code>/leaderboard</code> - Technocore hunter rankings\n` +
-            `• <code>/bounties</code> - Live TCLK offers\n` +
-            `• <code>/status</code> - Quick status check\n` +
+            `• <code>/closecall</code> - Live NVDA price &amp; bankroll\n` +
+            `• <code>/pnl</code> - Official Referee Leaderboard\n` +
+            `• <code>/orders</code> - Scan P2P offers\n` +
+            `• <code>/positions</code> - Longs vs Shorts telemetry\n` +
+            `• <code>/register</code> - Claim 10,000 POLF\n` +
+            `• <code>/bounties</code> - Live TCLK bounties\n` +
             `• <code>/menu</code> - Command list`);
         } else {
           await sendTelegramMessage(chatId, `⚠️ Menu sync note: ${escapeHtml(syncRes.error || 'Check server logs')}`);
@@ -1134,6 +1125,52 @@ export default async function handler(req, res) {
           await sendTelegramMessage(chatId, msgText);
         } catch(err) {
           await sendTelegramMessage(chatId, `⚠️ Error fetching positions: ${escapeHtml(err.message)}`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: register / claim
+      if (command === 'register' || command === 'claim') {
+        let targetDid = (args[0] || '').trim();
+        let isNew = false;
+        let secretKeyHex = '';
+
+        if (!targetDid || !targetDid.startsWith('did:key:z6Mk')) {
+          const kp = nacl.sign.keyPair();
+          targetDid = deriveDidKey(kp.publicKey);
+          secretKeyHex = bytesToHex(kp.secretKey);
+          isNew = true;
+        }
+
+        try {
+          const payload = JSON.stringify({
+            t: 'owner',
+            season: 'close-1',
+            key: targetDid
+          });
+
+          // Broadcast to /r/close1
+          const nick = targetDid.slice(0, 14);
+          const enc = encodeURIComponent(payload);
+          await fetch(`https://technocore.chat/r/close1/say/${nick}/${enc}`);
+
+          let reply = `✅ <b>10,000 POLF Claimed &amp; Registered!</b>\n\n` +
+            `🆔 <b>Contest Identity DID:</b>\n<code>${targetDid}</code>\n\n` +
+            `💰 <b>Starting Balance:</b> <code>10,000.00 POLF</code> ($1/POLF)\n` +
+            `🎯 <b>Contest:</b> <code>close-1</code> (Hyperliquid NVDA Perps)\n` +
+            `🏆 <b>Prize Pool:</b> <b>1,000,000 FLOP</b> (Top 3 on Oct 4)\n\n`;
+
+          if (isNew) {
+            reply += `🔑 <b>YOUR GENERATED SECRET KEY (SAVE THIS!):</b>\n` +
+              `<code>${secretKeyHex}</code>\n\n` +
+              `⚠️ <i>Store this 64-byte secret key securely! You can use it to log in on the Web Trading Desk and place signed orders.</i>\n\n`;
+          }
+
+          reply += `👉 <a href="https://technocore-console.vercel.app/#/closecall">Open Web Trading Desk &amp; Trade Now →</a>`;
+
+          await sendTelegramMessage(chatId, reply);
+        } catch (err) {
+          await sendTelegramMessage(chatId, `⚠️ Registration failed: ${escapeHtml(err.message)}`);
         }
         return res.status(200).json({ ok: true });
       }
