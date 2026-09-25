@@ -42,6 +42,7 @@ const BOT_COMMANDS = [
   { command: 'pnl', description: 'Official Close Call referee leaderboard & top 10 rankings' },
   { command: 'orders', description: 'Scan live open counterparty trade offers in /r/close1' },
   { command: 'positions', description: 'Close Call global positions telemetry (Longs vs Shorts)' },
+  { command: 'setdid', description: 'Link or view your existing did:key identity' },
   { command: 'register', description: 'Claim 10,000 POLF starting stack for contest' },
   { command: 'bounties', description: 'Scan live open TCLK micro-contracts' },
   { command: 'earnings', description: 'Live FLOP balance and claimed bounty count' },
@@ -51,6 +52,16 @@ const BOT_COMMANDS = [
   { command: 'menu', description: 'Interactive command menu and quick guide' },
   { command: 'help', description: 'How to trade, register, and win 1,000,000 FLOP' }
 ];
+
+const USER_DIDS = new Map();
+export const DEFAULT_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
+
+function getUserDid(chatId) {
+  if (chatId && USER_DIDS.has(String(chatId))) {
+    return USER_DIDS.get(String(chatId));
+  }
+  return DEFAULT_DID;
+}
 
 const KNOWN_DIDS = {
   'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': '<a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> (Leader)',
@@ -969,17 +980,42 @@ export default async function handler(req, res) {
             }
           }
 
+          let activeUserDid = getUserDid(chatId);
+          let isDefaultOwner = activeUserDid === DEFAULT_DID;
+          let userLabel = isDefaultOwner ? 'Asad Lee (@asadleo416) [YOU]' : `Trader (<code>${activeUserDid.slice(0, 14)}...${activeUserDid.slice(-6)}</code>)`;
+
+          // Check if user has an active order in /r/close1
+          let userActiveOrderText = 'None (Place an order on Web Desk)';
+          try {
+            const roomRes = await fetch('https://technocore.chat/r/close1?limit=40');
+            const roomTxt = await roomRes.text();
+            const roomLines = roomTxt.split('\n').filter(l => l.includes('{'));
+            for (const rl of roomLines.reverse()) {
+              try {
+                const p = JSON.parse(rl.slice(rl.indexOf('{')));
+                if (p.t === 'offer' && p.terms && p.terms.maker.toLowerCase() === activeUserDid.toLowerCase()) {
+                  userActiveOrderText = `🟢 ${p.terms.side.toUpperCase()} ${p.terms.qty} NVDA @ $${p.terms.px} (Waiting Match • ID: <code>${p.terms.id}</code>)`;
+                  break;
+                }
+              } catch(e) {}
+            }
+          } catch(e) {}
+
           const response = `<b>📈 Close Call Trading Desk (close-1)</b>\n` +
             `<i>One NVDA Future Settle • 1,000,000 FLOP Prize Pool</i>\n\n` +
             `💵 <b>Hyperliquid NVDA:</b> <code>$${price}</code>\n` +
             `📊 <b>Allowed 5% Range:</b> <code>${limits}</code>\n` +
             `⏱ <b>Referee Sweep:</b> <code>Sweep #${sweepN} / 2,556</code>\n` +
             `⏳ <b>Cadence:</b> Every 5 minutes\n\n` +
-            `👤 <b>Active DID:</b> <code>did:key:z6MkhefoSonhn...</code>\n` +
+            `👤 <b>Operator:</b> ${userLabel}\n` +
+            `🆔 <b>Active DID:</b> <code>${activeUserDid}</code>\n` +
             `💰 <b>Starting Bankroll:</b> <code>10,000.00 POLF</code>\n` +
+            `🎯 <b>Your Active Order:</b>\n${userActiveOrderText}\n\n` +
             `🏆 <b>Current Rank #1:</b> <code>${topTrader}</code>\n` +
             `📊 <b>Global Contracts:</b> <code>${longs} Longs</code> vs <code>${shorts} Shorts</code>\n\n` +
             `<b>⚡ Quick Commands:</b>\n` +
+            `• <code>/setdid &lt;did&gt;</code> - Link your existing DID\n` +
+            `• <code>/register</code> - Claim 10k POLF for this DID\n` +
             `• <code>/pnl</code> - Top 10 Official Leaderboard\n` +
             `• <code>/orders</code> - Scan open P2P trade offers\n` +
             `• <code>/positions</code> - Global open interest stats\n\n` +
@@ -990,6 +1026,31 @@ export default async function handler(req, res) {
         } catch(err) {
           await sendTelegramMessage(chatId, `⚠️ Error fetching Close Call stats: ${escapeHtml(err.message)}`);
         }
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: setdid / link
+      if (command === 'setdid' || command === 'link' || command === 'did') {
+        const newDid = (args[0] || '').trim();
+        if (!newDid || !newDid.startsWith('did:key:z')) {
+          const curDid = getUserDid(chatId);
+          const reply = `<b>Your Current Linked DID:</b>\n<code>${curDid}</code>\n\n` +
+            `To link your own existing DID, type:\n` +
+            `<code>/setdid did:key:z6Mk...</code>\n\n` +
+            `Or to claim 10,000 POLF for this DID:\n` +
+            `<code>/register</code>`;
+          await sendTelegramMessage(chatId, reply);
+          return res.status(200).json({ ok: true });
+        }
+
+        USER_DIDS.set(String(chatId), newDid);
+        const reply = `✅ <b>Existing DID Linked Successfully!</b>\n\n` +
+          `🆔 <b>Active DID:</b>\n<code>${newDid}</code>\n\n` +
+          `The bot will now use this DID for all your Close Call commands (<code>/closecall</code>, <code>/pnl</code>, <code>/orders</code>, <code>/register</code>).\n\n` +
+          `• Type <code>/register</code> to broadcast claim in /r/close1\n` +
+          `• Type <code>/closecall</code> to view live trading status\n\n` +
+          `👉 <a href="https://technocore-console.vercel.app/#/closecall">Open Web Trading Desk →</a>`;
+        await sendTelegramMessage(chatId, reply);
         return res.status(200).json({ ok: true });
       }
 
@@ -1135,11 +1196,17 @@ export default async function handler(req, res) {
         let isNew = false;
         let secretKeyHex = '';
 
-        if (!targetDid || !targetDid.startsWith('did:key:z6Mk')) {
+        if (targetDid.toLowerCase() === 'new') {
           const kp = nacl.sign.keyPair();
           targetDid = deriveDidKey(kp.publicKey);
           secretKeyHex = bytesToHex(kp.secretKey);
           isNew = true;
+          USER_DIDS.set(String(chatId), targetDid);
+        } else if (targetDid.startsWith('did:key:z')) {
+          USER_DIDS.set(String(chatId), targetDid);
+        } else {
+          // Use user's currently linked/existing DID by default!
+          targetDid = getUserDid(chatId);
         }
 
         try {
@@ -1155,7 +1222,7 @@ export default async function handler(req, res) {
           await fetch(`https://technocore.chat/r/close1/say/${nick}/${enc}`);
 
           let reply = `✅ <b>10,000 POLF Claimed &amp; Registered!</b>\n\n` +
-            `🆔 <b>Contest Identity DID:</b>\n<code>${targetDid}</code>\n\n` +
+            `🆔 <b>Active Contest DID:</b>\n<code>${targetDid}</code>\n\n` +
             `💰 <b>Starting Balance:</b> <code>10,000.00 POLF</code> ($1/POLF)\n` +
             `🎯 <b>Contest:</b> <code>close-1</code> (Hyperliquid NVDA Perps)\n` +
             `🏆 <b>Prize Pool:</b> <b>1,000,000 FLOP</b> (Top 3 on Oct 4)\n\n`;
@@ -1164,6 +1231,8 @@ export default async function handler(req, res) {
             reply += `🔑 <b>YOUR GENERATED SECRET KEY (SAVE THIS!):</b>\n` +
               `<code>${secretKeyHex}</code>\n\n` +
               `⚠️ <i>Store this 64-byte secret key securely! You can use it to log in on the Web Trading Desk and place signed orders.</i>\n\n`;
+          } else {
+            reply += `💡 <i>Registered using your existing DID. To generate a fresh new DID instead, type: <code>/register new</code></i>\n\n`;
           }
 
           reply += `👉 <a href="https://technocore-console.vercel.app/#/closecall">Open Web Trading Desk &amp; Trade Now →</a>`;
