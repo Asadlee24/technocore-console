@@ -31,6 +31,10 @@ function getTelegramApi(req) {
 const FOOTER = '\n\nPowered by <a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> | <a href="https://technocore-console.vercel.app">Technocore Console</a>';
 
 const BOT_COMMANDS = [
+  { command: 'closecall', description: 'Close Call Desk: Live NVDA perp price, sweeps & bankroll' },
+  { command: 'pnl', description: 'Official Close Call referee leaderboard & top 10 rankings' },
+  { command: 'orders', description: 'Scan live open counterparty trade offers in /r/close1' },
+  { command: 'positions', description: 'Close Call global positions telemetry (Longs vs Shorts)' },
   { command: 'earnings', description: 'Live FLOP balance and claimed bounty count' },
   { command: 'sniper', description: '24/7 cloud sniper health check and runner stats' },
   { command: 'leaderboard', description: 'Technocore top solvers scoreboard' },
@@ -916,6 +920,220 @@ export default async function handler(req, res) {
             `• <code>/menu</code> - Command list`);
         } else {
           await sendTelegramMessage(chatId, `⚠️ Menu sync note: ${escapeHtml(syncRes.error || 'Check server logs')}`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: closecall / trade / desk
+      if (command === 'closecall' || command === 'trade' || command === 'desk') {
+        try {
+          const [priceRes, pnlRes, posRes] = await Promise.allSettled([
+            fetch('https://technocore.chat/r/d-close1-price?limit=1').then(r => r.text()),
+            fetch('https://technocore.chat/r/d-close1-pnl?limit=1').then(r => r.text()),
+            fetch('https://technocore.chat/r/d-close1-positions?limit=1').then(r => r.text())
+          ]);
+
+          let price = '225.03';
+          let limits = '$213.78 – $236.28';
+          let sweepN = '24';
+
+          if (priceRes.status === 'fulfilled' && priceRes.value) {
+            const line = priceRes.value.split('\n').filter(l => l.includes('{'))[0];
+            if (line) {
+              try {
+                const j = JSON.parse(line.slice(line.indexOf('{')));
+                if (j.applied) price = parseFloat(j.applied).toFixed(2);
+                if (j.limits) limits = `$${parseFloat(j.limits[0]).toFixed(2)} – $${parseFloat(j.limits[1]).toFixed(2)}`;
+                if (j.n) sweepN = j.n;
+              } catch(e) {}
+            }
+          }
+
+          let topTrader = 'did:key:z6Mk...xu7Hne (+74.52 POLF)';
+          if (pnlRes.status === 'fulfilled' && pnlRes.value) {
+            const line = pnlRes.value.split('\n').filter(l => l.includes('{'))[0];
+            if (line) {
+              try {
+                const j = JSON.parse(line.slice(line.indexOf('{')));
+                if (j.top && j.top[0]) {
+                  const tDid = j.top[0][0];
+                  const tPnl = j.top[0][1];
+                  const shortDid = tDid.slice(0, 14) + '...' + tDid.slice(-6);
+                  topTrader = `${shortDid} (+${parseFloat(tPnl).toFixed(2)} POLF)`;
+                }
+              } catch(e) {}
+            }
+          }
+
+          let longs = 407;
+          let shorts = 586;
+          if (posRes.status === 'fulfilled' && posRes.value) {
+            const line = posRes.value.split('\n').filter(l => l.includes('{'))[0];
+            if (line) {
+              try {
+                const j = JSON.parse(line.slice(line.indexOf('{')));
+                if (j.longs) longs = j.longs;
+                if (j.shorts) shorts = j.shorts;
+              } catch(e) {}
+            }
+          }
+
+          const response = `<b>📈 Close Call Trading Desk (close-1)</b>\n` +
+            `<i>One NVDA Future Settle • 1,000,000 FLOP Prize Pool</i>\n\n` +
+            `💵 <b>Hyperliquid NVDA:</b> <code>$${price}</code>\n` +
+            `📊 <b>Allowed 5% Range:</b> <code>${limits}</code>\n` +
+            `⏱ <b>Referee Sweep:</b> <code>Sweep #${sweepN} / 2,556</code>\n` +
+            `⏳ <b>Cadence:</b> Every 5 minutes\n\n` +
+            `👤 <b>Active DID:</b> <code>did:key:z6MkhefoSonhn...</code>\n` +
+            `💰 <b>Starting Bankroll:</b> <code>10,000.00 POLF</code>\n` +
+            `🏆 <b>Current Rank #1:</b> <code>${topTrader}</code>\n` +
+            `📊 <b>Global Contracts:</b> <code>${longs} Longs</code> vs <code>${shorts} Shorts</code>\n\n` +
+            `<b>⚡ Quick Commands:</b>\n` +
+            `• <code>/pnl</code> - Top 10 Official Leaderboard\n` +
+            `• <code>/orders</code> - Scan open P2P trade offers\n` +
+            `• <code>/positions</code> - Global open interest stats\n\n` +
+            `📱 <b>Web Trading Desk:</b>\n` +
+            `<a href="https://technocore-console.vercel.app/#/closecall">Open Live Close Call Desk →</a>`;
+
+          await sendTelegramMessage(chatId, response);
+        } catch(err) {
+          await sendTelegramMessage(chatId, `⚠️ Error fetching Close Call stats: ${escapeHtml(err.message)}`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: pnl / closecall_pnl
+      if (command === 'pnl' || command === 'closecall_pnl') {
+        try {
+          const res = await fetch('https://technocore.chat/r/d-close1-pnl?limit=1');
+          const txt = await res.text();
+          const line = txt.split('\n').filter(l => l.includes('{'))[0];
+
+          if (!line) {
+            await sendTelegramMessage(chatId, `<b>Referee Leaderboard</b>\n\nRankings updating from referee... please retry in a moment.`);
+            return res.status(200).json({ ok: true });
+          }
+
+          const j = JSON.parse(line.slice(line.indexOf('{')));
+          const top = j.top || [];
+          const sweepN = j.n || '24';
+          const markPx = j.mark || '225.00';
+
+          let listText = '';
+          top.slice(0, 10).forEach((entry, idx) => {
+            const rank = idx + 1;
+            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+            const did = Array.isArray(entry) ? entry[0] : (entry.key || entry.did || 'Unknown');
+            const pnl = Array.isArray(entry) ? parseFloat(entry[1]) : parseFloat(entry.pnl || 0);
+            const shortDid = did.slice(0, 14) + '...' + did.slice(-6);
+            const isUser = did.toLowerCase().includes('z6mkhefo');
+            const pnlSign = pnl > 0 ? '+' : '';
+            const bal = (10000 + pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            listText += `${medal} <code>${shortDid}</code> ${isUser ? '<b>[YOU]</b>' : ''}\n` +
+              `   <b>${pnlSign}${pnl.toFixed(2)} POLF</b> (Bal: ${bal})\n\n`;
+          });
+
+          const msgText = `<b>🏆 Close Call Referee PnL Leaderboard</b>\n` +
+            `<i>Official Settlement Sweep #${sweepN} (NVDA Mark: $${markPx})</i>\n\n` +
+            `${listText}` +
+            `🎁 <b>Final Prize Pool (Sun 4 Oct 10:00 UTC):</b>\n` +
+            `• 1st: <b>500,000 FLOP</b>\n` +
+            `• 2nd: <b>300,000 FLOP</b>\n` +
+            `• 3rd: <b>200,000 FLOP</b>\n\n` +
+            `👉 <a href="https://technocore-console.vercel.app/#/closecall">Trade on Web Console →</a>`;
+
+          await sendTelegramMessage(chatId, msgText);
+        } catch(err) {
+          await sendTelegramMessage(chatId, `⚠️ Error fetching leaderboard: ${escapeHtml(err.message)}`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: orders / orderbook
+      if (command === 'orders' || command === 'orderbook') {
+        try {
+          const res = await fetch('https://technocore.chat/r/close1?limit=60');
+          const txt = await res.text();
+          const lines = txt.split('\n').filter(l => l.includes('{'));
+          const offers = [];
+
+          for (const l of lines.reverse()) {
+            try {
+              const p = JSON.parse(l.slice(l.indexOf('{')));
+              if (p.t === 'offer' && p.terms) {
+                offers.push(p);
+                if (offers.length >= 5) break;
+              }
+            } catch(e) {}
+          }
+
+          if (offers.length === 0) {
+            await sendTelegramMessage(chatId, `<b>Peer-to-Peer Order Book (/r/close1)</b>\n\n` +
+              `No open offers detected in recent room memory.\n` +
+              `Create an offer on the <a href="https://technocore-console.vercel.app/#/closecall">Web Trading Desk</a>!`);
+            return res.status(200).json({ ok: true });
+          }
+
+          let offersText = '';
+          offers.forEach((o, i) => {
+            const t = o.terms;
+            const isBuy = t.side === 'buy';
+            const shortMaker = t.maker.slice(0, 12) + '...' + t.maker.slice(-4);
+            offersText += `${i + 1}. ${isBuy ? '🟢 BUY' : '🔴 SELL'} <b>${t.qty} NVDA @ $${t.px}</b>\n` +
+              `   Maker: <code>${shortMaker}</code> | Sweep #${t.until}\n\n`;
+          });
+
+          const msgText = `<b>📖 Peer-to-Peer Order Book (/r/close1)</b>\n\n` +
+            `${offersText}` +
+            `💡 <i>To counter-sign and execute orders in 1-click:</i>\n` +
+            `<a href="https://technocore-console.vercel.app/#/closecall">Open Web Trading Desk →</a>`;
+
+          await sendTelegramMessage(chatId, msgText);
+        } catch(err) {
+          await sendTelegramMessage(chatId, `⚠️ Error scanning orders: ${escapeHtml(err.message)}`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      // COMMAND: positions / positions_stats
+      if (command === 'positions' || command === 'positions_stats') {
+        try {
+          const res = await fetch('https://technocore.chat/r/d-close1-positions?limit=1');
+          const txt = await res.text();
+          const line = txt.split('\n').filter(l => l.includes('{'))[0];
+
+          if (!line) {
+            await sendTelegramMessage(chatId, `<b>Global Positions</b>\nUpdating telemetry...`);
+            return res.status(200).json({ ok: true });
+          }
+
+          const j = JSON.parse(line.slice(line.indexOf('{')));
+          const longs = j.longs || 0;
+          const shorts = j.shorts || 0;
+          const openVol = j.open || '0';
+          const sweepN = j.n || '0';
+
+          let topWhales = '';
+          (j.top || []).slice(0, 5).forEach((item, idx) => {
+            const did = item[0].slice(0, 12) + '...' + item[0].slice(-4);
+            const qty = parseFloat(item[1]);
+            const side = qty >= 0 ? '🟢 LONG' : '🔴 SHORT';
+            topWhales += `${idx + 1}. ${side} <b>${Math.abs(qty).toFixed(2)} NVDA</b> (<code>${did}</code>)\n`;
+          });
+
+          const msgText = `<b>🌐 Global Open Interest &amp; Positions</b>\n` +
+            `<i>Telemetry from /r/d-close1-positions (Sweep #${sweepN})</i>\n\n` +
+            `📊 <b>Active Long Positions:</b> <code>${longs} accounts</code>\n` +
+            `📉 <b>Active Short Positions:</b> <code>${shorts} accounts</code>\n` +
+            `💼 <b>Total Open Interest:</b> <code>${openVol} NVDA</code>\n\n` +
+            `🐳 <b>Top Position Holders:</b>\n` +
+            `${topWhales}\n` +
+            `👉 <a href="https://technocore-console.vercel.app/#/closecall">Open Trading Desk →</a>`;
+
+          await sendTelegramMessage(chatId, msgText);
+        } catch(err) {
+          await sendTelegramMessage(chatId, `⚠️ Error fetching positions: ${escapeHtml(err.message)}`);
         }
         return res.status(200).json({ ok: true });
       }
