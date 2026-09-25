@@ -96,6 +96,7 @@ function getUserDid(chatId) {
 
 const KNOWN_DIDS = {
   'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': '<a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> (Leader)',
+  'did:key:z6MkwQFgahxCG3feAQRKzzXLyFpEGxJYSCGZNEd3XU7E3wsc': '<a href="https://x.com/asadleo416">Asad Lee (Close Call Leader)</a> [YOU]',
   'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX': '<a href="https://x.com/hassan_samimi">Hassan Samimi (X: @hassan_samimi)</a>',
   'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh': 'SmartecVitalik (@Smartecio)',
   'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9': 'Aika Kurashi (@aika_kurashi)',
@@ -109,7 +110,7 @@ const KNOWN_DIDS = {
 
 function getSolverDisplayName(did) {
   if (!did) return 'Unknown Node';
-  if (did.includes('z6Mkhefo')) {
+  if (did.includes('z6Mkhefo') || did.includes('z6MkwQ')) {
     return '<b>Asad Lee (@asadleo416) [YOU]</b>';
   }
   if (KNOWN_DIDS[did]) {
@@ -1109,7 +1110,7 @@ export default async function handler(req, res) {
             const did = Array.isArray(entry) ? entry[0] : (entry.key || entry.did || 'Unknown');
             const pnl = Array.isArray(entry) ? parseFloat(entry[1]) : parseFloat(entry.pnl || 0);
             const shortDid = did.slice(0, 14) + '...' + did.slice(-6);
-            const isUser = did.toLowerCase().includes('z6mkhefo');
+            const isUser = did.toLowerCase().includes('z6mkhefo') || did.toLowerCase().includes('z6mkwq');
             const pnlSign = pnl > 0 ? '+' : '';
             const bal = (10000 + pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
