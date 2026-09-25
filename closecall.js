@@ -39,7 +39,9 @@ export const closeCallState = {
   userBalance: 10000,
   userPosition: 0,
   isOwnerRegistered: false,
-  selectedSide: 'buy'
+  selectedSide: 'buy',
+  myOrders: [],
+  myTrades: []
 };
 
 /**
@@ -249,6 +251,7 @@ export async function claimCloseCallPolf(naclInstance, keypair) {
     throw new Error(`Broadcast failed with HTTP ${res.status}: ${res.text}`);
   }
   closeCallState.isOwnerRegistered = true;
+  saveUserStorage(keypair.did);
   return res;
 }
 
@@ -307,6 +310,18 @@ export async function createAndBroadcastOffer(naclInstance, keypair, { side, px,
     throw new Error(`Failed to post offer to /r/${CLOSE_CALL_CONFIG.roomTrade}: HTTP ${res.status}`);
   }
 
+  const orderRecord = {
+    id: tradeId,
+    side: termsObj.side,
+    px: termsObj.px,
+    qty: termsObj.qty,
+    until: untilSweep,
+    timestamp: Date.now(),
+    status: 'open'
+  };
+  closeCallState.myOrders.unshift(orderRecord);
+  saveUserStorage(keypair.did);
+
   return {
     terms: termsObj,
     makerSig,
@@ -344,10 +359,48 @@ export async function acceptAndExecuteOffer(naclInstance, keypair, offer) {
     throw new Error(`Failed to broadcast trade execution: HTTP ${res.status}`);
   }
 
+  const executedSide = terms.side === 'buy' ? 'sell' : 'buy';
+  const tradeRecord = {
+    id: terms.id,
+    side: executedSide,
+    px: terms.px,
+    qty: terms.qty,
+    maker: terms.maker,
+    taker: keypair.did,
+    timestamp: Date.now(),
+    status: 'in_play'
+  };
+  closeCallState.myTrades.unshift(tradeRecord);
+  saveUserStorage(keypair.did);
+
   return {
     trade: tradeMessage,
     res
   };
+}
+
+export function loadUserStorage(did) {
+  if (!did || typeof localStorage === 'undefined') return;
+  try {
+    const savedOrders = localStorage.getItem('closecall_orders_' + did);
+    if (savedOrders) closeCallState.myOrders = JSON.parse(savedOrders);
+    const savedTrades = localStorage.getItem('closecall_trades_' + did);
+    if (savedTrades) closeCallState.myTrades = JSON.parse(savedTrades);
+    if (localStorage.getItem('closecall_minted_' + did) === 'true') {
+      closeCallState.isOwnerRegistered = true;
+    }
+  } catch (e) {}
+}
+
+export function saveUserStorage(did) {
+  if (!did || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem('closecall_orders_' + did, JSON.stringify(closeCallState.myOrders));
+    localStorage.setItem('closecall_trades_' + did, JSON.stringify(closeCallState.myTrades));
+    if (closeCallState.isOwnerRegistered) {
+      localStorage.setItem('closecall_minted_' + did, 'true');
+    }
+  } catch (e) {}
 }
 
 // Internal UI references and callbacks
@@ -404,14 +457,18 @@ export function initCloseCallUI(domElements, appState, naclInstance, toastFuncti
       try {
         await claimCloseCallPolf(_nacl || window.nacl, _state.keypair);
         _toast('Success! 10,000 POLF starting bankroll claimed in /r/close1.', 'success');
+        btnMint.textContent = '✓ 10,000 POLF Claimed & Active';
+        btnMint.style.borderColor = 'var(--color-success)';
+        btnMint.style.color = 'var(--color-success)';
+        btnMint.style.opacity = '0.85';
+        btnMint.style.cursor = 'default';
         const badge = document.getElementById('closecall-reg-badge');
         if (badge) {
           badge.className = 'step-status-pill complete';
-          badge.textContent = 'Registered (10,000 POLF)';
+          badge.textContent = '✓ Registered (10,000 POLF)';
         }
       } catch (err) {
-        _toast(`Registration failed: ${err.message}`, 'error');
-      } finally {
+        _toast(`Registration: ${err.message}`, 'error');
         btnMint.disabled = false;
         btnMint.textContent = '⚡ Mint / Claim 10,000 POLF in /r/close1';
       }
@@ -566,16 +623,110 @@ export async function refreshCloseCallData() {
  * Update all DOM elements with the current closeCallState
  */
 export function updateCloseCallUI() {
-  // Active DID and Bankroll
+  const did = _state && _state.keypair ? _state.keypair.did : null;
+  if (did) {
+    loadUserStorage(did);
+  }
+
+  // Active DID
   const activeDidEl = document.getElementById('closecall-active-did');
   if (activeDidEl) {
-    if (_state && _state.keypair && _state.keypair.did) {
-      activeDidEl.textContent = _state.keypair.did;
+    if (did) {
+      activeDidEl.textContent = did;
       activeDidEl.style.color = 'var(--brand-accent)';
     } else {
       activeDidEl.textContent = 'No key loaded. Please generate or restore key in Identity Setup.';
       activeDidEl.style.color = 'var(--text-muted)';
     }
+  }
+
+  // Mint / Claim button state
+  const btnMint = document.getElementById('btn-closecall-claim-mint');
+  const regBadge = document.getElementById('closecall-reg-badge');
+  const isMinted = did && (closeCallState.isOwnerRegistered || (typeof localStorage !== 'undefined' && localStorage.getItem('closecall_minted_' + did) === 'true'));
+  
+  if (isMinted) {
+    closeCallState.isOwnerRegistered = true;
+    if (btnMint) {
+      btnMint.textContent = '✓ 10,000 POLF Claimed & Active';
+      btnMint.disabled = true;
+      btnMint.style.borderColor = 'var(--color-success)';
+      btnMint.style.color = 'var(--color-success)';
+      btnMint.style.opacity = '0.85';
+      btnMint.style.cursor = 'default';
+    }
+    if (regBadge) {
+      regBadge.className = 'step-status-pill complete';
+      regBadge.textContent = '✓ Registered (10,000 POLF)';
+    }
+  }
+
+  // Calculate Real-Time Floating PnL & Positions
+  let totalLong = 0;
+  let totalShort = 0;
+  let totalTiedCollateral = 0;
+  let totalFloatingPnl = 0;
+
+  (closeCallState.myTrades || []).forEach(tr => {
+    const qty = parseFloat(tr.qty) || 0;
+    const entryPx = parseFloat(tr.px) || 0;
+    totalTiedCollateral += (qty * entryPx);
+    if (tr.side === 'buy') {
+      totalLong += qty;
+      if (closeCallState.referencePrice) {
+        totalFloatingPnl += (closeCallState.referencePrice - entryPx) * qty;
+      }
+    } else {
+      totalShort += qty;
+      if (closeCallState.referencePrice) {
+        totalFloatingPnl += (entryPx - closeCallState.referencePrice) * qty;
+      }
+    }
+  });
+
+  (closeCallState.myOrders || []).filter(o => o.status === 'open').forEach(ord => {
+    const qty = parseFloat(ord.qty) || 0;
+    const px = parseFloat(ord.px) || 0;
+    totalTiedCollateral += (qty * px);
+  });
+
+  const netContracts = totalLong - totalShort;
+  const startingBal = 10000;
+  const totalEquity = Math.max(0, startingBal + totalFloatingPnl);
+  const freeBal = Math.max(0, totalEquity - totalTiedCollateral);
+
+  // Update Bankroll breakdown in DOM
+  const balDisplay = document.getElementById('closecall-balance-display');
+  const freeBalDisplay = document.getElementById('closecall-free-balance');
+  const tiedDisplay = document.getElementById('closecall-tied-collateral');
+  const netPosDisplay = document.getElementById('closecall-net-position');
+  const livePnlDisplay = document.getElementById('closecall-live-pnl');
+
+  if (balDisplay) {
+    balDisplay.textContent = totalEquity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  if (freeBalDisplay) {
+    freeBalDisplay.textContent = `${freeBal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} POLF`;
+  }
+  if (tiedDisplay) {
+    tiedDisplay.textContent = `${totalTiedCollateral.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} POLF`;
+  }
+  if (netPosDisplay) {
+    if (netContracts > 0) {
+      netPosDisplay.textContent = `🟢 LONG (+${netContracts.toFixed(2)} NVDA)`;
+      netPosDisplay.style.color = 'var(--color-success)';
+    } else if (netContracts < 0) {
+      netPosDisplay.textContent = `🔴 SHORT (${netContracts.toFixed(2)} NVDA)`;
+      netPosDisplay.style.color = 'var(--color-danger)';
+    } else {
+      netPosDisplay.textContent = `Flat (0 contracts)`;
+      netPosDisplay.style.color = 'var(--brand-accent)';
+    }
+  }
+  if (livePnlDisplay) {
+    const pnlSign = totalFloatingPnl > 0 ? '+' : '';
+    livePnlDisplay.textContent = `${pnlSign}${totalFloatingPnl.toFixed(2)} POLF`;
+    livePnlDisplay.style.color = totalFloatingPnl >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
   }
 
   // Reference Price & Limits
@@ -614,11 +765,157 @@ export function updateCloseCallUI() {
     sweepEl.textContent = `Sweep #${closeCallState.currentSweep || '--'}`;
   }
 
-  // Render Open Offers
+  // Render My Active Trades and Open Orders
+  renderMyTradesList();
+
+  // Render Open Offers in Order Book
   renderOffersList();
 
   // Render Leaderboard
   renderLeaderboardList();
+}
+
+/**
+ * Render My Active Positions and In-Flight Orders Card
+ */
+function renderMyTradesList() {
+  const container = document.getElementById('closecall-my-trades-list');
+  const countBadge = document.getElementById('closecall-my-position-count');
+  if (!container) return;
+
+  const trades = closeCallState.myTrades || [];
+  const orders = (closeCallState.myOrders || []).filter(o => o.status === 'open');
+  const totalCount = trades.length + orders.length;
+
+  if (countBadge) {
+    countBadge.textContent = `${totalCount} In Play`;
+  }
+
+  if (totalCount === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 20px 12px; color: var(--text-muted); font-size: 0.8125rem;">
+        No active positions yet. Broadcast an offer below or accept an open order from the Order Book.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = '';
+
+  // 1. Render Executed Trades (Active Positions)
+  trades.forEach((tr, index) => {
+    const isLong = tr.side === 'buy';
+    const qty = parseFloat(tr.qty) || 0;
+    const entryPx = parseFloat(tr.px) || 0;
+    const currentPx = closeCallState.referencePrice || entryPx;
+    const pnl = isLong ? (currentPx - entryPx) * qty : (entryPx - currentPx) * qty;
+    const pnlColor = pnl >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+    const pnlSign = pnl > 0 ? '+' : '';
+
+    const card = document.createElement('div');
+    card.className = `closecall-offer-card side-${isLong ? 'buy' : 'sell'}`;
+    card.style.background = 'rgba(15, 23, 42, 0.7)';
+    card.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+    card.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge ${isLong ? 'badge-success' : 'badge-danger'}" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">
+            ${isLong ? '🟢 LONG' : '🔴 SHORT'}
+          </span>
+          <span style="font-family: var(--font-mono); font-weight: 800; font-size: 1.05rem; color: var(--text-primary);">
+            ${qty} NVDA @ $${entryPx.toFixed(2)}
+          </span>
+          <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399; font-size: 0.625rem; font-weight: 700;">
+            ACTIVE POSITION
+          </span>
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+          <span>Live: $${currentPx.toFixed(2)}</span>
+          <span>•</span>
+          <span>Collateral: ${(qty * entryPx).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} POLF</span>
+          <span>•</span>
+          <span style="font-weight: 700; color: ${pnlColor};">PnL: ${pnlSign}${pnl.toFixed(2)} POLF</span>
+        </div>
+      </div>
+
+      <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+        <span style="font-family: var(--font-mono); font-size: 1rem; font-weight: 800; color: ${pnlColor};">
+          ${pnlSign}${pnl.toFixed(2)} POLF
+        </span>
+        <button class="btn btn-secondary btn-sm btn-exit-position" data-side="${isLong ? 'sell' : 'buy'}" data-qty="${qty}" style="padding: 4px 10px; font-size: 0.72rem; font-weight: 700; border-color: ${isLong ? '#EF4444' : '#10B981'}; color: ${isLong ? '#EF4444' : '#10B981'};">
+          ⚡ Close / Exit Position
+        </button>
+      </div>
+    `;
+
+    // Exit Position button click handler
+    const exitBtn = card.querySelector('.btn-exit-position');
+    if (exitBtn) {
+      exitBtn.addEventListener('click', () => {
+        const reverseSide = exitBtn.getAttribute('data-side');
+        const closeQty = exitBtn.getAttribute('data-qty');
+        const inputPxEl = document.getElementById('closecall-input-px');
+        const inputQtyEl = document.getElementById('closecall-input-qty');
+        const btnBuyEl = document.getElementById('btn-side-buy');
+        const btnSellEl = document.getElementById('btn-side-sell');
+
+        if (reverseSide === 'sell') {
+          if (btnSellEl) btnSellEl.click();
+        } else {
+          if (btnBuyEl) btnBuyEl.click();
+        }
+
+        if (inputQtyEl) inputQtyEl.value = closeQty;
+        if (inputPxEl && closeCallState.referencePrice) {
+          inputPxEl.value = closeCallState.referencePrice.toFixed(2);
+        }
+        recalculateOrderSummary();
+
+        const submitBtn = document.getElementById('btn-closecall-submit-offer');
+        if (submitBtn) {
+          submitBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        _toast(`Exit order prepared! Click 'Sign & Broadcast' below to close position.`, 'info');
+      });
+    }
+
+    container.appendChild(card);
+  });
+
+  // 2. Render In-Flight Maker Offers
+  orders.forEach((ord, index) => {
+    const isBuy = ord.side === 'buy';
+    const qty = parseFloat(ord.qty) || 0;
+    const px = parseFloat(ord.px) || 0;
+
+    const card = document.createElement('div');
+    card.className = `closecall-offer-card side-${isBuy ? 'buy' : 'sell'}`;
+    card.style.background = 'rgba(0, 0, 0, 0.4)';
+    card.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge ${isBuy ? 'badge-success' : 'badge-danger'}" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase;">
+            ${isBuy ? '🟢 BUY OFFER' : '🔴 SELL OFFER'}
+          </span>
+          <span style="font-family: var(--font-mono); font-weight: 800; font-size: 1rem; color: var(--text-primary);">
+            ${qty} NVDA @ $${px.toFixed(2)}
+          </span>
+          <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B; font-size: 0.625rem; font-weight: 700;">
+            WAITING MATCH
+          </span>
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+          <span>Tied: ${(qty * px).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} POLF</span>
+          <span>•</span>
+          <span>ID: <code>${ord.id}</code></span>
+        </div>
+      </div>
+      <div>
+        <span style="font-size: 0.72rem; color: var(--text-muted);">In Order Book</span>
+      </div>
+    `;
+    container.appendChild(card);
+  });
 }
 
 /**
