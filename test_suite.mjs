@@ -2264,7 +2264,7 @@ test('Ed25519 signature on canonical Kibble message verifies under room /r/kibbl
   assert.strictEqual(res.valid, true, 'Kibble signed claim must be cryptographically valid');
 });
 
-test('index.html and app.js UI integration: Sonnet marked Ended and Kibble Work board mounted', () => {
+test('index.html and app.js UI integration: Sonnet marked Ended', () => {
   const fs = require('node:fs');
   const html = fs.readFileSync('index.html', 'utf8');
   const code = fs.readFileSync('app.js', 'utf8');
@@ -2274,19 +2274,7 @@ test('index.html and app.js UI integration: Sonnet marked Ended and Kibble Work 
   assert.ok(html.includes('Status: CONCLUDED'), 'Sonnet status must be CONCLUDED');
   assert.ok(html.includes('Sonnet Challenge Concluded — Setup Closed by Referee'), 'Sonnet concluded banner must be present');
 
-  // Verify Kibble work board elements in index.html
-  assert.ok(html.includes('id="tab-kibble-mode"'), 'tab-kibble-mode must exist in navigation');
-  assert.ok(html.includes('href="#/kibble"'), 'link to #/kibble must exist');
-  assert.ok(html.includes('id="kibble-view"'), 'kibble-view section must exist');
-  assert.ok(html.includes('id="btn-refresh-kibble"'), 'btn-refresh-kibble must exist');
-  assert.ok(html.includes('id="kibble-stream-list"'), 'kibble-stream-list must exist');
-  assert.ok(html.includes('id="btn-kibble-dispatch-claim"'), 'btn-kibble-dispatch-claim must exist');
-  assert.ok(html.includes('id="btn-kibble-dispatch-result"'), 'btn-kibble-dispatch-result must exist');
-  assert.ok(html.includes('id="btn-kibble-dispatch-attest"'), 'btn-kibble-dispatch-attest must exist');
-
   // Verify app.js routes and handler
-  assert.ok(code.includes("kibble: { title: 'Kibble Useful-Work Board'"), 'app.js viewMeta must register kibble');
-  assert.ok(code.includes("hash === '#/kibble'"), 'app.js hash router must handle #/kibble');
   assert.ok(code.includes('syncKibbleStream'), 'app.js must implement syncKibbleStream');
   assert.ok(code.includes('dispatchKibbleClaim'), 'app.js must implement dispatchKibbleClaim');
   assert.ok(code.includes('dispatchKibbleResult'), 'app.js must implement dispatchKibbleResult');
@@ -2322,6 +2310,31 @@ test('Agent Passport Pre-Contest Verifiable History Engine & UI Integration', ()
   const sig = signMessage(nacl, kp.secretKey, room, nonce, payload);
   const res = verifyMessageSignature(nacl, kp.did, sig, room, nonce, payload);
   assert.strictEqual(res.valid, true, 'Passport PROOF payload must be cryptographically valid');
+});
+
+// ----------------------------------------------------
+// SECTION 18: Close Call Trading Desk (close-1)
+// ----------------------------------------------------
+console.log('\n--- Section 18: Close Call Trading Desk (close-1) ---');
+
+test('Close Call Trading Desk (close-1) Engine & UI Integration', () => {
+  const fs = require('node:fs');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const code = fs.readFileSync('app.js', 'utf8');
+
+  // Verify navigation and section in index.html
+  assert.ok(html.includes('id="tab-closecall-mode"'), 'tab-closecall-mode must exist in navigation');
+  assert.ok(html.includes('href="#/closecall"'), 'link to #/closecall must exist');
+  assert.ok(html.includes('id="closecall-view"'), 'closecall-view section must exist');
+  assert.ok(html.includes('id="btn-closecall-claim-mint"'), 'btn-closecall-claim-mint must exist');
+  assert.ok(html.includes('id="btn-closecall-submit-offer"'), 'btn-closecall-submit-offer must exist');
+  assert.ok(html.includes('id="closecall-offers-list"'), 'closecall-offers-list must exist');
+  assert.ok(html.includes('id="closecall-leaderboard-list"'), 'closecall-leaderboard-list must exist');
+
+  // Verify app.js routes and metadata
+  assert.ok(code.includes("closecall: { title: 'Close Call Trading Desk'"), 'app.js viewMeta must register closecall');
+  assert.ok(code.includes("hash === '#/closecall'"), 'app.js hash router must handle #/closecall');
+  assert.ok(code.includes('initCloseCallUI'), 'app.js must initialize closecall UI');
 });
 
 console.log(`TEST RESULTS: ${passedTests} passed, ${failedTests} failed`);

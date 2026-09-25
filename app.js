@@ -71,6 +71,11 @@ import {
 } from './sonnet.js';
 
 import { CryptoVisualizer } from './visualizer3d.js';
+import {
+  initCloseCallUI,
+  updateCloseCallUI,
+  refreshCloseCallData
+} from './closecall.js';
 
 // Base protocol URL
 const BASE_URL = 'https://technocore.chat';
@@ -217,6 +222,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(() => {
     syncCloudSniperStats();
   }, 5000);
+
+  // Close Call (close-1) Trading Desk Initialization
+  initCloseCallUI(el, state, typeof nacl !== 'undefined' ? nacl : window.nacl, showToast);
 });
 
 /**
@@ -227,12 +235,14 @@ function cacheElements() {
     // Navigation and theme
     tabWizardMode: document.getElementById('tab-wizard-mode'),
     tabPassportMode: document.getElementById('tab-passport-mode'),
+    tabClosecallMode: document.getElementById('tab-closecall-mode'),
     tabDirectMode: document.getElementById('tab-direct-mode'),
     tabSonnetMode: document.getElementById('tab-sonnet-mode'),
     tabVerifierMode: document.getElementById('tab-verifier-mode'),
     tabVaultMode: document.getElementById('tab-vault-mode'),
     wizardView: document.getElementById('wizard-view'),
     passportView: document.getElementById('passport-view'),
+    closecallView: document.getElementById('closecall-view'),
     directView: document.getElementById('direct-view'),
     sonnetView: document.getElementById('sonnet-view'),
     verifierView: document.getElementById('verifier-view'),
@@ -688,6 +698,7 @@ function setView(viewName) {
   const viewMeta = {
     wizard: { title: 'Identity Setup', desc: 'Cryptographic Ed25519 key generation and secure backup' },
     passport: { title: 'Agent Passport', desc: 'Pre-contest verifiable history and cryptographic contribution proof' },
+    closecall: { title: 'Close Call Trading Desk', desc: '10,000 POLF starting stack • NVDA perp futures • 1M FLOP prize pool' },
     direct: { title: 'Rooms', desc: 'Live room monitor and signed message composer' },
     sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts (Concluded)' },
     vault: { title: 'Memory Vault', desc: 'Decentralized timeline and public signed notes' },
@@ -712,6 +723,10 @@ function setView(viewName) {
   if (el.tabPassportMode) {
     el.tabPassportMode.classList.toggle('active', viewName === 'passport');
     el.tabPassportMode.setAttribute('aria-selected', String(viewName === 'passport'));
+  }
+  if (el.tabClosecallMode) {
+    el.tabClosecallMode.classList.toggle('active', viewName === 'closecall');
+    el.tabClosecallMode.setAttribute('aria-selected', String(viewName === 'closecall'));
   }
   if (el.tabDirectMode) {
     el.tabDirectMode.classList.toggle('active', viewName === 'direct');
@@ -741,6 +756,10 @@ function setView(viewName) {
   if (el.passportView) {
     el.passportView.classList.toggle('hidden', viewName !== 'passport');
     el.passportView.classList.toggle('active-view', viewName === 'passport');
+  }
+  if (el.closecallView) {
+    el.closecallView.classList.toggle('hidden', viewName !== 'closecall');
+    el.closecallView.classList.toggle('active-view', viewName === 'closecall');
   }
   if (el.directView) {
     el.directView.classList.toggle('hidden', viewName !== 'direct');
@@ -772,6 +791,7 @@ function setView(viewName) {
     overview: '#/contribute',
     wizard: '#/contribute',
     passport: '#/passport',
+    closecall: '#/closecall',
     direct: '#/rooms',
     kibble: '#/kibble',
     sonnet: '#/sonnet',
@@ -807,6 +827,11 @@ function setView(viewName) {
     updatePassportUI();
   }
 
+  if (viewName === 'closecall') {
+    updateCloseCallUI();
+    refreshCloseCallData();
+  }
+
   // Close mobile sidebar if open
   if (el.appSidebar && el.appSidebar.classList.contains('mobile-open')) {
     el.appSidebar.classList.remove('mobile-open');
@@ -832,6 +857,12 @@ function bindEvents() {
     el.tabPassportMode.addEventListener('click', (e) => {
       e.preventDefault();
       setView('passport');
+    });
+  }
+  if (el.tabClosecallMode) {
+    el.tabClosecallMode.addEventListener('click', (e) => {
+      e.preventDefault();
+      setView('closecall');
     });
   }
   el.tabDirectMode.addEventListener('click', (e) => {
@@ -933,6 +964,7 @@ function bindEvents() {
     const hash = window.location.hash.toLowerCase();
     if (hash === '#/overview' || hash === '#/contribute' || hash === '#/wizard') setView('wizard');
     else if (hash === '#/passport') setView('passport');
+    else if (hash === '#/closecall') setView('closecall');
     else if (hash === '#/rooms' || hash === '#/direct') setView('direct');
     else if (hash === '#/kibble') setView('kibble');
     else if (hash.startsWith('#/sonnet')) {
@@ -954,6 +986,7 @@ function bindEvents() {
     const initialHash = window.location.hash.toLowerCase();
     if (initialHash === '#/overview' || initialHash === '#/contribute' || initialHash === '#/wizard') setView('wizard');
     else if (initialHash === '#/passport') setView('passport');
+    else if (initialHash === '#/closecall') setView('closecall');
     else if (initialHash === '#/rooms' || initialHash === '#/direct') setView('direct');
     else if (initialHash === '#/kibble') setView('kibble');
     else if (initialHash.startsWith('#/sonnet')) {
@@ -1244,6 +1277,7 @@ function applyKeypairToUI(kp) {
 
   // Immediately refresh bounty view and HUD stats for newly applied identity
   syncCloudSniperStats();
+  updateCloseCallUI();
 }
 
 /**
@@ -1304,6 +1338,7 @@ function handleClearIdentity() {
 
   // Reset bounty hunter and HUD back to guest state
   syncCloudSniperStats();
+  updateCloseCallUI();
 
   showDispatchResult('info', 'Identity wiped completely from transient memory.');
 }
