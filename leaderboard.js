@@ -5,7 +5,7 @@
  */
 
 import { fetchProtocol } from './transport.js';
-import { createAndBroadcastOffer, acceptAndExecuteOffer, fetchCloseCallOrders } from './closecall.js';
+import { createAndBroadcastOffer, acceptAndExecuteOffer, fetchCloseCallOrders, claimCloseCallPolf, closeCallState } from './closecall.js';
 
 const MY_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 const TOTAL_SWEEPS = 2556;
@@ -377,6 +377,7 @@ export async function refreshLeaderboardData() {
     renderPodium();
     renderLeaderboardTable();
     renderRecentFlows();
+    updateClaimBankrollUI();
 
     // Trigger Autonomous Auto-Copy Sentinel Cycle on new sweep
     if (autoCopyState.enabled) {
@@ -853,6 +854,63 @@ export function updateAutoCopySentinelUI() {
 }
 
 /**
+ * Update 10,000 POLF Starting Stack Status Alert & Quick Claim Button
+ */
+export function updateClaimBankrollUI() {
+  const pill = document.getElementById('lb-claim-status-pill');
+  const text = document.getElementById('lb-claim-status-text');
+  const btn = document.getElementById('lb-btn-quick-claim-polf');
+
+  if (!pill || !text) return;
+
+  const currentDid = _state?.keypair?.did;
+
+  if (!currentDid) {
+    pill.className = 'step-status-pill pending';
+    pill.textContent = 'Identity Not Loaded';
+    pill.style.background = 'rgba(234, 179, 8, 0.2)';
+    pill.style.color = '#FBBF24';
+    text.innerHTML = 'Connect or generate your Ed25519 identity in Step 1 to claim your 10,000 POLF starting stack.';
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+
+  const isClaimed = closeCallState.isOwnerRegistered || 
+    (typeof localStorage !== 'undefined' && localStorage.getItem('closecall_minted_' + currentDid) === 'true');
+
+  if (isClaimed) {
+    pill.className = 'step-status-pill complete';
+    pill.textContent = '✓ 10,000 POLF Active';
+    pill.style.background = 'rgba(16, 185, 129, 0.2)';
+    pill.style.color = '#34D399';
+    text.innerHTML = `Starting bankroll is <b style="color: #34D399;">claimed &amp; registered</b> in <code>/r/close1</code>. Ready for 24/7 trading &amp; auto-copy!`;
+    if (btn) btn.style.display = 'none';
+  } else {
+    pill.className = 'step-status-pill error';
+    pill.textContent = '⚠️ 10,000 POLF Unclaimed';
+    pill.style.background = 'rgba(239, 68, 68, 0.2)';
+    pill.style.color = '#F87171';
+    text.innerHTML = `<b style="color: #F87171;">Starting stack not claimed yet!</b> You must claim your 10,000 POLF bankroll before trades can settle.`;
+    if (btn) {
+      btn.style.display = 'inline-flex';
+      btn.onclick = async () => {
+        btn.disabled = true;
+        btn.textContent = 'Claiming...';
+        try {
+          await claimCloseCallPolf(_nacl || window.nacl, _state.keypair);
+          _toast('🎉 10,000 POLF Starting Stack Successfully Claimed in /r/close1!', 'success');
+          updateClaimBankrollUI();
+        } catch (err) {
+          _toast('Claim notice: ' + err.message, 'error');
+          btn.disabled = false;
+          btn.textContent = '🎁 Claim 10,000 POLF (1-Click)';
+        }
+      };
+    }
+  }
+}
+
+/**
  * Activate Continuous Auto-Copy Trading: Automatically replicates target agent across all sweeps
  */
 export async function startAutoCopyTrading(did, label = 'Leader') {
@@ -933,6 +991,20 @@ export async function executeAutoCopyCycle() {
   const naclInst = _nacl || window.nacl;
 
   try {
+    // 0. Auto-claim 10,000 POLF starting stack if not yet registered in /r/close1
+    const isClaimed = closeCallState.isOwnerRegistered || 
+      (typeof localStorage !== 'undefined' && localStorage.getItem('closecall_minted_' + _state.keypair.did) === 'true');
+    if (!isClaimed) {
+      console.log('[Auto-Copy Sentinel] Auto-claiming 10,000 POLF starting stack before trade execution...');
+      try {
+        await claimCloseCallPolf(naclInst, _state.keypair);
+        _toast('🎁 10,000 POLF Starting Stack Auto-Claimed in /r/close1!', 'success');
+        updateClaimBankrollUI();
+      } catch (e) {
+        console.warn('[Auto-Copy Sentinel] Auto-claim notice:', e.message);
+      }
+    }
+
     // 1. Check if matching counterparty liquidity exists in orderbook to fill immediately
     const oppositeSide = side === 'sell' ? 'buy' : 'sell';
     let executedMatch = false;

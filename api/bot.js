@@ -516,20 +516,38 @@ export default async function handler(req, res) {
               }
             }, req);
           } else {
-            const notFoundReply = `ℹ️ <b>Trade Status for:</b> <code>${escapeHtml(shortTarget)}</code>\n\n` +
-              `⚠️ <b>No Active Position Found in Current Sweep (#${sweepN})</b>\n\n` +
-              `<b>Possible Reasons:</b>\n` +
-              `1. <b>Pending Next Sweep:</b> If you just sent an order to /r/close1, wait up to 300s for the next referee sweep to fold.\n` +
-              `2. <b>Unfilled Order:</b> Your order might be waiting for a counterparty on the orderbook (check <code>/orders</code>).\n` +
-              `3. <b>Different DID:</b> Make sure you are querying the exact did:key that signed the trade (use <code>/myposition &lt;YOUR_DID&gt;</code>).\n\n` +
-              `<i>You can also search this DID directly on the <a href="https://technocore-console.vercel.app/#/leaderboard">Web Leaderboard Desk</a>.</i>`;
+            // Check if user has registered / claimed 10,000 POLF starting stack
+            let isClaimed = false;
+            try {
+              const checkOwnerRes = await fetch('https://technocore.chat/r/close1?limit=100&format=json').then(r => r.json());
+              if (Array.isArray(checkOwnerRes?.messages)) {
+                isClaimed = checkOwnerRes.messages.some(m => m.text && m.text.includes(targetDid) && m.text.includes('"owner"'));
+              }
+            } catch (e) {}
+
+            const notFoundReply = `ℹ️ <b>Trader Status for:</b> <code>${escapeHtml(shortTarget)}</code>\n\n` +
+              (isClaimed 
+                ? `🪙 <b>10,000 POLF Starting Stack:</b> <b>✓ CLAIMED &amp; ACTIVE</b>\n\n` +
+                  `⚠️ <b>No Active Position Open in Current Sweep (#${sweepN})</b>\n\n` +
+                  `<b>Status:</b>\n` +
+                  `• You have 10,000.00 POLF starting balance ready!\n` +
+                  `• Tap <b>Auto-Copy</b> on the Leaderboard or place a trade on the desk.\n`
+                : `⚠️ <b>10,000 POLF Starting Stack: NOT CLAIMED YET!</b>\n\n` +
+                  `Before you can place trades or copy bots, you must claim your initial 10,000 POLF bankroll!\n\n` +
+                  `<b>How to Claim in 1-Click:</b>\n` +
+                  `1. Tap <b>🎁 Claim 10,000 POLF</b> below\n` +
+                  `2. Or open the Console and connect your identity.\n`) +
+              `\n<i>All trades are peer-to-peer and verified by the Close Call referee.</i>`;
 
             await sendTelegramMessage(chatId, notFoundReply, {
               reply_markup: {
                 inline_keyboard: [
                   [
-                    { text: '🔍 Check Live Leaderboard', url: 'https://technocore-console.vercel.app/#/leaderboard' },
-                    { text: '📈 Open Trading Desk', url: 'https://technocore-console.vercel.app/#/closecall' }
+                    { text: isClaimed ? '🤖 24/7 Auto-Copy Sentinel' : '🎁 Claim 10,000 POLF Starting Stack', url: 'https://technocore-console.vercel.app/#/leaderboard' }
+                  ],
+                  [
+                    { text: '📈 Open Trading Desk', url: 'https://technocore-console.vercel.app/#/closecall' },
+                    { text: '🏆 Live Leaderboard', url: 'https://technocore-console.vercel.app/#/leaderboard' }
                   ]
                 ]
               }
