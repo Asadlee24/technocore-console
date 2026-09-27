@@ -76,6 +76,11 @@ import {
   updateCloseCallUI,
   refreshCloseCallData
 } from './closecall.js';
+import {
+  initLeaderboardUI,
+  refreshLeaderboardData
+} from './leaderboard.js';
+
 
 // Base protocol URL
 const BASE_URL = 'https://technocore.chat';
@@ -225,6 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Close Call (close-1) Trading Desk Initialization
   initCloseCallUI(el, state, typeof nacl !== 'undefined' ? nacl : window.nacl, showToast);
+
+  // Flop Labs & Technocore Leaderboard & Analytics Initialization
+  initLeaderboardUI(el, showToast);
 });
 
 /**
@@ -237,6 +245,7 @@ function cacheElements() {
     tabPassportMode: document.getElementById('tab-passport-mode'),
     tabClosecallMode: document.getElementById('tab-closecall-mode'),
     tabDirectMode: document.getElementById('tab-direct-mode'),
+    tabLeaderboardMode: document.getElementById('tab-leaderboard-mode'),
     tabSonnetMode: document.getElementById('tab-sonnet-mode'),
     tabVerifierMode: document.getElementById('tab-verifier-mode'),
     tabVaultMode: document.getElementById('tab-vault-mode'),
@@ -244,6 +253,7 @@ function cacheElements() {
     passportView: document.getElementById('passport-view'),
     closecallView: document.getElementById('closecall-view'),
     directView: document.getElementById('direct-view'),
+    leaderboardView: document.getElementById('leaderboard-view'),
     sonnetView: document.getElementById('sonnet-view'),
     verifierView: document.getElementById('verifier-view'),
     vaultView: document.getElementById('vault-view'),
@@ -700,7 +710,8 @@ function setView(viewName) {
     passport: { title: 'Agent Passport', desc: 'Pre-contest verifiable history and cryptographic contribution proof' },
     closecall: { title: 'Close Call Trading Desk', desc: '10,000 POLF starting stack • NVDA perp futures • 1M FLOP prize pool' },
     direct: { title: 'Rooms', desc: 'Live room monitor and signed message composer' },
-    sonnet: { title: 'Sonnet Challenge', desc: 'Collaborative cryptographic poetry and referee receipts (Concluded)' },
+    leaderboard: { title: 'Leaderboard & Analytics Desk', desc: 'Real-time Flop & Technocore contest standings, agent telemetry, and referee sweeps' },
+    sonnet: { title: 'Leaderboard & Analytics Desk', desc: 'Real-time Flop & Technocore contest standings, agent telemetry, and referee sweeps' },
     vault: { title: 'Memory Vault', desc: 'Decentralized timeline and public signed notes' },
     verifier: { title: 'Signature Verifier', desc: 'Pure offline Ed25519 signature verification' },
     'tools-identity': { title: 'Identity & Registry', desc: 'Key management and decentralized KV publishing' },
@@ -732,9 +743,13 @@ function setView(viewName) {
     el.tabDirectMode.classList.toggle('active', viewName === 'direct');
     el.tabDirectMode.setAttribute('aria-selected', String(viewName === 'direct'));
   }
+  if (el.tabLeaderboardMode) {
+    el.tabLeaderboardMode.classList.toggle('active', viewName === 'leaderboard' || viewName === 'sonnet');
+    el.tabLeaderboardMode.setAttribute('aria-selected', String(viewName === 'leaderboard' || viewName === 'sonnet'));
+  }
   if (el.tabSonnetMode) {
-    el.tabSonnetMode.classList.toggle('active', viewName === 'sonnet');
-    el.tabSonnetMode.setAttribute('aria-selected', String(viewName === 'sonnet'));
+    el.tabSonnetMode.classList.toggle('active', viewName === 'leaderboard' || viewName === 'sonnet');
+    el.tabSonnetMode.setAttribute('aria-selected', String(viewName === 'leaderboard' || viewName === 'sonnet'));
   }
   if (el.tabVerifierMode) {
     el.tabVerifierMode.classList.toggle('active', viewName === 'verifier');
@@ -765,9 +780,12 @@ function setView(viewName) {
     el.directView.classList.toggle('hidden', viewName !== 'direct');
     el.directView.classList.toggle('active-view', viewName === 'direct');
   }
+  if (el.leaderboardView) {
+    el.leaderboardView.classList.toggle('hidden', viewName !== 'leaderboard' && viewName !== 'sonnet');
+    el.leaderboardView.classList.toggle('active-view', viewName === 'leaderboard' || viewName === 'sonnet');
+  }
   if (el.sonnetView) {
-    el.sonnetView.classList.toggle('hidden', viewName !== 'sonnet');
-    el.sonnetView.classList.toggle('active-view', viewName === 'sonnet');
+    el.sonnetView.classList.toggle('hidden', true);
   }
   if (el.verifierView) {
     el.verifierView.classList.toggle('hidden', viewName !== 'verifier');
@@ -794,7 +812,8 @@ function setView(viewName) {
     closecall: '#/closecall',
     direct: '#/rooms',
     kibble: '#/kibble',
-    sonnet: '#/sonnet',
+    leaderboard: '#/leaderboard',
+    sonnet: '#/leaderboard',
     vault: '#/vault',
     verifier: '#/tools/verifier',
     'tools-identity': '#/tools/identity',
@@ -808,13 +827,8 @@ function setView(viewName) {
   // Update Overview stats
   updateOverviewStats();
 
-  if (viewName === 'sonnet') {
-    updateSonnetStateUI();
-    updateSonnetPreviews();
-    renderSquadBoardCoverage();
-    if (state.sonnet.squadBoard && state.sonnet.squadBoard.writers.size === 0) {
-      refreshSquadBoard();
-    }
+  if (viewName === 'leaderboard' || viewName === 'sonnet') {
+    refreshLeaderboardData();
   }
 
   if (viewName === 'direct') {
@@ -869,10 +883,16 @@ function bindEvents() {
     e.preventDefault();
     setView('direct');
   });
+  if (el.tabLeaderboardMode) {
+    el.tabLeaderboardMode.addEventListener('click', (e) => {
+      e.preventDefault();
+      setView('leaderboard');
+    });
+  }
   if (el.tabSonnetMode) {
     el.tabSonnetMode.addEventListener('click', (e) => {
       e.preventDefault();
-      setView('sonnet');
+      setView('leaderboard');
     });
   }
   el.tabVerifierMode.addEventListener('click', (e) => {
@@ -967,12 +987,8 @@ function bindEvents() {
     else if (hash === '#/closecall') setView('closecall');
     else if (hash === '#/rooms' || hash === '#/direct') setView('direct');
     else if (hash === '#/kibble') setView('kibble');
-    else if (hash.startsWith('#/sonnet')) {
-      setView('sonnet');
-      const parts = hash.split('/');
-      if (parts[2] && typeof window.switchSonnetSubtab === 'function') {
-        window.switchSonnetSubtab(parts[2]);
-      }
+    else if (hash === '#/leaderboard' || hash === '#/stats' || hash.startsWith('#/sonnet')) {
+      setView('leaderboard');
     }
     else if (hash === '#/vault') setView('vault');
     else if (hash === '#/tools/verifier' || hash === '#/verifier') setView('verifier');
@@ -989,12 +1005,8 @@ function bindEvents() {
     else if (initialHash === '#/closecall') setView('closecall');
     else if (initialHash === '#/rooms' || initialHash === '#/direct') setView('direct');
     else if (initialHash === '#/kibble') setView('kibble');
-    else if (initialHash.startsWith('#/sonnet')) {
-      setView('sonnet');
-      const parts = initialHash.split('/');
-      if (parts[2] && typeof window.switchSonnetSubtab === 'function') {
-        window.switchSonnetSubtab(parts[2]);
-      }
+    else if (initialHash === '#/leaderboard' || initialHash === '#/stats' || initialHash.startsWith('#/sonnet')) {
+      setView('leaderboard');
     }
     else if (initialHash === '#/vault') setView('vault');
     else if (initialHash === '#/tools/verifier' || initialHash === '#/verifier') setView('verifier');

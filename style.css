@@ -4466,3 +4466,275 @@ html, body, #app-shell, #app-main {
   vertical-align: middle;
 }
 
+/* ==========================================================================
+   DEDICATED LEADERBOARD & ANALYTICS DESK (close-1 & Flop Labs)
+   ========================================================================== */
+
+.lb-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+.lb-hero-banner {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 50%, rgba(15, 23, 42, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.lb-hero-banner::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(32, 231, 242, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.lb-hero-banner::after {
+  content: '';
+  position: absolute;
+  bottom: -50px;
+  left: 20%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.lb-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.lb-kpi-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.lb-kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.lb-kpi-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.lb-kpi-val {
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.lb-kpi-sub {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+.lb-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.lb-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38BDF8, #20E7F2);
+  border-radius: 9999px;
+  transition: width 0.4s ease;
+}
+
+.lb-ratio-bar {
+  width: 100%;
+  height: 8px;
+  background: #10B981;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 4px;
+  display: flex;
+}
+
+.lb-ratio-shorts-fill {
+  height: 100%;
+  background: #EF4444;
+  transition: width 0.4s ease;
+}
+
+/* Rank Badges */
+.lb-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.rank-gold {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(217, 119, 6, 0.4) 100%);
+  color: #FCD34D;
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+
+.rank-silver {
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.25) 0%, rgba(100, 116, 139, 0.35) 100%);
+  color: #E2E8F0;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+.rank-bronze {
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.25) 0%, rgba(146, 64, 14, 0.35) 100%);
+  color: #FDBA74;
+  border: 1px solid rgba(180, 83, 9, 0.5);
+}
+
+.rank-top10 {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38BDF8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.rank-default {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+}
+
+/* Identicons */
+.lb-identicon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+}
+
+.lb-identicon.large {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+
+/* Asad Lee Highlight Row */
+.lb-row-asad {
+  background: rgba(32, 231, 242, 0.07) !important;
+  border-left: 3px solid var(--brand-accent) !important;
+  box-shadow: inset 0 0 20px rgba(32, 231, 242, 0.05);
+}
+
+.lb-row-asad td {
+  border-bottom-color: rgba(32, 231, 242, 0.2) !important;
+}
+
+.lb-table-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Agent Inspect Card */
+.lb-agent-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.lb-stat-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lb-stat-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.lb-stat-val {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.lb-stat-sub {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+/* Flow Feed */
+.lb-flow-item {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s ease;
+}
+
+.lb-flow-item:last-child {
+  border-bottom: none;
+}
+
+.lb-flow-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Filter Buttons */
+.lb-filter-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid var(--border-subtle);
+  background: rgba(15, 23, 42, 0.5);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lb-filter-btn:hover {
+  border-color: var(--brand-accent);
+  color: var(--text-primary);
+}
+
+.lb-filter-btn.active {
+  background: var(--brand-accent);
+  color: #0F172A;
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 12px rgba(32, 231, 242, 0.3);
+}
+
+
