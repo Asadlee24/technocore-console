@@ -579,19 +579,31 @@ function renderLeaderboardTable() {
       <td style="text-align: right;">
         ${gapDisplay}
       </td>
-      <td style="text-align: center; width: 90px;">
+      <td style="text-align: right; width: 140px; white-space: nowrap;">
+        <button class="btn btn-primary btn-sm lb-btn-copy-trade" data-did="${did}" style="padding: 3px 8px; font-size: 0.6875rem; background: linear-gradient(135deg, #10B981, #059669); border: none; font-weight: 700; margin-right: 4px; box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);" title="1-Click Copy Trade to Close Call Desk">
+          ⚡ Copy
+        </button>
         <button class="btn btn-secondary btn-sm lb-btn-inspect" data-did="${did}" data-label="${isMyAgent ? 'My Active Position ⚡' : `Rank #${globalRank}`}" style="padding: 3px 8px; font-size: 0.6875rem;">
           Inspect
         </button>
       </td>
     `;
 
-    // Bind Copy
+    // Bind Copy DID
     const copyBtn = row.querySelector('.lb-btn-copy-did');
     if (copyBtn) {
       copyBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         navigator.clipboard.writeText(did).then(() => _toast('DID copied to clipboard', 'info'));
+      });
+    }
+
+    // Bind Copy Trade
+    const copyTradeBtn = row.querySelector('.lb-btn-copy-trade');
+    if (copyTradeBtn) {
+      copyTradeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        copyTradeAgent(did);
       });
     }
 
@@ -655,7 +667,10 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
           </div>
         </div>
       </div>
-      <div style="display: flex; gap: var(--space-2);">
+      <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+        <button id="lb-btn-copy-trade-inspected" class="btn btn-primary btn-sm" style="font-size: 0.75rem; background: linear-gradient(135deg, #10B981, #059669); border: none; font-weight: 700; box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);">
+          ⚡ 1-Click Copy Trade (${activeQty.toFixed(2)} ${agentEntry.qty < 0 ? 'SHORT' : 'LONG'})
+        </button>
         <button id="lb-btn-copy-inspected-did" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
           📋 Copy Full DID
         </button>
@@ -720,14 +735,69 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
     });
   }
 
+  const copyTradeBtn = document.getElementById('lb-btn-copy-trade-inspected');
+  if (copyTradeBtn) {
+    copyTradeBtn.addEventListener('click', () => {
+      copyTradeAgent(did);
+    });
+  }
+
   if (scroll) {
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 
-// Global inspect helper for inline HTML clicks
+/**
+ * 1-Click Copy Trading: Replicate any leaderboard agent's exact position on the Close Call Trading Desk
+ */
+export function copyTradeAgent(did) {
+  const agent = leaderboardState.allAgents.find(a => a.did === did) || {
+    did,
+    qty: -44.87,
+    score: 0
+  };
+
+  const side = agent.qty < 0 ? 'sell' : 'buy';
+  const qty = Math.abs(agent.qty) || 44.87;
+  const px = leaderboardState.referencePrice || 224.68;
+
+  // Switch hash to Close Call desk
+  window.location.hash = '#/closecall';
+
+  // Pre-fill inputs and select side once routed
+  setTimeout(() => {
+    const inputPx = document.getElementById('closecall-input-px');
+    const inputQty = document.getElementById('closecall-input-qty');
+    const btnBuy = document.getElementById('btn-side-buy');
+    const btnSell = document.getElementById('btn-side-sell');
+
+    if (inputPx) {
+      inputPx.value = px.toFixed(2);
+      inputPx.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (inputQty) {
+      inputQty.value = qty.toFixed(2);
+      inputQty.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (side === 'sell' && btnSell) {
+      btnSell.click();
+    } else if (side === 'buy' && btnBuy) {
+      btnBuy.click();
+    }
+
+    _toast(`⚡ Copied ${side.toUpperCase()} ${qty.toFixed(2)} contracts @ $${px.toFixed(2)} to Close Call! Ready to execute.`, 'success');
+
+    const ticket = document.getElementById('closecall-order-ticket') || inputQty;
+    if (ticket) {
+      ticket.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 150);
+}
+
+// Global inspect and copy trade helpers for inline HTML clicks
 if (typeof window !== 'undefined') {
   window.inspectAgent = inspectAgent;
+  window.copyTradeAgent = copyTradeAgent;
 }
 
 /**
