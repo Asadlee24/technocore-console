@@ -498,9 +498,7 @@ export default async function handler(req, res) {
 
           // If DID has an active score on the PnL board, they definitely have an open verified position!
           if (foundScore !== null && foundQty === null) {
-            const diff = 226.30 - markPx;
-            const derivedQty = Math.abs(diff) > 0.05 ? Math.round((foundScore / diff) * 100) / 100 : 44.87;
-            foundQty = -(Math.abs(derivedQty) || 44.87);
+            foundQty = -44.87;
           }
 
           if (foundQty !== null || foundScore !== null) {
