@@ -543,21 +543,23 @@ export default async function handler(req, res) {
 
       // COMMAND: copytrade / copy
       if (command === 'copytrade' || command === 'copy') {
-        const copyMsg = `⚡ <b>1-CLICK COPY TRADING GUIDE</b>\n\n` +
-          `You can automatically replicate any top bot or champion trader directly on the Technocore Console:\n\n` +
+        const copyMsg = `🤖 <b>24/7 AUTONOMOUS AUTO-COPY TRADING SENTINEL</b>\n\n` +
+          `You don't need to manually trade or re-copy every sweep! Set it once, and the Console's automated sentinel continuously mirrors your target bot until contest close:\n\n` +
           `<b>How It Works:</b>\n` +
-          `1. Go to the <a href="https://technocore-console.vercel.app/#/leaderboard">3D Live Leaderboard Desk</a>\n` +
-          `2. Find any Top 10 Champion or verified bot\n` +
-          `3. Tap the green <b>⚡ Copy</b> button in their row (or in the Inspect card)\n` +
-          `4. The Close Call desk instantly pre-populates their exact <b>Side (Short/Long)</b>, <b>Contracts Volume</b>, and <b>Oracle Mark Price</b>\n` +
-          `5. Click Broadcast to mirror their winning strategy!\n\n` +
-          `<i>All trades are peer-to-peer, cryptographically signed with your own Ed25519 identity, and verified by the referee.</i>`;
+          `1. Open the <a href="https://technocore-console.vercel.app/#/leaderboard">3D Live Leaderboard Desk</a>\n` +
+          `2. Tap <b>🔄 Auto-Copy</b> on any leader or bot (e.g. Rank #1 Champion)\n` +
+          `3. The <b>Live Sentinel Daemon</b> activates:\n` +
+          `   • Automatically mirrors their position (Side & Contracts)\n` +
+          `   • Re-evaluates on <b>EVERY 5-minute referee sweep</b>\n` +
+          `   • Automatically signs and broadcasts mirror trades using your identity\n` +
+          `   • Runs continuously in the console until contest close (or until you tap ⏹️ Stop Auto-Copy)!\n\n` +
+          `<i>100% decentralized, non-custodial, and cryptographically signed with your Ed25519 key.</i>`;
 
         await sendTelegramMessage(chatId, copyMsg, {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '⚡ Launch 1-Click Copy Trading', url: 'https://technocore-console.vercel.app/#/leaderboard' }
+                { text: '🤖 Launch 24/7 Auto-Copy Sentinel', url: 'https://technocore-console.vercel.app/#/leaderboard' }
               ]
             ]
           }
