@@ -668,7 +668,7 @@ function updateOverviewStats() {
     if (state.keypair) {
       const isAsad = state.keypair.did.includes('z6Mkhefo');
       el.globalIdentityDidShort.textContent = isAsad
-        ? `${state.keypair.did.slice(0, 14)}...23zJM4 (Asad)`
+        ? `${state.keypair.did.slice(0, 14)}...${state.keypair.did.slice(-4)}`
         : `${state.keypair.did.slice(0, 14)}...${state.keypair.did.slice(-4)}`;
     } else {
       el.globalIdentityDidShort.textContent = 'No Identity (Guest)';
