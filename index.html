@@ -1249,6 +1249,32 @@
               </div>
             </div>
 
+            <!-- 24/7 Autonomous Auto-Copy Trading Sentinel Banner -->
+            <div id="lb-autocopy-sentinel" style="display: none; margin-bottom: var(--space-4); padding: 14px 18px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08)); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: var(--radius-md); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #10B981; box-shadow: 0 0 12px #10B981;"></span>
+                  <div>
+                    <div style="font-weight: 800; font-size: 0.9rem; color: #34D399; display: flex; align-items: center; gap: 8px;">
+                      <span>🤖 24/7 AUTONOMOUS AUTO-COPY TRADING: ACTIVE</span>
+                      <span class="badge" style="background: rgba(16, 185, 129, 0.25); color: #34D399; font-size: 0.65rem; font-weight: 800;">LIVE SENTINEL</span>
+                    </div>
+                    <div id="lb-autocopy-status-text" style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 3px;">
+                      Mirroring Target: <code id="lb-autocopy-target-did" style="color: #6EE7B7;">did:key:...</code> • Automatically replicating on every 5-min referee sweep to contest close
+                    </div>
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span id="lb-autocopy-counter-badge" class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-primary); font-size: 0.75rem; padding: 5px 10px;">
+                    ⚡ Auto-Executed: 0 sweeps
+                  </span>
+                  <button id="lb-btn-stop-autocopy" class="btn btn-secondary btn-sm" style="border-color: #EF4444; color: #EF4444; font-weight: 700; font-size: 0.75rem; padding: 4px 12px;">
+                    ⏹️ Stop Auto-Copy
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- 5 Real-Time KPI Cards -->
             <div class="lb-kpi-grid">
               <!-- KPI 1: Sweep Progress -->

@@ -5,6 +5,7 @@
  */
 
 import { fetchProtocol } from './transport.js';
+import { createAndBroadcastOffer } from './closecall.js';
 
 const MY_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 const TOTAL_SWEEPS = 2556;
@@ -32,16 +33,52 @@ export const leaderboardState = {
   selectedAgent: null
 };
 
-// Internal DOM references
+// 24/7 Autonomous Continuous Auto-Copy Trading Sentinel State
+export const autoCopyState = {
+  enabled: false,
+  targetDid: null,
+  targetLabel: null,
+  targetSide: 'sell',
+  targetQty: 44.87,
+  lastCopiedSweep: null,
+  autoCopyCount: 0
+};
+
+// Internal DOM and auth references
 let _dom = {};
+let _state = {};
+let _nacl = null;
 let _toast = (msg) => console.log(msg);
 
 /**
  * Initialize Leaderboard UI and Data Polling
  */
-export function initLeaderboardUI(domElements, toastFn) {
+export function initLeaderboardUI(domElements, appState, naclInstance, toastFn) {
   _dom = domElements || {};
-  _toast = toastFn || ((msg) => console.log(msg));
+  if (typeof appState === 'function') {
+    _toast = appState;
+  } else {
+    _state = appState || {};
+    _nacl = naclInstance;
+    _toast = toastFn || ((msg) => console.log(msg));
+  }
+
+  // Restore active auto-copy sentinel from persistent storage if set
+  try {
+    const saved = localStorage.getItem('technocore_autocopy_target');
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data && data.did && data.enabled) {
+        autoCopyState.enabled = true;
+        autoCopyState.targetDid = data.did;
+        autoCopyState.targetLabel = data.label || 'Leader';
+        autoCopyState.targetSide = data.side || 'sell';
+        autoCopyState.targetQty = data.qty || 44.87;
+        autoCopyState.autoCopyCount = data.count || 0;
+        updateAutoCopySentinelUI();
+      }
+    }
+  } catch (e) {}
 
   bindLeaderboardEvents();
   startLeaderboardPolling();
@@ -116,6 +153,14 @@ function bindLeaderboardEvents() {
       shareLeaderboardOnX();
     });
   }
+
+  // 24/7 Autonomous Auto-Copy Stop Button
+  const btnStopAutoCopy = document.getElementById('lb-btn-stop-autocopy');
+  if (btnStopAutoCopy) {
+    btnStopAutoCopy.addEventListener('click', () => {
+      stopAutoCopyTrading();
+    });
+  }
 }
 
 /**
@@ -138,7 +183,10 @@ function startSweepCountdown() {
     }
 
     if (leaderboardState.sweepCountdown === 0) {
-      setTimeout(() => refreshLeaderboardData(), 3000);
+      setTimeout(async () => {
+        await refreshLeaderboardData();
+        executeAutoCopyCycle();
+      }, 3000);
     }
   }, 1000);
 }
@@ -329,6 +377,12 @@ export async function refreshLeaderboardData() {
     renderPodium();
     renderLeaderboardTable();
     renderRecentFlows();
+
+    // Trigger Autonomous Auto-Copy Sentinel Cycle on new sweep
+    if (autoCopyState.enabled) {
+      updateAutoCopySentinelUI();
+      executeAutoCopyCycle();
+    }
 
     // Default inspect My Agent
     if (!leaderboardState.selectedAgent || leaderboardState.selectedAgent.did === MY_DID) {
@@ -605,9 +659,9 @@ function renderLeaderboardTable() {
       <td style="text-align: right;">
         ${gapDisplay}
       </td>
-      <td style="text-align: right; width: 140px; white-space: nowrap;">
-        <button class="btn btn-primary btn-sm lb-btn-copy-trade" data-did="${did}" style="padding: 3px 8px; font-size: 0.6875rem; background: linear-gradient(135deg, #10B981, #059669); border: none; font-weight: 700; margin-right: 4px; box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);" title="1-Click Copy Trade to Close Call Desk">
-          ⚡ Copy
+      <td style="text-align: right; width: 155px; white-space: nowrap;">
+        <button class="btn btn-primary btn-sm lb-btn-autocopy" data-did="${did}" data-label="${isMyAgent ? 'My Active Position ⚡' : `Rank #${globalRank}`}" style="padding: 3px 8px; font-size: 0.6875rem; background: linear-gradient(135deg, #10B981, #059669); border: none; font-weight: 700; margin-right: 4px; box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);" title="24/7 Autonomous Continuous Auto-Copy Trading">
+          🔄 Auto-Copy
         </button>
         <button class="btn btn-secondary btn-sm lb-btn-inspect" data-did="${did}" data-label="${isMyAgent ? 'My Active Position ⚡' : `Rank #${globalRank}`}" style="padding: 3px 8px; font-size: 0.6875rem;">
           Inspect
@@ -624,12 +678,12 @@ function renderLeaderboardTable() {
       });
     }
 
-    // Bind Copy Trade
-    const copyTradeBtn = row.querySelector('.lb-btn-copy-trade');
-    if (copyTradeBtn) {
-      copyTradeBtn.addEventListener('click', (e) => {
+    // Bind Continuous Auto-Copy Trading
+    const autoCopyBtn = row.querySelector('.lb-btn-autocopy');
+    if (autoCopyBtn) {
+      autoCopyBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        copyTradeAgent(did);
+        startAutoCopyTrading(did, autoCopyBtn.dataset.label || 'Leader');
       });
     }
 
@@ -694,8 +748,8 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
         </div>
       </div>
       <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-        <button id="lb-btn-copy-trade-inspected" class="btn btn-primary btn-sm" style="font-size: 0.75rem; background: linear-gradient(135deg, #10B981, #059669); border: none; font-weight: 700; box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);">
-          ⚡ 1-Click Copy Trade (${activeQty.toFixed(2)} ${agentEntry.qty < 0 ? 'SHORT' : 'LONG'})
+        <button id="lb-btn-autocopy-inspected" class="btn btn-primary btn-sm" style="font-size: 0.75rem; background: linear-gradient(135deg, #10B981, #059669); border: none; font-weight: 700; box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);">
+          🤖 Continuous Auto-Copy (${activeQty.toFixed(2)} ${agentEntry.qty < 0 ? 'SHORT' : 'LONG'})
         </button>
         <button id="lb-btn-copy-inspected-did" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
           📋 Copy Full DID
@@ -761,10 +815,10 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
     });
   }
 
-  const copyTradeBtn = document.getElementById('lb-btn-copy-trade-inspected');
-  if (copyTradeBtn) {
-    copyTradeBtn.addEventListener('click', () => {
-      copyTradeAgent(did);
+  const autoCopyTradeBtn = document.getElementById('lb-btn-autocopy-inspected');
+  if (autoCopyTradeBtn) {
+    autoCopyTradeBtn.addEventListener('click', () => {
+      startAutoCopyTrading(did, label);
     });
   }
 
@@ -774,9 +828,34 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
 }
 
 /**
- * 1-Click Copy Trading: Replicate any leaderboard agent's exact position on the Close Call Trading Desk
+ * 24/7 Autonomous Continuous Auto-Copy Trading Sentinel UI Updater
  */
-export function copyTradeAgent(did) {
+export function updateAutoCopySentinelUI() {
+  const sentinel = document.getElementById('lb-autocopy-sentinel');
+  const targetDidEl = document.getElementById('lb-autocopy-target-did');
+  const counterEl = document.getElementById('lb-autocopy-counter-badge');
+  const statusText = document.getElementById('lb-autocopy-status-text');
+
+  if (!sentinel) return;
+
+  if (autoCopyState.enabled && autoCopyState.targetDid) {
+    sentinel.style.display = 'block';
+    const did = autoCopyState.targetDid;
+    const shortDid = did.length > 20 ? `${did.slice(0, 12)}...${did.slice(-6)}` : did;
+    if (targetDidEl) targetDidEl.textContent = shortDid;
+    if (counterEl) counterEl.textContent = `⚡ Auto-Executed: ${autoCopyState.autoCopyCount} sweeps`;
+    if (statusText) {
+      statusText.innerHTML = `Mirroring Target: <code style="color: #6EE7B7;">${shortDid}</code> (${autoCopyState.targetLabel || 'Champion'}) • Automatically replicating ${autoCopyState.targetSide.toUpperCase()} ${autoCopyState.targetQty.toFixed(2)} on every 5-min sweep to contest close`;
+    }
+  } else {
+    sentinel.style.display = 'none';
+  }
+}
+
+/**
+ * Activate Continuous Auto-Copy Trading: Automatically replicates target agent across all sweeps
+ */
+export async function startAutoCopyTrading(did, label = 'Leader') {
   const agent = leaderboardState.allAgents.find(a => a.did === did) || {
     did,
     qty: -44.87,
@@ -785,45 +864,106 @@ export function copyTradeAgent(did) {
 
   const side = agent.qty < 0 ? 'sell' : 'buy';
   const qty = Math.abs(agent.qty) || 44.87;
-  const px = leaderboardState.referencePrice || 224.68;
 
-  // Switch hash to Close Call desk
-  window.location.hash = '#/closecall';
+  autoCopyState.enabled = true;
+  autoCopyState.targetDid = did;
+  autoCopyState.targetLabel = label;
+  autoCopyState.targetSide = side;
+  autoCopyState.targetQty = qty;
 
-  // Pre-fill inputs and select side once routed
-  setTimeout(() => {
-    const inputPx = document.getElementById('closecall-input-px');
-    const inputQty = document.getElementById('closecall-input-qty');
-    const btnBuy = document.getElementById('btn-side-buy');
-    const btnSell = document.getElementById('btn-side-sell');
+  try {
+    localStorage.setItem('technocore_autocopy_target', JSON.stringify({
+      did,
+      label,
+      side,
+      qty,
+      enabled: true,
+      count: autoCopyState.autoCopyCount
+    }));
+  } catch (e) {}
 
-    if (inputPx) {
-      inputPx.value = px.toFixed(2);
-      inputPx.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    if (inputQty) {
-      inputQty.value = qty.toFixed(2);
-      inputQty.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    if (side === 'sell' && btnSell) {
-      btnSell.click();
-    } else if (side === 'buy' && btnBuy) {
-      btnBuy.click();
-    }
+  updateAutoCopySentinelUI();
 
-    _toast(`⚡ Copied ${side.toUpperCase()} ${qty.toFixed(2)} contracts @ $${px.toFixed(2)} to Close Call! Ready to execute.`, 'success');
-
-    const ticket = document.getElementById('closecall-order-ticket') || inputQty;
-    if (ticket) {
-      ticket.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, 150);
+  if (_state && _state.keypair && _state.keypair.did) {
+    _toast(`🤖 Auto-Copy Activated! Continuously mirroring ${label} (${side.toUpperCase()} ${qty.toFixed(2)} contracts) on every 5-min sweep until contest end!`, 'success');
+    await executeAutoCopyCycle();
+  } else {
+    _toast(`🤖 Auto-Copy Target set to ${label}! Please connect/load your identity in Step 1 so the console can sign automated trades.`, 'info');
+  }
 }
 
-// Global inspect and copy trade helpers for inline HTML clicks
+/**
+ * Stop Continuous Auto-Copy Trading
+ */
+export function stopAutoCopyTrading() {
+  autoCopyState.enabled = false;
+  autoCopyState.targetDid = null;
+  try {
+    localStorage.removeItem('technocore_autocopy_target');
+  } catch (e) {}
+  updateAutoCopySentinelUI();
+  _toast('⏹️ Autonomous Auto-Copy Trading Stopped.', 'info');
+}
+
+/**
+ * Execute 1 Auto-Copy Sweep Cycle (Called on every 5-minute referee sweep)
+ */
+export async function executeAutoCopyCycle() {
+  if (!autoCopyState.enabled || !autoCopyState.targetDid) return;
+
+  const currentSweep = leaderboardState.currentSweep;
+  if (!currentSweep || autoCopyState.lastCopiedSweep === currentSweep) return;
+
+  if (!_state || !_state.keypair || !_state.keypair.did) {
+    console.log('[Auto-Copy Sentinel] Identity not loaded in console; awaiting keypair...');
+    return;
+  }
+
+  // Auto-adapt if target agent changed position side or contracts
+  const targetAgent = leaderboardState.allAgents.find(a => a.did === autoCopyState.targetDid);
+  if (targetAgent && targetAgent.qty !== undefined && targetAgent.qty !== 0) {
+    autoCopyState.targetSide = targetAgent.qty < 0 ? 'sell' : 'buy';
+    autoCopyState.targetQty = Math.abs(targetAgent.qty) || 44.87;
+  }
+
+  const px = leaderboardState.referencePrice || 224.68;
+  const side = autoCopyState.targetSide;
+  const qty = autoCopyState.targetQty;
+
+  try {
+    console.log(`[Auto-Copy Sentinel] Auto-broadcasting mirror trade for Sweep #${currentSweep}: ${side} ${qty} @ $${px}`);
+    await createAndBroadcastOffer(_nacl || window.nacl, _state.keypair, {
+      side,
+      px: px.toFixed(2),
+      qty: qty.toFixed(2),
+      untilSweeps: 24
+    });
+
+    autoCopyState.lastCopiedSweep = currentSweep;
+    autoCopyState.autoCopyCount++;
+    try {
+      localStorage.setItem('technocore_autocopy_target', JSON.stringify({
+        did: autoCopyState.targetDid,
+        label: autoCopyState.targetLabel,
+        side: autoCopyState.targetSide,
+        qty: autoCopyState.targetQty,
+        enabled: true,
+        count: autoCopyState.autoCopyCount
+      }));
+    } catch (e) {}
+
+    updateAutoCopySentinelUI();
+    _toast(`🤖 Auto-Copy Executed for Sweep #${currentSweep}! Mirrored ${side.toUpperCase()} ${qty.toFixed(2)} @ $${px.toFixed(2)}`, 'success');
+  } catch (err) {
+    console.warn('[Auto-Copy Sentinel] Auto trade notice:', err.message);
+  }
+}
+
+// Global inspect and auto-copy trade helpers for inline HTML clicks
 if (typeof window !== 'undefined') {
   window.inspectAgent = inspectAgent;
-  window.copyTradeAgent = copyTradeAgent;
+  window.startAutoCopyTrading = startAutoCopyTrading;
+  window.stopAutoCopyTrading = stopAutoCopyTrading;
 }
 
 /**

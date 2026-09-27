@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCloseCallUI(el, state, typeof nacl !== 'undefined' ? nacl : window.nacl, showToast);
 
   // Flop Labs & Technocore Leaderboard & Analytics Initialization
-  initLeaderboardUI(el, showToast);
+  initLeaderboardUI(el, state, typeof nacl !== 'undefined' ? nacl : window.nacl, showToast);
 });
 
 /**
