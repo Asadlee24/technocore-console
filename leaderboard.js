@@ -1,12 +1,12 @@
 /**
  * Flop & Technocore Official Leaderboard & Analytics Controller
- * Multi-source Aggregated 60+ Agent Directory, Top 3 Podium, Live Referee Sweeps, and Telemetry.
- * Built by Asad Lee (@asadleo416) for @flop_labs & @CryptoHayes
+ * Multi-source Aggregated 60+ Agent Directory, 3D Champion Podium, Live Referee Sweeps, and Telemetry.
+ * Community Console for @flop_labs & @CryptoHayes
  */
 
 import { fetchProtocol } from './transport.js';
 
-const ASAD_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
+const MY_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 const TOTAL_SWEEPS = 2556;
 const SWEEP_INTERVAL_SEC = 300;
 
@@ -63,7 +63,7 @@ function bindLeaderboardEvents() {
       btnRefresh.innerHTML = '<span>Refreshing...</span>';
       try {
         await refreshLeaderboardData();
-        _toast('Leaderboard and 60+ agent telemetry updated.', 'info');
+        _toast('Leaderboard & 60+ agent telemetry updated.', 'info');
       } finally {
         btnRefresh.disabled = false;
         btnRefresh.classList.remove('loading');
@@ -93,10 +93,10 @@ function bindLeaderboardEvents() {
   });
 
   // Quick Inspect Shortcuts
-  const btnInspectAsad = document.getElementById('lb-btn-inspect-asad');
-  if (btnInspectAsad) {
-    btnInspectAsad.addEventListener('click', () => {
-      inspectAgent(ASAD_DID, 'Asad Lee 👑');
+  const btnInspectMyAgent = document.getElementById('lb-btn-inspect-my-agent') || document.getElementById('lb-btn-inspect-asad');
+  if (btnInspectMyAgent) {
+    btnInspectMyAgent.addEventListener('click', () => {
+      inspectAgent(MY_DID, 'My Active Position ⚡');
     });
   }
 
@@ -208,7 +208,7 @@ export async function refreshLeaderboardData() {
                     score,
                     qty: -44.87,
                     entryPx: 226.40,
-                    source: 'Official Referee PnL'
+                    source: 'Referee PnL'
                   });
                 }
               });
@@ -245,7 +245,7 @@ export async function refreshLeaderboardData() {
                       score: estScore,
                       qty,
                       entryPx: 226.40,
-                      source: 'Active Open Position'
+                      source: 'Active Position'
                     });
                   }
                 });
@@ -275,7 +275,7 @@ export async function refreshLeaderboardData() {
                       score: 0.0,
                       qty: 0,
                       entryPx: currentMark,
-                      source: 'Registered Participant'
+                      source: 'Registered Trader'
                     });
                   }
                 });
@@ -287,14 +287,14 @@ export async function refreshLeaderboardData() {
       leaderboardState.recentFlows = flows.slice(-5);
     }
 
-    // 5. Ensure Asad Lee is included with exact live position
-    const asadScore = (223.82 - currentMark) * 46.10;
-    agentsMap.set(ASAD_DID, {
-      did: ASAD_DID,
-      score: asadScore,
+    // 5. Ensure My Agent is included with exact live position
+    const myScore = (223.82 - currentMark) * 46.10;
+    agentsMap.set(MY_DID, {
+      did: MY_DID,
+      score: myScore,
       qty: -46.10,
       entryPx: 223.82,
-      source: 'Asad Lee (Active Short)'
+      source: 'My Active Position'
     });
 
     // Sort all agents descending by Net PnL
@@ -308,9 +308,9 @@ export async function refreshLeaderboardData() {
     renderLeaderboardTable();
     renderRecentFlows();
 
-    // Default inspect Asad Lee
-    if (!leaderboardState.selectedAgent || leaderboardState.selectedAgent.did === ASAD_DID) {
-      inspectAgent(ASAD_DID, 'Asad Lee 👑', false);
+    // Default inspect My Agent
+    if (!leaderboardState.selectedAgent || leaderboardState.selectedAgent.did === MY_DID) {
+      inspectAgent(MY_DID, 'My Active Position ⚡', false);
     }
   } catch (err) {
     console.warn('Leaderboard multi-source aggregation error:', err);
@@ -358,7 +358,7 @@ function updateTelemetryKPIs() {
     const longs = leaderboardState.positionsMeta.longs;
     const shorts = leaderboardState.positionsMeta.shorts;
     const total = longs + shorts;
-    if (totalContractsEl) totalContractsEl.textContent = `${total.toLocaleString()} contracts active`;
+    if (totalContractsEl) totalContractsEl.textContent = `${total.toLocaleString()} contracts`;
     if (total > 0 && ratioBarFill) {
       const shortPct = ((shorts / total) * 100).toFixed(1);
       const longPct = (100 - parseFloat(shortPct)).toFixed(1);
@@ -387,14 +387,16 @@ function renderPodium() {
   const top2 = leaderboardState.allAgents[1];
   const top3 = leaderboardState.allAgents[2];
 
+  const formatShort = (did) => `${did.slice(0, 8)}...${did.slice(-4)}`;
+
   container.innerHTML = `
     <!-- 2nd Place (Silver) -->
-    <div class="lb-podium-step step-silver" onclick="window.inspectAgent('${top2.did}', 'Rank #2 Champion')">
+    <div class="lb-podium-step step-silver" onclick="window.inspectAgent('${top2.did}', 'Rank #2 Champion 🥈')">
       <div class="lb-podium-crown">🥈</div>
       <div class="lb-podium-avatar" style="background: ${getDidColor(top2.did)}; border-color: #E2E8F0;"></div>
-      <div class="lb-podium-name">${top2.did.slice(0, 10)}...${top2.did.slice(-4)}</div>
+      <div class="lb-podium-name">${formatShort(top2.did)}</div>
       <div class="lb-podium-score" style="color: #38BDF8;">+${top2.score.toFixed(2)} POLF</div>
-      <div class="lb-podium-prize">250,000 FLOP Prize</div>
+      <div class="lb-podium-prize">250,000 FLOP</div>
       <div class="lb-podium-pedestal pedestal-silver">
         <span class="pedestal-rank">#2</span>
       </div>
@@ -404,7 +406,7 @@ function renderPodium() {
     <div class="lb-podium-step step-gold" onclick="window.inspectAgent('${top1.did}', 'Rank #1 Champion 👑')">
       <div class="lb-podium-crown gold-crown">👑 🥇</div>
       <div class="lb-podium-avatar gold-avatar" style="background: ${getDidColor(top1.did)}; border-color: #FCD34D;"></div>
-      <div class="lb-podium-name" style="color: #FCD34D; font-weight: 800;">${top1.did.slice(0, 10)}...${top1.did.slice(-4)}</div>
+      <div class="lb-podium-name" style="color: #FCD34D; font-weight: 800;">${formatShort(top1.did)}</div>
       <div class="lb-podium-score" style="color: #34D399; font-size: 1.15rem;">+${top1.score.toFixed(2)} POLF</div>
       <div class="lb-podium-prize gold-prize">500,000 FLOP Grand Prize</div>
       <div class="lb-podium-pedestal pedestal-gold">
@@ -413,12 +415,12 @@ function renderPodium() {
     </div>
 
     <!-- 3rd Place (Bronze) -->
-    <div class="lb-podium-step step-bronze" onclick="window.inspectAgent('${top3.did}', 'Rank #3 Champion')">
+    <div class="lb-podium-step step-bronze" onclick="window.inspectAgent('${top3.did}', 'Rank #3 Champion 🥉')">
       <div class="lb-podium-crown">🥉</div>
       <div class="lb-podium-avatar" style="background: ${getDidColor(top3.did)}; border-color: #FDBA74;"></div>
-      <div class="lb-podium-name">${top3.did.slice(0, 10)}...${top3.did.slice(-4)}</div>
+      <div class="lb-podium-name">${formatShort(top3.did)}</div>
       <div class="lb-podium-score" style="color: #FDBA74;">+${top3.score.toFixed(2)} POLF</div>
-      <div class="lb-podium-prize">100,000 FLOP Prize</div>
+      <div class="lb-podium-prize">100,000 FLOP</div>
       <div class="lb-podium-pedestal pedestal-bronze">
         <span class="pedestal-rank">#3</span>
       </div>
@@ -443,8 +445,7 @@ function renderLeaderboardTable() {
     list = list.filter((agent, idx) => {
       const did = agent.did.toLowerCase();
       const rankStr = `#${idx + 1}`;
-      const isAsad = did.includes('z6mkhefo') && 'asad lee'.includes(q);
-      return did.includes(q) || rankStr.includes(q) || isAsad;
+      return did.includes(q) || rankStr.includes(q);
     });
   }
 
@@ -479,7 +480,7 @@ function renderLeaderboardTable() {
   list.forEach((agent, index) => {
     const did = agent.did;
     const scoreNum = agent.score;
-    const isAsad = did === ASAD_DID;
+    const isMyAgent = did === MY_DID;
     // Calculate global rank from original allAgents list
     const globalRank = leaderboardState.allAgents.findIndex(a => a.did === did) + 1;
 
@@ -512,21 +513,21 @@ function renderLeaderboardTable() {
     const gapDisplay = globalRank === 1 ? `<span style="color: #34D399; font-weight: 800;">Leader 👑</span>` : `<span style="color: var(--text-muted); font-size: 0.78rem;">${gap} POLF</span>`;
 
     // Short DID
-    const shortDid = `${did.slice(0, 12)}...${did.slice(-6)}`;
+    const shortDid = `${did.slice(0, 10)}...${did.slice(-5)}`;
 
     const row = document.createElement('tr');
-    row.className = `lb-table-row ${isAsad ? 'lb-row-asad' : ''}`;
+    row.className = `lb-table-row ${isMyAgent ? 'lb-row-asad' : ''}`;
     row.innerHTML = `
       <td style="width: 70px; text-align: center;">${rankBadge}</td>
       <td>
         <div style="display: flex; align-items: center; gap: 8px;">
           <div class="lb-identicon" style="background: ${getDidColor(did)};"></div>
           <div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span class="mono-xs" style="font-weight: 800; color: ${isAsad ? 'var(--brand-accent)' : 'var(--text-primary)'}; font-size: 0.8125rem;">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span class="mono-xs" style="font-weight: 800; color: ${isMyAgent ? 'var(--brand-accent)' : 'var(--text-primary)'}; font-size: 0.8125rem;">
                 ${shortDid}
               </span>
-              ${isAsad ? '<span class="badge" style="background: rgba(32, 231, 242, 0.2); color: #20E7F2; font-weight: 800; font-size: 0.65rem;">👑 YOU (ASAD LEE)</span>' : ''}
+              ${isMyAgent ? '<span class="badge" style="background: rgba(32, 231, 242, 0.2); color: #20E7F2; font-weight: 800; font-size: 0.65rem;">⭐ MY AGENT</span>' : ''}
             </div>
             <div style="font-size: 0.6875rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; margin-top: 2px;">
               <span>${agent.source}</span> • 
@@ -557,7 +558,7 @@ function renderLeaderboardTable() {
         ${gapDisplay}
       </td>
       <td style="text-align: center; width: 90px;">
-        <button class="btn btn-secondary btn-sm lb-btn-inspect" data-did="${did}" data-label="${isAsad ? 'Asad Lee 👑' : `Rank #${globalRank}`}" style="padding: 3px 8px; font-size: 0.6875rem;">
+        <button class="btn btn-secondary btn-sm lb-btn-inspect" data-did="${did}" data-label="${isMyAgent ? 'My Active Position ⚡' : `Rank #${globalRank}`}" style="padding: 3px 8px; font-size: 0.6875rem;">
           Inspect
         </button>
       </td>
@@ -591,13 +592,13 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
   const card = document.getElementById('lb-agent-inspect-card');
   if (!card) return;
 
-  const isAsad = did === ASAD_DID;
+  const isMyAgent = did === MY_DID;
   const agentEntry = leaderboardState.allAgents.find(a => a.did === did) || {
     did,
-    score: (isAsad ? (223.82 - leaderboardState.referencePrice) * 46.10 : 0),
-    qty: (isAsad ? -46.10 : -44.87),
-    entryPx: (isAsad ? 223.82 : 226.40),
-    source: (isAsad ? 'Asad Lee (Active Short)' : 'Verified Agent')
+    score: (isMyAgent ? (223.82 - leaderboardState.referencePrice) * 46.10 : 0),
+    qty: (isMyAgent ? -46.10 : -44.87),
+    entryPx: (isMyAgent ? 223.82 : 226.40),
+    source: (isMyAgent ? 'My Active Position' : 'Verified Agent')
   };
 
   const globalRank = leaderboardState.allAgents.findIndex(a => a.did === did) + 1;
@@ -616,10 +617,10 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
 
   const cardHtml = `
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4);">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div class="lb-identicon large" style="background: ${getDidColor(did)};"></div>
-        <div>
-          <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 12px; max-width: 100%; overflow: hidden;">
+        <div class="lb-identicon large" style="background: ${getDidColor(did)}; flex-shrink: 0;"></div>
+        <div style="min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-primary); font-weight: 800;">
               ${label}
             </h3>
@@ -627,7 +628,7 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
               ${rank === 1 ? '🥇 RANK #1 LEADER' : (rank === 'Settling' ? '⏱️ SETTLING' : `OFFICIAL RANK #${rank}`)}
             </span>
           </div>
-          <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px; word-break: break-all;">
             ${did}
           </div>
         </div>
@@ -654,7 +655,7 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
         <span class="lb-stat-val" style="color: #EF4444;">
           🔴 SHORT ${activeQty.toFixed(2)} NVDA
         </span>
-        <span class="lb-stat-sub">Entry: $${entryPx.toFixed(2)} • Tied Collateral: ${totalTied} POLF</span>
+        <span class="lb-stat-sub">Entry: $${entryPx.toFixed(2)} • Collateral: ${totalTied} POLF</span>
       </div>
 
       <div class="lb-stat-box">
@@ -678,7 +679,7 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #34D399; box-shadow: 0 0 8px #34D399;"></span>
         <span style="color: var(--text-secondary);">
-          ${isAsad ? '👑 <strong>Asad Lee Autonomous Sniper Daemon is monitoring this agent 24/7</strong> for automatic take-profit execution.' : 'Tracked across official Technocore referee feeds <code>/r/d-close1-pnl</code> &amp; <code>/r/d-close1-positions</code>.'}
+          ${isMyAgent ? '⚡ <strong>Autonomous 24/7 Take-Profit Daemon is monitoring this position</strong> for automated profit execution.' : 'Tracked across official Technocore referee feeds <code>/r/d-close1-pnl</code> &amp; <code>/r/d-close1-positions</code>.'}
         </span>
       </div>
       <a href="https://t.me/FlopRadarBot" target="_blank" rel="noreferrer" class="btn btn-secondary btn-sm" style="font-size: 0.72rem; border-color: #22C55E; color: #22C55E;">
@@ -738,7 +739,7 @@ function renderRecentFlows() {
           Referee Verified
         </span>
       </div>
-      <div style="display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; flex-wrap: wrap;">
         <span>✓ ${settledCount} trades settled</span> • 
         <span>⚠️ ${voidCount} voided</span> • 
         <span>⚡ ${mintCount} mints issued</span>
@@ -760,7 +761,7 @@ function shareLeaderboardOnX() {
     `🏆 Current Leader: +${topScore} POLF\n` +
     `🔔 Sweep: #${sweep} / 2,556\n` +
     `📊 60+ verified agent bots tracked on Hyperliquid xyz:NVDA\n\n` +
-    `Real-time console & agent analytics built by @asadleo416 for the community:\n` +
+    `Real-time console & agent analytics for the community:\n` +
     `👉 https://technocore-console.vercel.app/#/leaderboard\n\n` +
     `cc @CryptoHayes @flop_labs 🚀`;
 

@@ -1219,7 +1219,7 @@
                 </h1>
                 <p style="font-size: 0.875rem; color: var(--text-secondary); margin: 0; line-height: 1.5;">
                   Real-time agent standings, referee sweep settlement countdowns, and Hyperliquid <code>xyz:NVDA</code> oracle feeds. 
-                  Built by <a href="https://x.com/asadleo416" target="_blank" rel="noreferrer" style="color: var(--brand-accent); font-weight: 700;">Asad Lee</a> for <a href="https://x.com/flop_labs" target="_blank" rel="noreferrer" style="color: #38BDF8; font-weight: 700;">@flop_labs</a> &amp; <a href="https://x.com/CryptoHayes" target="_blank" rel="noreferrer" style="color: #F59E0B; font-weight: 700;">@CryptoHayes</a>.
+                  Decentralized community terminal for <a href="https://x.com/flop_labs" target="_blank" rel="noreferrer" style="color: #38BDF8; font-weight: 700;">@flop_labs</a> &amp; <a href="https://x.com/CryptoHayes" target="_blank" rel="noreferrer" style="color: #F59E0B; font-weight: 700;">@CryptoHayes</a>.
                 </p>
               </div>
 
@@ -1350,7 +1350,7 @@
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4);">
               
               <!-- Filter Tabs -->
-              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <div class="lb-filter-bar">
                 <button class="lb-filter-btn active" data-filter="top50">🏆 Top 50 Leaderboard</button>
                 <button class="lb-filter-btn" data-filter="all">🌐 All Verified Bots (60+)</button>
                 <button class="lb-filter-btn" data-filter="top10">👑 Top 10 Champions</button>
@@ -1360,8 +1360,8 @@
 
               <!-- Search & Shortcuts -->
               <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <button id="lb-btn-inspect-asad" class="btn btn-secondary btn-sm" style="border-color: var(--brand-accent); color: var(--brand-accent); font-weight: 700; font-size: 0.75rem;">
-                  👑 Inspect Asad Lee
+                <button id="lb-btn-inspect-my-agent" class="btn btn-secondary btn-sm" style="border-color: var(--brand-accent); color: var(--brand-accent); font-weight: 700; font-size: 0.75rem; display: flex; align-items: center; gap: 6px;">
+                  <span>⚡ My Position</span>
                 </button>
                 <button id="lb-btn-inspect-leader" class="btn btn-secondary btn-sm" style="border-color: #F59E0B; color: #FCD34D; font-weight: 700; font-size: 0.75rem;">
                   🥇 Inspect Rank #1
@@ -1380,6 +1380,11 @@
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 0.75rem; color: var(--text-muted);">
               <span id="lb-row-count-badge">Loading verified agent standings...</span>
               <span>Rankings verified by Technocore Referee (<code>/r/d-close1-pnl</code>)</span>
+            </div>
+
+            <!-- Mobile Scroll Hint -->
+            <div class="lb-mobile-scroll-hint">
+              <span>← Swipe table horizontally to inspect all stats &amp; ranks →</span>
             </div>
 
             <!-- The Leaderboard Table -->

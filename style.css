@@ -4896,5 +4896,195 @@ html, body, #app-shell, #app-main {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(15, 23, 42, 0.8) 100%);
 }
 
+.lb-prize-card {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.lb-prize-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ==========================================================================
+   MOBILE SCREEN RESPONSIVENESS & 3D ANIMATION ENHANCEMENTS
+   ========================================================================== */
+
+.lb-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 4px 0 6px 0;
+  max-width: 100%;
+}
+
+.lb-filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.lb-filter-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.lb-mobile-scroll-hint {
+  display: none;
+  font-size: 0.72rem;
+  color: var(--brand-accent);
+  background: rgba(32, 231, 242, 0.08);
+  border: 1px dashed rgba(32, 231, 242, 0.3);
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
+  text-align: center;
+  margin-bottom: 8px;
+  font-weight: 600;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+
+/* 3D Floating Animations */
+@keyframes gold-pedestal-shine {
+  0% { filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.3)); }
+  100% { filter: drop-shadow(0 0 25px rgba(245, 158, 11, 0.65)); }
+}
+
+.pedestal-gold {
+  animation: gold-pedestal-shine 3s ease-in-out infinite alternate;
+}
+
+/* Tablet & Mobile Breakpoints */
+@media (max-width: 768px) {
+  .lb-page-container {
+    padding: 10px 8px;
+    max-width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
+  .lb-hero-banner {
+    padding: 16px 12px;
+    border-radius: var(--radius-md);
+  }
+
+  .lb-hero-banner h1 {
+    font-size: 1.4rem !important;
+  }
+
+  .lb-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .lb-prize-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .lb-kpi-card, .lb-prize-card {
+    padding: 12px 10px;
+  }
+
+  .lb-kpi-val {
+    font-size: 1.15rem;
+  }
+
+  .lb-agent-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .lb-mobile-scroll-hint {
+    display: block;
+  }
+
+  .leaderboard-table th, .leaderboard-table td {
+    padding: 8px 10px;
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .lb-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lb-prize-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lb-podium-wrapper {
+    gap: 6px;
+    padding: 14px 4px 6px 4px;
+    overflow: hidden;
+  }
+
+  .lb-podium-avatar {
+    width: 42px;
+    height: 42px;
+    border-width: 2px;
+    margin-bottom: 4px;
+  }
+
+  .gold-avatar {
+    width: 52px;
+    height: 52px;
+    border-width: 3px !important;
+  }
+
+  .lb-podium-crown {
+    font-size: 1.2rem;
+  }
+
+  .gold-crown {
+    font-size: 1.5rem;
+  }
+
+  .lb-podium-name {
+    font-size: 0.7rem;
+    max-width: 85px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lb-podium-score {
+    font-size: 0.82rem;
+  }
+
+  .lb-podium-prize {
+    font-size: 0.58rem;
+    margin-bottom: 6px;
+  }
+
+  .pedestal-gold {
+    height: 90px;
+  }
+
+  .pedestal-silver {
+    height: 70px;
+  }
+
+  .pedestal-bronze {
+    height: 55px;
+  }
+
+  .pedestal-rank {
+    font-size: 0.9rem;
+  }
+
+  .lb-agent-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
 
 
