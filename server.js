@@ -1,9 +1,7 @@
 /**
  * Standalone Production Server for Local Dev, Railway, Render, or VPS
  * Serves Technocore Console Web App, /api/proxy, and FlopRadar Telegram Bot.
- * 
- * Built by Asad Lee (@asadleo416)
- * Portfolio: https://asad-lee-portfolio.vercel.app/
+ * Official Community Console Server
  */
 
 import http from 'node:http';
@@ -39,7 +37,7 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       status: 'ok',
       service: 'technocore-console',
-      architect: 'Asad Lee (@asadleo416)',
+      organization: 'Technocore Community',
       uptime: process.uptime(),
       timestamp: new Date().toISOString()
     }));

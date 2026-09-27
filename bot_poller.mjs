@@ -1,6 +1,6 @@
 /**
  * FlopRadar Telegram Bot - 24/7 Standalone Long-Polling Daemon
- * Powered by Asad Lee (@asadleo416)
+ * Official Close Call Community Bot
  *
  * Runs locally or on VPS/Railway with zero webhook configuration.
  * Usage: node bot_poller.mjs

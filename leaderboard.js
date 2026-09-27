@@ -488,13 +488,39 @@ function renderLeaderboardTable() {
   }
 
   if (list.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="7" style="text-align: center; padding: 40px 16px; color: var(--text-muted); font-size: 0.875rem;">
-          No agents match the current filter or search criteria.
-        </td>
-      </tr>
-    `;
+    const isDidSearch = leaderboardState.searchQuery && (leaderboardState.searchQuery.includes('z6mk') || leaderboardState.searchQuery.startsWith('did:key:'));
+    if (isDidSearch) {
+      const q = leaderboardState.searchQuery;
+      const shortQ = q.length > 18 ? `${q.slice(0, 10)}...${q.slice(-5)}` : q;
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 36px 16px;">
+            <div style="max-width: 520px; margin: 0 auto; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+              <div style="font-size: 1.75rem; margin-bottom: 8px;">🔍</div>
+              <div style="font-weight: 800; font-size: 1.05rem; color: #F59E0B; margin-bottom: 6px;">
+                Trade Status: 0 Contracts Active (FLAT)
+              </div>
+              <div style="font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 16px;">
+                DID <code>${shortQ}</code> has <b>no settled position</b> in the current referee sweep (#${leaderboardState.currentSweep}). Your order has not triggered yet because it is either waiting for a counterparty match in <code>/r/close1</code>, was outside the 5% oracle range, or is awaiting the next 5-minute sweep.
+              </div>
+              <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
+                <a href="#/closecall" class="btn btn-primary btn-sm" style="font-size: 0.75rem; font-weight: 700; background: linear-gradient(135deg, #10B981, #059669); border: none;">
+                  📈 Place Trade on Close Call Desk
+                </a>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+    } else {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 40px 16px; color: var(--text-muted); font-size: 0.875rem;">
+            No agents match the current filter or search criteria.
+          </td>
+        </tr>
+      `;
+    }
     return;
   }
 
