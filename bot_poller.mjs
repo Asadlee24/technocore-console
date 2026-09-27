@@ -16,8 +16,8 @@ let isRunning = true;
 
 console.log('====================================================');
 console.log('🤖 FlopRadar Telegram Bot Poller (@FlopRadarBot)');
-console.log('Architect: Asad Lee (@asadleo416)');
-console.log('Portfolio: https://asad-lee-portfolio.vercel.app/');
+console.log('Official Technocore Community Bot');
+console.log('Leaderboard: https://technocore-console.vercel.app/#/leaderboard');
 console.log('====================================================\n');
 
 async function checkMe() {

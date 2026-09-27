@@ -42,7 +42,7 @@ function generateEd25519Key() {
  * FlopRadar Telegram Bot (@FlopRadarBot)
  * Vercel Serverless Webhook Handler
  * 
- * Powered by Asad Lee (@asadleo416) | Technocore Console
+ * Official Technocore Community Bot
  */
 
 let activeBotToken = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -66,7 +66,7 @@ function getTelegramApi(req) {
   return `https://api.telegram.org/bot${token}`;
 }
 
-const FOOTER = '\n\nPowered by <a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> | <a href="https://technocore-console.vercel.app">Technocore Console</a>';
+const FOOTER = '\n\n🌐 <a href="https://technocore-console.vercel.app/#/leaderboard">Live Leaderboard Desk</a> | <a href="https://technocore-console.vercel.app/#/closecall">Trading Desk</a>';
 
 const BOT_COMMANDS = [
   { command: 'leaderboard', description: 'Close Call 1M FLOP Live Leaderboard & Standings' },
@@ -96,8 +96,8 @@ function getUserDid(chatId) {
 }
 
 const KNOWN_DIDS = {
-  'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': '<a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> (Leader)',
-  'did:key:z6MkwQFgahxCG3feAQRKzzXLyFpEGxJYSCGZNEd3XU7E3wsc': '<a href="https://x.com/asadleo416">Asad Lee (Close Call Leader)</a> [YOU]',
+  'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4': 'Top Trader Node (Active)',
+  'did:key:z6MkwQFgahxCG3feAQRKzzXLyFpEGxJYSCGZNEd3XU7E3wsc': 'Close Call Node [YOU]',
   'did:key:z6MkkTEfZ9kM25sxAJhQTqJWRt3MXTZS2vkwBL2d8VDLniEX': '<a href="https://x.com/hassan_samimi">Hassan Samimi (X: @hassan_samimi)</a>',
   'did:key:z6MktpaPDzB7LMhUT1Wk15UVkHBqb2zgXsW5qvZoqTYZwjkh': 'SmartecVitalik (@Smartecio)',
   'did:key:z6MkgcF5qRG26QDqkaRjnWXFLzw6KGLtMfTTdLq9WVYzDdM9': 'Aika Kurashi (@aika_kurashi)',
@@ -112,7 +112,7 @@ const KNOWN_DIDS = {
 function getSolverDisplayName(did) {
   if (!did) return 'Unknown Node';
   if (did.includes('z6Mkhefo') || did.includes('z6MkwQ')) {
-    return '<b>Asad Lee (@asadleo416) [YOU]</b>';
+    return '<b>Active Trader [YOU]</b>';
   }
   if (KNOWN_DIDS[did]) {
     return `<b>${KNOWN_DIDS[did]}</b>`;
@@ -140,7 +140,7 @@ function escapeHtml(str) {
 async function sendTelegramMessage(chatId, text, extra = {}) {
   try {
     const api = getTelegramApi();
-    const fullText = text.includes('Powered by Asad Lee') ? text : `${text}${FOOTER}`;
+    const fullText = text.includes('Live Leaderboard Desk') ? text : `${text}${FOOTER}`;
     const res = await fetch(`${api}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -994,7 +994,7 @@ export default async function handler(req, res) {
       status: 'online',
       configured: Boolean(currentToken),
       commands: BOT_COMMANDS.map(c => c.command),
-      author: 'Asad Lee (@asadleo416)',
+      author: 'Technocore Community',
       notice: 'To sync Telegram app menu commands, visit /api/bot?sync=1'
     });
   }
@@ -1038,7 +1038,7 @@ export default async function handler(req, res) {
         syncTelegramMenuCommands().catch(() => {});
 
         const welcome = `<b>FlopRadar - Close Call Trading Desk &amp; Intelligence Bot</b>\n\n` +
-          `Autonomous agent companion by Asad Lee (@asadleo416):\n\n` +
+          `Official Decentralized Community Companion for @flop_labs:\n\n` +
           `<b>📈 Close Call Trading Desk (close-1):</b>\n` +
           `• <code>/closecall</code> - Live NVDA perp price, 5% sweep limits &amp; bankroll\n` +
           `• <code>/pnl</code> - Official Referee Leaderboard &amp; Top 10 rankings\n` +
@@ -1133,7 +1133,7 @@ export default async function handler(req, res) {
 
           let activeUserDid = getUserDid(chatId);
           let isDefaultOwner = activeUserDid === DEFAULT_DID;
-          let userLabel = isDefaultOwner ? 'Asad Lee (@asadleo416) [YOU]' : `Trader (<code>${activeUserDid.slice(0, 14)}...${activeUserDid.slice(-6)}</code>)`;
+          let userLabel = isDefaultOwner ? 'Active Trader [YOU]' : `Trader (<code>${activeUserDid.slice(0, 14)}...${activeUserDid.slice(-6)}</code>)`;
 
           // Check if user has an active order in /r/close1
           let userActiveOrderText = 'None (Place an order on Web Desk)';
@@ -1376,7 +1376,7 @@ export default async function handler(req, res) {
             `• <code>/audit shultz3</code>\n` +
             `• <code>/audit leidream</code>\n` +
             `• <code>/audit emberwick</code>\n` +
-            `• <code>/audit team-asad</code>\n\n` +
+            `• <code>/audit team-alpha</code>\n\n` +
             `Performs full pre-submission audit against Sonnet-2 referee rules:\n` +
             `• Rule 1: 4 to 8 accepted writers\n` +
             `• Rule 2 & 3: 14 lines, exact 10 syllables per line (140 total)\n` +
@@ -1814,8 +1814,8 @@ export default async function handler(req, res) {
             `• <code>/team leidream</code>\n` +
             `• <code>/team wickerlight</code>\n` +
             `• <code>/team emberwick</code>\n` +
-            `• <code>/team team-asad</code>\n` +
-            `• <code>/team asad2</code>\n\n` +
+            `• <code>/team team-alpha</code>\n` +
+            `• <code>/team team-beta</code>\n\n` +
             `Fetches real-time room writing activity, submission status, and on-chain roster events.`;
           await sendTelegramMessage(chatId, usage);
           return res.status(200).json({ ok: true });
@@ -2102,7 +2102,7 @@ export default async function handler(req, res) {
         const solvedCount = (telemetry.solved || 20333).toLocaleString();
         const scannedCount = (telemetry.scanned || 20350).toLocaleString();
 
-        let reply = `💰 <b>Asad Lee — Rewards &amp; Wallet Balance</b>\n\n` +
+        let reply = `💰 <b>Active Trader — Rewards &amp; Wallet Balance</b>\n\n` +
           `⚡ <b>Total FLOP Earned:</b> <code>${flopAmount} FLOP</code>\n` +
           `📜 <b>Total PAPER Earned:</b> <code>${paperAmount} PAPER</code>\n` +
           `🏆 <b>Bounties Solved:</b> <code>${solvedCount} Deals Won</code>\n` +
@@ -2168,7 +2168,7 @@ export default async function handler(req, res) {
 
         let reply = `🏆 <b>TECHNOCORE BOUNTY LEADERBOARD</b>\n` +
           `═════════════════════════════\n\n` +
-          `<b>1. Asad Lee (@asadleo416) [YOU]</b> 👑\n` +
+          `<b>1. Active Champion Node [YOU]</b> 👑\n` +
           `   💰 <b>${asadFlop} FLOP</b> | 🎯 <b>${asadSolved} Deals Won</b>\n` +
           `   ⚡ <i>24/7 Cloud Sniper (&lt; 0.1ms solve)</i>\n\n`;
 
@@ -2310,7 +2310,7 @@ export default async function handler(req, res) {
           action: 'setWebhook',
           webhookUrl,
           bot: '@FlopRadarBot',
-          author: 'Asad Lee (@asadleo416)',
+          author: 'Technocore Community',
           telegramResponse: setData
         });
       } catch (err) {
@@ -2325,8 +2325,8 @@ export default async function handler(req, res) {
       return res.status(200).json({
         bot: '@FlopRadarBot',
         status: 'online',
-        author: 'Asad Lee (@asadleo416)',
-        portfolio: 'https://asad-lee-portfolio.vercel.app/',
+        author: 'Technocore Community',
+        
         telegramWebhook: infoData,
         setupWebhookHint: 'Visit /api/bot?action=set_webhook to register or refresh webhook'
       });
@@ -2334,7 +2334,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         bot: '@FlopRadarBot',
         status: 'online',
-        author: 'Asad Lee (@asadleo416)',
+        author: 'Technocore Community',
         error: err.message
       });
     }
