@@ -4661,7 +4661,39 @@ html, body, #app-shell, #app-main {
   background: rgba(255, 255, 255, 0.03);
 }
 
-/* Agent Inspect Card */
+/* Agent Inspect Card & Containers */
+.lb-hero-actions-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.lb-hero-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.lb-bankroll-alert {
+  margin-bottom: var(--space-4);
+  padding: 12px 18px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.lb-inspect-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .lb-agent-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -4677,6 +4709,9 @@ html, body, #app-shell, #app-main {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .lb-stat-label {
@@ -4684,17 +4719,23 @@ html, body, #app-shell, #app-main {
   color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .lb-stat-val {
   font-family: var(--font-mono);
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 800;
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 .lb-stat-sub {
   font-size: 0.6875rem;
   color: var(--text-secondary);
+  line-height: 1.3;
 }
 
 /* Flow Feed */
@@ -4963,19 +5004,76 @@ html, body, #app-shell, #app-main {
 /* Tablet & Mobile Breakpoints */
 @media (max-width: 768px) {
   .lb-page-container {
-    padding: 10px 8px;
+    padding: 12px 10px;
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 32px)) !important;
     max-width: 100vw;
     overflow-x: hidden;
     box-sizing: border-box;
   }
 
   .lb-hero-banner {
-    padding: 16px 12px;
+    padding: 16px 14px;
     border-radius: var(--radius-md);
   }
 
   .lb-hero-banner h1 {
-    font-size: 1.4rem !important;
+    font-size: 1.35rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .lb-hero-actions-container {
+    width: 100%;
+    align-items: stretch;
+    margin-top: 8px;
+  }
+
+  .lb-hero-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .lb-hero-actions button, .lb-hero-actions a {
+    padding: 6px 4px !important;
+    font-size: 0.7rem !important;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .lb-bankroll-alert {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .lb-bankroll-alert > div:last-child {
+    width: 100%;
+    display: flex;
+    gap: 6px;
+  }
+
+  .lb-bankroll-alert button, .lb-bankroll-alert a {
+    flex: 1 1 auto;
+    justify-content: center;
+    text-align: center;
+    padding: 6px 8px !important;
+    font-size: 0.72rem !important;
+  }
+
+  .lb-inspect-actions {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .lb-inspect-actions button {
+    flex: 1 1 calc(50% - 6px);
+    padding: 6px 8px !important;
+    font-size: 0.7rem !important;
+    justify-content: center;
+    text-align: center;
   }
 
   .lb-kpi-grid {
@@ -4989,16 +5087,34 @@ html, body, #app-shell, #app-main {
   }
 
   .lb-kpi-card, .lb-prize-card {
-    padding: 12px 10px;
+    padding: 10px 10px;
   }
 
   .lb-kpi-val {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
   }
 
   .lb-agent-stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
+  }
+
+  .lb-stat-box {
+    padding: 8px 10px;
+  }
+
+  .lb-stat-label {
+    font-size: 0.625rem;
+  }
+
+  .lb-stat-val {
+    font-size: 0.95rem;
+    line-height: 1.25;
+  }
+
+  .lb-stat-sub {
+    font-size: 0.62rem;
+    line-height: 1.25;
   }
 
   .lb-mobile-scroll-hint {
@@ -5012,12 +5128,53 @@ html, body, #app-shell, #app-main {
 }
 
 @media (max-width: 480px) {
+  .lb-page-container {
+    padding: 8px 6px;
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 32px)) !important;
+  }
+
+  .lb-hero-banner {
+    padding: 12px 10px;
+  }
+
+  .lb-hero-banner h1 {
+    font-size: 1.2rem !important;
+  }
+
+  .lb-hero-actions {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+
+  .lb-hero-actions button, .lb-hero-actions a {
+    padding: 5px 2px !important;
+    font-size: 0.65rem !important;
+  }
+
   .lb-kpi-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .lb-kpi-grid > div:last-child {
+    grid-column: span 2;
   }
 
   .lb-prize-grid {
     grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .lb-kpi-card {
+    padding: 8px 8px;
+  }
+
+  .lb-kpi-val {
+    font-size: 1.0rem;
+  }
+
+  .lb-kpi-label {
+    font-size: 0.62rem;
   }
 
   .lb-podium-wrapper {
@@ -5081,7 +5238,32 @@ html, body, #app-shell, #app-main {
   }
 
   .lb-agent-stats-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .lb-stat-box {
+    padding: 6px 8px;
+  }
+
+  .lb-stat-label {
+    font-size: 0.58rem;
+  }
+
+  .lb-stat-val {
+    font-size: 0.88rem;
+    line-height: 1.2;
+  }
+
+  .lb-stat-sub {
+    font-size: 0.58rem;
+    line-height: 1.2;
+  }
+
+  .lb-inspect-actions button {
+    flex: 1 1 100%;
+    font-size: 0.72rem !important;
+    padding: 7px 10px !important;
   }
 }
 

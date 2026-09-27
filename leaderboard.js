@@ -748,7 +748,7 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
           </div>
         </div>
       </div>
-      <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+      <div class="lb-inspect-actions" style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
         <button id="lb-btn-autocopy-inspected" class="btn btn-primary btn-sm" style="font-size: 0.75rem; background: linear-gradient(135deg, #10B981, #059669); border: none; font-weight: 700; box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);">
           🤖 Continuous Auto-Copy (${activeQty.toFixed(2)} ${agentEntry.qty < 0 ? 'SHORT' : 'LONG'})
         </button>
@@ -876,7 +876,9 @@ export function updateClaimBankrollUI() {
   }
 
   const isClaimed = closeCallState.isOwnerRegistered || 
-    (typeof localStorage !== 'undefined' && localStorage.getItem('closecall_minted_' + currentDid) === 'true');
+    (typeof localStorage !== 'undefined' && localStorage.getItem('closecall_minted_' + currentDid) === 'true') ||
+    currentDid === MY_DID ||
+    leaderboardState.allAgents.some(a => a.did === currentDid);
 
   if (isClaimed) {
     pill.className = 'step-status-pill complete';
