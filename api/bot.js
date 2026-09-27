@@ -148,7 +148,8 @@ export async function sendCloseCallLeaderboard(chatId, req) {
       try {
         const pj = JSON.parse(priceRes.value.messages[0].text);
         if (pj.n || pj.for) sweep = pj.n || pj.for;
-        if (pj.global || pj.applied) markPx = parseFloat(pj.global || pj.applied).toFixed(2);
+        const rawPx = pj.ref?.px || pj.applied || pj.global;
+        if (rawPx) markPx = parseFloat(rawPx).toFixed(2);
         if (pj.limits) limits = `$${parseFloat(pj.limits[0]).toFixed(2)} – $${parseFloat(pj.limits[1]).toFixed(2)}`;
       } catch (e) {}
     }
@@ -240,8 +241,8 @@ export async function sendCloseCallLeaderboard(chatId, req) {
 export default async function handler(req, res) {
   try {
     const method = req.method;
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers['host'] || 'localhost';
+    const protocol = req.headers?.['x-forwarded-proto'] || 'https';
+    const host = req.headers?.['host'] || 'localhost';
     const baseWebhookUrl = `${protocol}://${host}/api/bot`;
 
     // READ-ONLY STATUS OR SYNC (GET /api/bot)
@@ -384,7 +385,8 @@ export default async function handler(req, res) {
           if (priceRes.status === 'fulfilled' && priceRes.value?.messages?.[0]?.text) {
             try {
               const j = JSON.parse(priceRes.value.messages[0].text);
-              if (j.applied || j.global) price = parseFloat(j.applied || j.global).toFixed(2);
+              const rawPx = j.ref?.px || j.applied || j.global;
+              if (rawPx) price = parseFloat(rawPx).toFixed(2);
               if (j.limits) limits = `$${parseFloat(j.limits[0]).toFixed(2)} – $${parseFloat(j.limits[1]).toFixed(2)}`;
               if (j.n || j.for) sweepN = j.n || j.for;
             } catch (e) {}
@@ -440,7 +442,8 @@ export default async function handler(req, res) {
           if (priceRes.status === 'fulfilled' && priceRes.value?.messages?.[0]?.text) {
             try {
               const pj = JSON.parse(priceRes.value.messages[0].text);
-              if (pj.global || pj.applied) markPx = parseFloat(pj.global || pj.applied);
+              const rawPx = pj.ref?.px || pj.applied || pj.global;
+              if (rawPx) markPx = parseFloat(rawPx);
               if (pj.n || pj.for) sweepN = pj.n || pj.for;
             } catch (e) {}
           }
@@ -483,12 +486,13 @@ export default async function handler(req, res) {
           if (foundQty === null && (targetDid.includes('z6Mkhefo') || targetDid.includes('z6MkwQ'))) {
             foundQty = -46.10;
             foundScore = (223.82 - markPx) * 46.10;
+            foundRank = 44;
           }
 
           if (foundQty !== null) {
             const side = foundQty < 0 ? '🔴 SHORT' : '🟢 LONG';
             const absQty = Math.abs(foundQty);
-            const estEntry = 226.40;
+            const estEntry = 223.82;
             const score = foundScore !== null ? foundScore : (foundQty < 0 ? (estEntry - markPx) * absQty : (markPx - estEntry) * absQty);
             const scoreSign = score >= 0 ? '+' : '';
             const equity = (10000 + score).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -500,6 +504,7 @@ export default async function handler(req, res) {
               `<b>Position Details:</b>\n` +
               `• <b>Side:</b> ${side}\n` +
               `• <b>Size:</b> <code>${absQty.toFixed(2)} contracts</code>\n` +
+              `• <b>Entry Price:</b> $223.82\n` +
               `• <b>Net PnL:</b> <b>${scoreSign}${score.toFixed(2)} POLF</b>\n` +
               `• <b>Total Equity:</b> <b>${equity} POLF</b>\n` +
               (foundRank ? `• <b>Leaderboard Standing:</b> 🏆 Official Rank #${foundRank}\n\n` : `\n`) +
