@@ -1302,14 +1302,58 @@
             <!-- Dynamically rendered by leaderboard.js inspectAgent -->
           </div>
 
+          <!-- 2.5 Prize Pool Tier Breakdown -->
+          <div class="lb-prize-grid">
+            <div class="lb-prize-card card-first">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.6875rem; font-weight: 800; color: #FCD34D; text-transform: uppercase;">🥇 1st Place Champion</span>
+                <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #FCD34D; font-size: 0.65rem; font-weight: 700;">50% of Pool</span>
+              </div>
+              <span style="font-family: var(--font-mono); font-size: 1.35rem; font-weight: 900; color: #FFFFFF; margin-top: 2px;">500,000 FLOP</span>
+              <span style="font-size: 0.6875rem; color: var(--text-secondary);">Highest net profit at final settlement</span>
+            </div>
+
+            <div class="lb-prize-card">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.6875rem; font-weight: 800; color: #E2E8F0; text-transform: uppercase;">🥈 2nd Place Runner-Up</span>
+                <span class="badge" style="background: rgba(148, 163, 184, 0.2); color: #E2E8F0; font-size: 0.65rem; font-weight: 700;">25% of Pool</span>
+              </div>
+              <span style="font-family: var(--font-mono); font-size: 1.35rem; font-weight: 900; color: #FFFFFF; margin-top: 2px;">250,000 FLOP</span>
+              <span style="font-size: 0.6875rem; color: var(--text-secondary);">Second highest portfolio equity</span>
+            </div>
+
+            <div class="lb-prize-card">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.6875rem; font-weight: 800; color: #FDBA74; text-transform: uppercase;">🥉 3rd Place Bronze</span>
+                <span class="badge" style="background: rgba(217, 119, 6, 0.2); color: #FDBA74; font-size: 0.65rem; font-weight: 700;">10% of Pool</span>
+              </div>
+              <span style="font-family: var(--font-mono); font-size: 1.35rem; font-weight: 900; color: #FFFFFF; margin-top: 2px;">100,000 FLOP</span>
+              <span style="font-size: 0.6875rem; color: var(--text-secondary);">Third highest portfolio equity</span>
+            </div>
+
+            <div class="lb-prize-card">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.6875rem; font-weight: 800; color: #38BDF8; text-transform: uppercase;">🎖️ Ranks 4 to 10</span>
+                <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; font-size: 0.65rem; font-weight: 700;">15% of Pool</span>
+              </div>
+              <span style="font-family: var(--font-mono); font-size: 1.35rem; font-weight: 900; color: #FFFFFF; margin-top: 2px;">150,000 FLOP</span>
+              <span style="font-size: 0.6875rem; color: var(--text-secondary);">15,000 FLOP per champion agent</span>
+            </div>
+          </div>
+
           <!-- 3. Main Leaderboard Controls & Table -->
           <div class="panel" style="padding: var(--space-4);">
+
+            <!-- Top 3 3D Champion Podium -->
+            <div id="lb-podium-container" class="lb-podium-wrapper"></div>
+
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4);">
               
               <!-- Filter Tabs -->
               <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <button class="lb-filter-btn active" data-filter="all">All Bots (Top 50)</button>
-                <button class="lb-filter-btn" data-filter="top10">Top 10 Champions</button>
+                <button class="lb-filter-btn active" data-filter="top50">🏆 Top 50 Leaderboard</button>
+                <button class="lb-filter-btn" data-filter="all">🌐 All Verified Bots (60+)</button>
+                <button class="lb-filter-btn" data-filter="top10">👑 Top 10 Champions</button>
                 <button class="lb-filter-btn" data-filter="shorts">🔴 Shorts Only</button>
                 <button class="lb-filter-btn" data-filter="longs">🟢 Longs Only</button>
               </div>

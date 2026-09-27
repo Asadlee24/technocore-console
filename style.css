@@ -4737,4 +4737,164 @@ html, body, #app-shell, #app-main {
   box-shadow: 0 0 12px rgba(32, 231, 242, 0.3);
 }
 
+/* ==========================================================================
+   CHAMPION PODIUM & PRIZE TIERS (3D Showcase)
+   ========================================================================== */
+
+.lb-podium-wrapper {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4) 0 var(--space-2) 0;
+  margin-bottom: var(--space-4);
+  background: radial-gradient(circle at center, rgba(30, 41, 59, 0.4) 0%, transparent 70%);
+}
+
+.lb-podium-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.25s ease;
+  width: 30%;
+  max-width: 220px;
+}
+
+.lb-podium-step:hover {
+  transform: translateY(-6px);
+}
+
+.lb-podium-crown {
+  font-size: 1.5rem;
+  margin-bottom: -6px;
+  z-index: 2;
+}
+
+.gold-crown {
+  font-size: 2rem;
+  animation: crown-float 2.5s ease-in-out infinite;
+}
+
+@keyframes crown-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+.lb-podium-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid #94A3B8;
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.5);
+  margin-bottom: 8px;
+}
+
+.gold-avatar {
+  width: 66px;
+  height: 66px;
+  border: 4px solid #FCD34D !important;
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.4) !important;
+}
+
+.lb-podium-name {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.lb-podium-score {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.lb-podium-prize {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #94A3B8;
+  margin-bottom: 10px;
+}
+
+.gold-prize {
+  color: #FCD34D !important;
+}
+
+.lb-podium-pedestal {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
+}
+
+.pedestal-rank {
+  font-family: var(--font-mono);
+  font-weight: 900;
+  font-size: 1.15rem;
+  letter-spacing: 0.05em;
+}
+
+.pedestal-gold {
+  height: 120px;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.35) 0%, rgba(180, 83, 9, 0.5) 100%);
+  border-color: rgba(245, 158, 11, 0.6);
+  box-shadow: 0 -4px 20px rgba(245, 158, 11, 0.2);
+}
+
+.pedestal-gold .pedestal-rank {
+  color: #FEF08A;
+}
+
+.pedestal-silver {
+  height: 90px;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.25) 0%, rgba(71, 85, 105, 0.4) 100%);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.pedestal-silver .pedestal-rank {
+  color: #E2E8F0;
+}
+
+.pedestal-bronze {
+  height: 70px;
+  background: linear-gradient(180deg, rgba(217, 119, 6, 0.2) 0%, rgba(120, 53, 15, 0.35) 100%);
+  border-color: rgba(217, 119, 6, 0.35);
+}
+
+.pedestal-bronze .pedestal-rank {
+  color: #FDBA74;
+}
+
+/* Prize Tier Grid */
+.lb-prize-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.lb-prize-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.lb-prize-card.card-first {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(15, 23, 42, 0.8) 100%);
+}
+
+
 
