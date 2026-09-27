@@ -191,29 +191,51 @@ export async function refreshLeaderboardData() {
     const currentMark = leaderboardState.referencePrice;
     const agentsMap = new Map();
 
-    // 2. Aggregate from /r/d-close1-pnl (Historical & Current Rankings)
+    // 2. Aggregate from /r/d-close1-pnl (Authoritative Current Sweep First)
     if (pnlRes.status === 'fulfilled' && pnlRes.value.ok) {
       const lines = pnlRes.value.text.split('\n');
+      const pnlPackets = [];
       for (const line of lines) {
         const jsonMatch = line.match(/\{.*\}/);
         if (jsonMatch) {
           try {
             const data = JSON.parse(jsonMatch[0]);
             if (data.t === 'pnl' && Array.isArray(data.top)) {
-              data.top.forEach(([did, scoreStr]) => {
-                const score = parseFloat(scoreStr);
-                if (!agentsMap.has(did) || agentsMap.get(did).score < score) {
-                  agentsMap.set(did, {
-                    did,
-                    score,
-                    qty: -44.87,
-                    entryPx: 226.40,
-                    source: 'Referee PnL'
-                  });
-                }
-              });
+              pnlPackets.push(data);
             }
           } catch {}
+        }
+      }
+
+      if (pnlPackets.length > 0) {
+        // The last packet is the authoritative CURRENT sweep!
+        const latestPnl = pnlPackets[pnlPackets.length - 1];
+        latestPnl.top.forEach(([did, scoreStr]) => {
+          agentsMap.set(did, {
+            did,
+            score: parseFloat(scoreStr),
+            qty: -44.87,
+            entryPx: 226.40,
+            source: 'Current Sweep PnL',
+            isCurrentSweep: true
+          });
+        });
+
+        // Scan older packets ONLY to register other participant DIDs without overwriting live top bots
+        for (let i = pnlPackets.length - 2; i >= 0; i--) {
+          pnlPackets[i].top.forEach(([did, scoreStr]) => {
+            if (!agentsMap.has(did)) {
+              const estScore = (226.40 - currentMark) * 44.87;
+              agentsMap.set(did, {
+                did,
+                score: estScore,
+                qty: -44.87,
+                entryPx: 226.40,
+                source: 'Historical Participant',
+                isCurrentSweep: false
+              });
+            }
+          });
         }
       }
     }
