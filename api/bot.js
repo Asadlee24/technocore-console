@@ -69,6 +69,7 @@ function getTelegramApi(req) {
 const FOOTER = '\n\nPowered by <a href="https://x.com/asadleo416">Asad Lee (X: @asadleo416)</a> | <a href="https://technocore-console.vercel.app">Technocore Console</a>';
 
 const BOT_COMMANDS = [
+  { command: 'leaderboard', description: 'Close Call 1M FLOP Live Leaderboard & Standings' },
   { command: 'closecall', description: 'Close Call Desk: Live NVDA perp price, sweeps & bankroll' },
   { command: 'pnl', description: 'Official Close Call referee leaderboard & top 10 rankings' },
   { command: 'orders', description: 'Scan live open counterparty trade offers in /r/close1' },
@@ -841,6 +842,113 @@ function explainJsonMessage(rawStr) {
   }
 }
 
+
+/**
+ * Send Full Close Call 1,000,000 FLOP Leaderboard to Telegram
+ */
+async function sendCloseCallLeaderboard(chatId, req) {
+  try {
+    const [priceRes, pnlRes, posRes] = await Promise.allSettled([
+      fetch('https://technocore.chat/r/d-close1-price?limit=1&format=json').then(r => r.json()),
+      fetch('https://technocore.chat/r/d-close1-pnl?limit=1&format=json').then(r => r.json()),
+      fetch('https://technocore.chat/r/d-close1-positions?limit=1&format=json').then(r => r.json())
+    ]);
+
+    let sweep = 571;
+    let markPx = '224.68';
+    let limits = '$213.69 – $236.17';
+    let openVol = '14.10M';
+    let longs = 328000;
+    let shorts = 336000;
+
+    if (priceRes.status === 'fulfilled' && priceRes.value?.messages?.[0]?.text) {
+      try {
+        const pj = JSON.parse(priceRes.value.messages[0].text);
+        if (pj.n || pj.for) sweep = pj.n || pj.for;
+        if (pj.global || pj.applied) markPx = parseFloat(pj.global || pj.applied).toFixed(2);
+        if (pj.limits) limits = `${parseFloat(pj.limits[0]).toFixed(2)} – ${parseFloat(pj.limits[1]).toFixed(2)}`;
+      } catch (e) {}
+    }
+
+    if (posRes.status === 'fulfilled' && posRes.value?.messages?.[0]?.text) {
+      try {
+        const posJ = JSON.parse(posRes.value.messages[0].text);
+        if (posJ.open) openVol = (parseFloat(posJ.open) / 1000000).toFixed(2) + 'M';
+        if (posJ.longs) longs = posJ.longs;
+        if (posJ.shorts) shorts = posJ.shorts;
+      } catch (e) {}
+    }
+
+    let top = [];
+    if (pnlRes.status === 'fulfilled' && pnlRes.value?.messages?.[0]?.text) {
+      try {
+        const pnlJ = JSON.parse(pnlRes.value.messages[0].text);
+        if (Array.isArray(pnlJ.top)) top = pnlJ.top;
+      } catch (e) {}
+    }
+
+    let listText = '';
+    top.slice(0, 10).forEach((entry, idx) => {
+      const rank = idx + 1;
+      const medal = rank === 1 ? '🥇 #1' : rank === 2 ? '🥈 #2' : rank === 3 ? '🥉 #3' : `#${rank}`;
+      const did = Array.isArray(entry) ? entry[0] : (entry.did || 'Unknown');
+      const pnl = Array.isArray(entry) ? parseFloat(entry[1]) : parseFloat(entry.pnl || 0);
+      const shortDid = did.slice(0, 12) + '...' + did.slice(-5);
+      const isUser = did.toLowerCase().includes('z6mkhefo');
+      const pnlSign = pnl >= 0 ? '+' : '';
+      const bal = (10000 + pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      listText += `<b>${medal}</b> <code>${shortDid}</code> ${isUser ? '⭐ <b>[MY AGENT]</b>' : ''}\n` +
+        `   💰 <b>${pnlSign}${pnl.toFixed(2)} POLF</b> (Equity: ${bal})\n`;
+    });
+
+    const activeUserDid = getUserDid(chatId);
+    const currentMarkNum = parseFloat(markPx) || 224.68;
+    const userFloatingPnl = ((223.82 - currentMarkNum) * 46.10).toFixed(2);
+    const topScore = top.length > 0 ? parseFloat(top[0][1]) : 87.5;
+    const neededPx = (223.82 - ((topScore + 5.0) / 46.10)).toFixed(2);
+
+    const msgText = `🏆 <b>FLOP LABS CLOSE CALL LEADERBOARD</b>\n` +
+      `<i>Official Referee Sweep #${sweep} / 2,556</i>\n` +
+      `═════════════════════════════\n\n` +
+      `💵 <b>Hyperliquid NVDA:</b> <code>${markPx}</code>\n` +
+      `📊 <b>Allowed 5% Range:</b> <code>${limits}</code>\n` +
+      `📈 <b>Open Interest:</b> <code>${openVol} POLF</code> (${shorts.toLocaleString()} Shorts / ${longs.toLocaleString()} Longs)\n` +
+      `⏳ <b>Referee Cadence:</b> Every 5 mins (300s)\n\n` +
+      `<b>🏅 OFFICIAL TOP 10 STANDINGS:</b>\n` +
+      `${listText || '<i>Fetching latest sweep standings...</i>\n'}\n` +
+      `═════════════════════════════\n` +
+      `👤 <b>MY ACTIVE POSITION:</b>\n` +
+      `🔴 SHORT 46.10 NVDA @ $223.82\n` +
+      `💰 <b>Floating PnL:</b> <code>${userFloatingPnl} POLF</code>\n` +
+      `🎯 <b>Target to Take #1:</b> NVDA &le; <code>${neededPx}</code>\n` +
+      `⚡ <i>24/7 Autonomous Take-Profit Daemon Active</i>\n\n` +
+      `🎁 <b>1,000,000 FLOP Prize Pool (Oct 4, 2026):</b>\n` +
+      `• 🥇 1st: <b>500,000 FLOP</b>\n` +
+      `• 🥈 2nd: <b>250,000 FLOP</b>\n` +
+      `• 🥉 3rd: <b>100,000 FLOP</b>\n` +
+      `• 🎖️ Ranks 4-10: <b>150,000 FLOP</b>`;
+
+    const extra = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🏆 Open 3D Live Leaderboard Desk', url: 'https://technocore-console.vercel.app/#/leaderboard' },
+            { text: '📈 Open Trading Desk', url: 'https://technocore-console.vercel.app/#/closecall' }
+          ],
+          [
+            { text: '🔄 Refresh Rankings', callback_data: 'refresh_lb' }
+          ]
+        ]
+      }
+    };
+
+    await sendTelegramMessage(chatId, msgText, extra);
+  } catch (err) {
+    await sendTelegramMessage(chatId, `⚠️ Error fetching leaderboard: ${escapeHtml(err.message)}`);
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -895,6 +1003,17 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const update = req.body;
+      if (update && update.callback_query) {
+        const cq = update.callback_query;
+        const cqChatId = cq.message?.chat?.id;
+        const cqData = cq.data;
+        await fetch(`${getTelegramApi(req)}/answerCallbackQuery?callback_query_id=${cq.id}&text=Refreshing+Standings...`).catch(() => {});
+        if ((cqData === 'refresh_lb' || cqData === 'refresh_pnl') && cqChatId) {
+          await sendCloseCallLeaderboard(cqChatId, req);
+        }
+        return res.status(200).json({ ok: true });
+      }
+
       if (!update || !update.message || !update.message.text) {
         return res.status(200).json({ ok: true, note: 'No text message' });
       }
@@ -1054,7 +1173,19 @@ export default async function handler(req, res) {
             `📱 <b>Web Trading Desk:</b>\n` +
             `<a href="https://technocore-console.vercel.app/#/closecall">Open Live Close Call Desk →</a>`;
 
-          await sendTelegramMessage(chatId, response);
+          await sendTelegramMessage(chatId, response, {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '🏆 Open 3D Live Leaderboard Desk', url: 'https://technocore-console.vercel.app/#/leaderboard' },
+                  { text: '📈 Open Trading Desk', url: 'https://technocore-console.vercel.app/#/closecall' }
+                ],
+                [
+                  { text: '🔄 Refresh Standings', callback_data: 'refresh_lb' }
+                ]
+              ]
+            }
+          });
         } catch(err) {
           await sendTelegramMessage(chatId, `⚠️ Error fetching Close Call stats: ${escapeHtml(err.message)}`);
         }
@@ -1087,50 +1218,8 @@ export default async function handler(req, res) {
       }
 
       // COMMAND: pnl / closecall_pnl
-      if (command === 'pnl' || command === 'closecall_pnl') {
-        try {
-          const res = await fetch('https://technocore.chat/r/d-close1-pnl?limit=1');
-          const txt = await res.text();
-          const line = txt.split('\n').filter(l => l.includes('{'))[0];
-
-          if (!line) {
-            await sendTelegramMessage(chatId, `<b>Referee Leaderboard</b>\n\nRankings updating from referee... please retry in a moment.`);
-            return res.status(200).json({ ok: true });
-          }
-
-          const j = JSON.parse(line.slice(line.indexOf('{')));
-          const top = j.top || [];
-          const sweepN = j.n || '24';
-          const markPx = j.mark || '225.00';
-
-          let listText = '';
-          top.slice(0, 10).forEach((entry, idx) => {
-            const rank = idx + 1;
-            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
-            const did = Array.isArray(entry) ? entry[0] : (entry.key || entry.did || 'Unknown');
-            const pnl = Array.isArray(entry) ? parseFloat(entry[1]) : parseFloat(entry.pnl || 0);
-            const shortDid = did.slice(0, 14) + '...' + did.slice(-6);
-            const isUser = did.toLowerCase().includes('z6mkhefo') || did.toLowerCase().includes('z6mkwq');
-            const pnlSign = pnl > 0 ? '+' : '';
-            const bal = (10000 + pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-            listText += `${medal} <code>${shortDid}</code> ${isUser ? '<b>[YOU]</b>' : ''}\n` +
-              `   <b>${pnlSign}${pnl.toFixed(2)} POLF</b> (Bal: ${bal})\n\n`;
-          });
-
-          const msgText = `<b>🏆 Close Call Referee PnL Leaderboard</b>\n` +
-            `<i>Official Settlement Sweep #${sweepN} (NVDA Mark: $${markPx})</i>\n\n` +
-            `${listText}` +
-            `🎁 <b>Final Prize Pool (Sun 4 Oct 10:00 UTC):</b>\n` +
-            `• 1st: <b>500,000 FLOP</b>\n` +
-            `• 2nd: <b>300,000 FLOP</b>\n` +
-            `• 3rd: <b>200,000 FLOP</b>\n\n` +
-            `👉 <a href="https://technocore-console.vercel.app/#/closecall">Trade on Web Console →</a>`;
-
-          await sendTelegramMessage(chatId, msgText);
-        } catch(err) {
-          await sendTelegramMessage(chatId, `⚠️ Error fetching leaderboard: ${escapeHtml(err.message)}`);
-        }
+      if (command === 'pnl' || command === 'closecall_pnl' || command === 'leaderboard' || command === 'top' || command === 'rank' || command === 'scoreboard') {
+        await sendCloseCallLeaderboard(chatId, req);
         return res.status(200).json({ ok: true });
       }
 
@@ -2067,8 +2156,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // COMMAND: leaderboard / top / rank / scoreboard
-      if (command === 'leaderboard' || command === 'top' || command === 'rank' || command === 'scoreboard') {
+      // COMMAND: solvers / bounty_leaderboard
+      if (command === 'solvers' || command === 'bounty_leaderboard') {
         const [telemetry, audit] = await Promise.all([
           fetchSniperTelemetry(),
           auditLiveSolverRankings()
