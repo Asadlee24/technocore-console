@@ -5,7 +5,7 @@
  */
 
 import { fetchProtocol } from './transport.js';
-import { createAndBroadcastOffer } from './closecall.js';
+import { createAndBroadcastOffer, acceptAndExecuteOffer, fetchCloseCallOrders } from './closecall.js';
 
 const MY_DID = 'did:key:z6MkhefoSonhn5baYJn2dXvvotuyhjmuqfaZ43QMjy23zJM4';
 const TOTAL_SWEEPS = 2556;
@@ -930,14 +930,44 @@ export async function executeAutoCopyCycle() {
   const side = autoCopyState.targetSide;
   const qty = autoCopyState.targetQty;
 
+  const naclInst = _nacl || window.nacl;
+
   try {
-    console.log(`[Auto-Copy Sentinel] Auto-broadcasting mirror trade for Sweep #${currentSweep}: ${side} ${qty} @ $${px}`);
-    await createAndBroadcastOffer(_nacl || window.nacl, _state.keypair, {
-      side,
-      px: px.toFixed(2),
-      qty: qty.toFixed(2),
-      untilSweeps: 24
-    });
+    // 1. Check if matching counterparty liquidity exists in orderbook to fill immediately
+    const oppositeSide = side === 'sell' ? 'buy' : 'sell';
+    let executedMatch = false;
+
+    try {
+      const openOffers = await fetchCloseCallOrders(_state.keypair.did);
+      const match = openOffers.find(o => 
+        !o.isOwn && 
+        o.terms && 
+        o.terms.side === oppositeSide && 
+        o.makerSig &&
+        (leaderboardState.limits ? (parseFloat(o.terms.px) >= leaderboardState.limits[0] && parseFloat(o.terms.px) <= leaderboardState.limits[1]) : true)
+      );
+
+      if (match) {
+        console.log(`[Auto-Copy Sentinel] Immediate counterparty fill found! Executing trade match with maker ${match.terms.maker}...`);
+        await acceptAndExecuteOffer(naclInst, _state.keypair, match);
+        executedMatch = true;
+        _toast(`⚡ Auto-Copy Instantly Filled with counterparty on Sweep #${currentSweep}! Mirrored ${side.toUpperCase()} @ $${match.terms.px}`, 'success');
+      }
+    } catch (matchErr) {
+      console.warn('[Auto-Copy Sentinel] Match check notice:', matchErr.message);
+    }
+
+    // 2. If no direct counterparty fill was available, broadcast resting maker offer to orderbook
+    if (!executedMatch) {
+      console.log(`[Auto-Copy Sentinel] Auto-broadcasting mirror trade offer for Sweep #${currentSweep}: ${side} ${qty} @ $${px}`);
+      await createAndBroadcastOffer(naclInst, _state.keypair, {
+        side,
+        px: px.toFixed(2),
+        qty: qty.toFixed(2),
+        untilSweeps: 24
+      });
+      _toast(`🤖 Auto-Copy Sweep #${currentSweep} Broadcasted! Mirrored ${side.toUpperCase()} ${qty.toFixed(2)} @ $${px.toFixed(2)} on orderbook`, 'success');
+    }
 
     autoCopyState.lastCopiedSweep = currentSweep;
     autoCopyState.autoCopyCount++;
@@ -953,7 +983,6 @@ export async function executeAutoCopyCycle() {
     } catch (e) {}
 
     updateAutoCopySentinelUI();
-    _toast(`🤖 Auto-Copy Executed for Sweep #${currentSweep}! Mirrored ${side.toUpperCase()} ${qty.toFixed(2)} @ $${px.toFixed(2)}`, 'success');
   } catch (err) {
     console.warn('[Auto-Copy Sentinel] Auto trade notice:', err.message);
   }
