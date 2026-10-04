@@ -594,7 +594,9 @@ a:hover {
 }
 
 .view-container.hidden,
-.bounty-container.hidden {
+.bounty-container.hidden,
+.lb-page-container.hidden,
+#leaderboard-view.hidden {
   display: none !important;
 }
 
@@ -4477,6 +4479,10 @@ html, body, #app-shell, #app-main {
   max-width: 1280px;
   margin: 0 auto;
   padding: var(--space-4);
+}
+
+.lb-page-container.hidden {
+  display: none !important;
 }
 
 .lb-hero-banner {

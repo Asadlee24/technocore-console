@@ -109,8 +109,8 @@ export async function fetchCloseCallPrice() {
       if (jsonMatch) {
         try {
           const data = JSON.parse(jsonMatch[0]);
-          if (data.t === 'price' || data.t === 'seed') {
-            closeCallState.currentSweep = data.n || data.for || closeCallState.currentSweep;
+          if (data.t === 'price' || data.t === 'seed' || data.t === 'final') {
+            closeCallState.currentSweep = data.n || data.for || 2556;
             if (data.ref && data.ref.px) {
               closeCallState.referencePrice = parseFloat(data.ref.px);
               closeCallState.priceTime = data.ref.time;
@@ -649,6 +649,16 @@ function updateCountdownClock() {
   const countdownEl = document.getElementById('closecall-countdown-display');
   if (!countdownEl) return;
 
+  if (closeCallState.currentSweep >= 2556) {
+    countdownEl.textContent = 'FINAL';
+    countdownEl.style.color = '#10B981';
+    const sub = countdownEl.nextElementSibling;
+    if (sub && sub.classList.contains('ticker-sub')) {
+      sub.textContent = 'Contest Concluded';
+    }
+    return;
+  }
+
   const now = new Date();
   const currentSeconds = now.getMinutes() * 60 + now.getSeconds();
   const secondsRemaining = 300 - (currentSeconds % 300);
@@ -822,7 +832,7 @@ export function updateCloseCallUI() {
   }
 
   if (sweepEl) {
-    sweepEl.textContent = `Sweep #${closeCallState.currentSweep || '--'}`;
+    sweepEl.textContent = closeCallState.currentSweep >= 2556 ? 'Sweep #2556 (Final)' : `Sweep #${closeCallState.currentSweep || '--'}`;
   }
 
   // Render My Active Trades and Open Orders

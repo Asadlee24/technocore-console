@@ -31,7 +31,7 @@ export const BOT_COMMANDS = [
   { command: 'myposition', description: 'Check your trade execution, contracts & Net PnL' },
   { command: 'positions', description: 'Global positions telemetry (Longs vs Shorts)' },
   { command: 'orders', description: 'Scan live open counterparty trade offers in /r/close1' },
-  { command: 'copytrade', description: '1-Click copy trade top bots on Close Call Desk' },
+  { command: 'copytrade', description: 'Close Call Finale & $234.69 Settlement Info' },
   { command: 'register', description: 'Claim 10,000 POLF starting stack for contest' },
   { command: 'setdid', description: 'Link or view your existing did:key identity' },
   { command: 'rules', description: 'Close Call rules, 5-minute sweeps & 1M FLOP prizes' },
@@ -290,7 +290,7 @@ export default async function handler(req, res) {
         const posText = `📊 <b>Global Positions Telemetry:</b>\nCheck live market Longs vs Shorts on the <a href="https://technocore-console.vercel.app/#/leaderboard">Live Leaderboard Desk</a>.`;
         await sendTelegramMessage(cbChatId, posText, {}, req);
       } else if (cbData === 'cb_copytrade') {
-        const copyText = `⚡ <b>1-Click Copy Trading:</b>\nOpen the <a href="https://technocore-console.vercel.app/#/leaderboard">Leaderboard Desk</a> and tap <b>⚡ Copy</b> on any bot to replicate their trade!`;
+        const copyText = `🏁 <b>Close Call Challenge (close-1) Concluded:</b>\nTrading locked at 09:00 UTC and settled at 10:00:15 UTC ($234.69). All copy-trading and order placement is closed. Check final standings on the <a href="https://technocore-console.vercel.app/#/leaderboard">Leaderboard Desk</a>.`;
         await sendTelegramMessage(cbChatId, copyText, {}, req);
       }
       return res.status(200).json({ ok: true });
@@ -342,7 +342,7 @@ export default async function handler(req, res) {
               ],
               [
                 { text: '📊 Global Positions', callback_data: 'cb_positions' },
-                { text: '⚡ Copy Trading', callback_data: 'cb_copytrade' }
+                { text: '🏁 Final Settlement', callback_data: 'cb_copytrade' }
               ]
             ]
           }
@@ -564,7 +564,7 @@ export default async function handler(req, res) {
               reply_markup: {
                 inline_keyboard: [
                   [
-                    { text: '⚡ Copy Trade This Position', url: 'https://technocore-console.vercel.app/#/leaderboard' }
+                    { text: '🏆 Inspect on Leaderboard', url: 'https://technocore-console.vercel.app/#/leaderboard' }
                   ],
                   [
                     { text: '📈 Open Trading Desk', url: 'https://technocore-console.vercel.app/#/closecall' },
@@ -591,7 +591,7 @@ export default async function handler(req, res) {
               reply_markup: {
                 inline_keyboard: [
                   [
-                    { text: isClaimed ? '⚡ 1-Click Copy Trade Rank #1' : '🎁 Claim 10,000 POLF Starting Stack', url: 'https://technocore-console.vercel.app/#/leaderboard' }
+                    { text: '🏆 View Final Leaderboard Standings', url: 'https://technocore-console.vercel.app/#/leaderboard' }
                   ],
                   [
                     { text: '📈 Open Trading Desk', url: 'https://technocore-console.vercel.app/#/closecall' },
@@ -609,23 +609,17 @@ export default async function handler(req, res) {
 
       // COMMAND: copytrade / copy
       if (command === 'copytrade' || command === 'copy') {
-        const copyMsg = `🤖 <b>24/7 AUTONOMOUS AUTO-COPY TRADING SENTINEL</b>\n\n` +
-          `You don't need to manually trade or re-copy every sweep! Set it once, and the Console's automated sentinel continuously mirrors your target bot until contest close:\n\n` +
-          `<b>How It Works:</b>\n` +
-          `1. Open the <a href="https://technocore-console.vercel.app/#/leaderboard">3D Live Leaderboard Desk</a>\n` +
-          `2. Tap <b>🔄 Auto-Copy</b> on any leader or bot (e.g. Rank #1 Champion)\n` +
-          `3. The <b>Live Sentinel Daemon</b> activates:\n` +
-          `   • Automatically mirrors their position (Side & Contracts)\n` +
-          `   • Re-evaluates on <b>EVERY 5-minute referee sweep</b>\n` +
-          `   • Automatically signs and broadcasts mirror trades using your identity\n` +
-          `   • Runs continuously in the console until contest close (or until you tap ⏹️ Stop Auto-Copy)!\n\n` +
-          `<i>100% decentralized, non-custodial, and cryptographically signed with your Ed25519 key.</i>`;
+        const copyMsg = `🏁 <b>CLOSE CALL CHALLENGE (close-1) CONCLUDED</b>\n\n` +
+          `Trading officially locked at 09:00 UTC and finalized at 10:00:15 UTC with final settlement price <b>$234.69</b> on Hyperliquid xyz:NVDA.\n\n` +
+          `• All automated order placement and copy trading are permanently stopped.\n` +
+          `• Final referee PnL standings and 1,000,000 FLOP prize allocations are locked.\n\n` +
+          `Check official standings and verified champion bots on the Leaderboard Desk below:`;
 
         await sendTelegramMessage(chatId, copyMsg, {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '🤖 Launch 24/7 Auto-Copy Sentinel', url: 'https://technocore-console.vercel.app/#/leaderboard' }
+                { text: '🏆 Official Final Leaderboard Standings', url: 'https://technocore-console.vercel.app/#/leaderboard' }
               ]
             ]
           }

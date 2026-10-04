@@ -63,21 +63,9 @@ export function initLeaderboardUI(domElements, appState, naclInstance, toastFn) 
     _toast = toastFn || ((msg) => console.log(msg));
   }
 
-  // Restore active auto-copy sentinel from persistent storage if set
+  // Clear any legacy auto-copy sentinel settings
   try {
-    const saved = localStorage.getItem('technocore_autocopy_target');
-    if (saved) {
-      const data = JSON.parse(saved);
-      if (data && data.did && data.enabled) {
-        autoCopyState.enabled = true;
-        autoCopyState.targetDid = data.did;
-        autoCopyState.targetLabel = data.label || 'Leader';
-        autoCopyState.targetSide = data.side || 'sell';
-        autoCopyState.targetQty = data.qty || 44.87;
-        autoCopyState.autoCopyCount = data.count || 0;
-        updateAutoCopySentinelUI();
-      }
-    }
+    localStorage.removeItem('technocore_autocopy_target');
   } catch (e) {}
 
   bindLeaderboardEvents();
@@ -154,13 +142,7 @@ function bindLeaderboardEvents() {
     });
   }
 
-  // 24/7 Autonomous Auto-Copy Stop Button
-  const btnStopAutoCopy = document.getElementById('lb-btn-stop-autocopy');
-  if (btnStopAutoCopy) {
-    btnStopAutoCopy.addEventListener('click', () => {
-      stopAutoCopyTrading();
-    });
-  }
+
 }
 
 /**
@@ -170,6 +152,14 @@ function startSweepCountdown() {
   if (leaderboardState.countdownTimer) clearInterval(leaderboardState.countdownTimer);
 
   leaderboardState.countdownTimer = setInterval(() => {
+    if (leaderboardState.currentSweep >= 2556) {
+      const countdownEl = document.getElementById('lb-countdown-display');
+      if (countdownEl) {
+        countdownEl.textContent = 'FINAL';
+        countdownEl.style.color = '#10B981';
+      }
+      return;
+    }
     const elapsed = Math.floor((Date.now() - leaderboardState.lastSweepTimestamp) / 1000);
     leaderboardState.sweepCountdown = Math.max(0, SWEEP_INTERVAL_SEC - (elapsed % SWEEP_INTERVAL_SEC));
 
@@ -185,7 +175,6 @@ function startSweepCountdown() {
     if (leaderboardState.sweepCountdown === 0) {
       setTimeout(async () => {
         await refreshLeaderboardData();
-        executeAutoCopyCycle();
       }, 3000);
     }
   }, 1000);
@@ -212,7 +201,7 @@ function startLeaderboardPolling() {
 export async function refreshLeaderboardData() {
   try {
     const [priceRes, pnlRes, posRes, flowRes] = await Promise.allSettled([
-      fetchProtocol('r/d-close1-price?limit=1'),
+      fetchProtocol('r/d-close1-price?limit=5'),
       fetchProtocol('r/d-close1-pnl?limit=25'),
       fetchProtocol('r/d-close1-positions?limit=20'),
       fetchProtocol('r/d-close1-flow?limit=50')
@@ -221,14 +210,19 @@ export async function refreshLeaderboardData() {
     // 1. Process Price Feed
     if (priceRes.status === 'fulfilled' && priceRes.value.ok) {
       const parsed = extractJson(priceRes.value.text);
-      if (parsed && (parsed.t === 'price' || parsed.t === 'seed')) {
-        leaderboardState.currentSweep = parsed.n || parsed.for || leaderboardState.currentSweep;
-        leaderboardState.referencePrice = parseFloat(parsed.ref?.px || parsed.applied || parsed.price || 224.90);
-        leaderboardState.globalPrice = parseFloat(parsed.global || parsed.applied || 224.60);
-        leaderboardState.priceTime = parsed.ref?.time || null;
-        leaderboardState.priceAge = parsed.age_s || null;
+      if (parsed && (parsed.t === 'price' || parsed.t === 'seed' || parsed.t === 'final')) {
+        leaderboardState.currentSweep = parsed.n || parsed.for || 2556;
+        leaderboardState.referencePrice = parseFloat(parsed.price || parsed.ref?.px || parsed.applied || 234.69);
+        leaderboardState.globalPrice = parseFloat(parsed.global || parsed.applied || parsed.price || 234.69);
+        leaderboardState.priceTime = parsed.trade?.time || parsed.ref?.time || null;
+        leaderboardState.priceAge = parsed.age_s || 0;
         if (parsed.limits && Array.isArray(parsed.limits)) {
           leaderboardState.limits = [parseFloat(parsed.limits[0]), parseFloat(parsed.limits[1])];
+        } else if (leaderboardState.referencePrice) {
+          leaderboardState.limits = [
+            Math.round(leaderboardState.referencePrice * 0.95 * 100) / 100,
+            Math.round(leaderboardState.referencePrice * 1.05 * 100) / 100
+          ];
         }
         if (parsed.age_s) {
           leaderboardState.lastSweepTimestamp = Date.now() - (parsed.age_s * 1000);
@@ -379,11 +373,7 @@ export async function refreshLeaderboardData() {
     renderRecentFlows();
     updateClaimBankrollUI();
 
-    // Trigger Autonomous Auto-Copy Sentinel Cycle on new sweep
-    if (autoCopyState.enabled) {
-      updateAutoCopySentinelUI();
-      executeAutoCopyCycle();
-    }
+
 
     // Default inspect My Agent
     if (!leaderboardState.selectedAgent || leaderboardState.selectedAgent.did === MY_DID) {
@@ -403,11 +393,22 @@ function updateTelemetryKPIs() {
   const sweepPctEl = document.getElementById('lb-sweep-percent');
   const sweepProgressFill = document.getElementById('lb-sweep-progress-fill');
   if (sweepNumEl) {
-    const sweep = leaderboardState.currentSweep || 561;
+    const sweep = leaderboardState.currentSweep || 2556;
     sweepNumEl.textContent = `Sweep #${sweep}`;
-    const pct = ((sweep / TOTAL_SWEEPS) * 100).toFixed(1);
+    const pct = Math.min(100, ((sweep / TOTAL_SWEEPS) * 100)).toFixed(1);
     if (sweepPctEl) sweepPctEl.textContent = `${pct}% Complete (${sweep} / ${TOTAL_SWEEPS})`;
     if (sweepProgressFill) sweepProgressFill.style.width = `${pct}%`;
+  }
+
+  // 2. Next Sweep Settle Countdown
+  const countdownEl = document.getElementById('lb-countdown-display');
+  if (countdownEl && leaderboardState.currentSweep >= 2556) {
+    countdownEl.textContent = 'FINAL';
+    countdownEl.style.color = '#10B981';
+    const sub = countdownEl.nextElementSibling;
+    if (sub && sub.classList.contains('lb-kpi-sub')) {
+      sub.textContent = 'Final Settlement Complete';
+    }
   }
 
   // 2. Oracle Price & Limits
@@ -660,11 +661,8 @@ function renderLeaderboardTable() {
       <td style="text-align: right;">
         ${gapDisplay}
       </td>
-      <td style="text-align: right; width: 155px; white-space: nowrap;">
-        <button class="btn btn-primary btn-sm lb-btn-autocopy" data-did="${did}" data-label="${isMyAgent ? 'My Active Position ⚡' : `Rank #${globalRank}`}" style="padding: 3px 8px; font-size: 0.6875rem; background: linear-gradient(135deg, #10B981, #059669); border: none; font-weight: 700; margin-right: 4px; box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);" title="24/7 Autonomous Continuous Auto-Copy Trading">
-          🔄 Auto-Copy
-        </button>
-        <button class="btn btn-secondary btn-sm lb-btn-inspect" data-did="${did}" data-label="${isMyAgent ? 'My Active Position ⚡' : `Rank #${globalRank}`}" style="padding: 3px 8px; font-size: 0.6875rem;">
+      <td style="text-align: right; width: 100px; white-space: nowrap;">
+        <button class="btn btn-secondary btn-sm lb-btn-inspect" data-did="${did}" data-label="${isMyAgent ? 'My Active Position ⚡' : `Rank #${globalRank}`}" style="padding: 4px 10px; font-size: 0.72rem; font-weight: 600;">
           Inspect
         </button>
       </td>
@@ -679,14 +677,7 @@ function renderLeaderboardTable() {
       });
     }
 
-    // Bind Continuous Auto-Copy Trading
-    const autoCopyBtn = row.querySelector('.lb-btn-autocopy');
-    if (autoCopyBtn) {
-      autoCopyBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        startAutoCopyTrading(did, autoCopyBtn.dataset.label || 'Leader');
-      });
-    }
+
 
     // Bind Inspect
     const inspectBtn = row.querySelector('.lb-btn-inspect');
@@ -749,9 +740,6 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
         </div>
       </div>
       <div class="lb-inspect-actions" style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-        <button id="lb-btn-autocopy-inspected" class="btn btn-primary btn-sm" style="font-size: 0.75rem; background: linear-gradient(135deg, #10B981, #059669); border: none; font-weight: 700; box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);">
-          🤖 Continuous Auto-Copy (${activeQty.toFixed(2)} ${agentEntry.qty < 0 ? 'SHORT' : 'LONG'})
-        </button>
         <button id="lb-btn-copy-inspected-did" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
           📋 Copy Full DID
         </button>
@@ -816,12 +804,7 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
     });
   }
 
-  const autoCopyTradeBtn = document.getElementById('lb-btn-autocopy-inspected');
-  if (autoCopyTradeBtn) {
-    autoCopyTradeBtn.addEventListener('click', () => {
-      startAutoCopyTrading(did, label);
-    });
-  }
+
 
   if (scroll) {
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -833,22 +816,7 @@ export function inspectAgent(did, label = 'Agent', scroll = true) {
  */
 export function updateAutoCopySentinelUI() {
   const sentinel = document.getElementById('lb-autocopy-sentinel');
-  const targetDidEl = document.getElementById('lb-autocopy-target-did');
-  const counterEl = document.getElementById('lb-autocopy-counter-badge');
-  const statusText = document.getElementById('lb-autocopy-status-text');
-
-  if (!sentinel) return;
-
-  if (autoCopyState.enabled && autoCopyState.targetDid) {
-    sentinel.style.display = 'block';
-    const did = autoCopyState.targetDid;
-    const shortDid = did.length > 20 ? `${did.slice(0, 12)}...${did.slice(-6)}` : did;
-    if (targetDidEl) targetDidEl.textContent = shortDid;
-    if (counterEl) counterEl.textContent = `⚡ Auto-Executed: ${autoCopyState.autoCopyCount} sweeps`;
-    if (statusText) {
-      statusText.innerHTML = `Mirroring Target: <code style="color: #6EE7B7;">${shortDid}</code> (${autoCopyState.targetLabel || 'Champion'}) • Automatically replicating ${autoCopyState.targetSide.toUpperCase()} ${autoCopyState.targetQty.toFixed(2)} on every 5-min sweep to contest close`;
-    }
-  } else {
+  if (sentinel) {
     sentinel.style.display = 'none';
   }
 }
@@ -885,7 +853,7 @@ export function updateClaimBankrollUI() {
     pill.textContent = '✓ 10,000 POLF Active';
     pill.style.background = 'rgba(16, 185, 129, 0.2)';
     pill.style.color = '#34D399';
-    text.innerHTML = `Starting bankroll is <b style="color: #34D399;">claimed &amp; registered</b> in <code>/r/close1</code>. Ready for 24/7 trading &amp; auto-copy!`;
+    text.innerHTML = `Starting bankroll is <b style="color: #34D399;">claimed &amp; registered</b> in <code>/r/close1</code>. Final contest standings verified!`;
     if (btn) btn.style.display = 'none';
   } else {
     pill.className = 'step-status-pill error';
@@ -913,153 +881,22 @@ export function updateClaimBankrollUI() {
 }
 
 /**
- * Activate Continuous Auto-Copy Trading: Automatically replicates target agent across all sweeps
+ * Safe Stubs: Close Call Trading Concluded at 09:00 UTC
  */
 export async function startAutoCopyTrading(did, label = 'Leader') {
-  const agent = leaderboardState.allAgents.find(a => a.did === did) || {
-    did,
-    qty: -44.87,
-    score: 0
-  };
-
-  const side = agent.qty < 0 ? 'sell' : 'buy';
-  const qty = Math.abs(agent.qty) || 44.87;
-
-  autoCopyState.enabled = true;
-  autoCopyState.targetDid = did;
-  autoCopyState.targetLabel = label;
-  autoCopyState.targetSide = side;
-  autoCopyState.targetQty = qty;
-
-  try {
-    localStorage.setItem('technocore_autocopy_target', JSON.stringify({
-      did,
-      label,
-      side,
-      qty,
-      enabled: true,
-      count: autoCopyState.autoCopyCount
-    }));
-  } catch (e) {}
-
-  updateAutoCopySentinelUI();
-
-  if (_state && _state.keypair && _state.keypair.did) {
-    _toast(`🤖 Auto-Copy Activated! Continuously mirroring ${label} (${side.toUpperCase()} ${qty.toFixed(2)} contracts) on every 5-min sweep until contest end!`, 'success');
-    await executeAutoCopyCycle();
-  } else {
-    _toast(`🤖 Auto-Copy Target set to ${label}! Please connect/load your identity in Step 1 so the console can sign automated trades.`, 'info');
-  }
+  _toast('🏁 Close Call trading closed at 09:00 UTC and settled at $234.69. Trading is concluded.', 'info');
 }
 
-/**
- * Stop Continuous Auto-Copy Trading
- */
 export function stopAutoCopyTrading() {
   autoCopyState.enabled = false;
   autoCopyState.targetDid = null;
   try {
     localStorage.removeItem('technocore_autocopy_target');
   } catch (e) {}
-  updateAutoCopySentinelUI();
-  _toast('⏹️ Autonomous Auto-Copy Trading Stopped.', 'info');
 }
 
-/**
- * Execute 1 Auto-Copy Sweep Cycle (Called on every 5-minute referee sweep)
- */
 export async function executeAutoCopyCycle() {
-  if (!autoCopyState.enabled || !autoCopyState.targetDid) return;
-
-  const currentSweep = leaderboardState.currentSweep;
-  if (!currentSweep || autoCopyState.lastCopiedSweep === currentSweep) return;
-
-  if (!_state || !_state.keypair || !_state.keypair.did) {
-    console.log('[Auto-Copy Sentinel] Identity not loaded in console; awaiting keypair...');
-    return;
-  }
-
-  // Auto-adapt if target agent changed position side or contracts
-  const targetAgent = leaderboardState.allAgents.find(a => a.did === autoCopyState.targetDid);
-  if (targetAgent && targetAgent.qty !== undefined && targetAgent.qty !== 0) {
-    autoCopyState.targetSide = targetAgent.qty < 0 ? 'sell' : 'buy';
-    autoCopyState.targetQty = Math.abs(targetAgent.qty) || 44.87;
-  }
-
-  const px = leaderboardState.referencePrice || 224.68;
-  const side = autoCopyState.targetSide;
-  const qty = autoCopyState.targetQty;
-
-  const naclInst = _nacl || window.nacl;
-
-  try {
-    // 0. Auto-claim 10,000 POLF starting stack if not yet registered in /r/close1
-    const isClaimed = closeCallState.isOwnerRegistered || 
-      (typeof localStorage !== 'undefined' && localStorage.getItem('closecall_minted_' + _state.keypair.did) === 'true');
-    if (!isClaimed) {
-      console.log('[Auto-Copy Sentinel] Auto-claiming 10,000 POLF starting stack before trade execution...');
-      try {
-        await claimCloseCallPolf(naclInst, _state.keypair);
-        _toast('🎁 10,000 POLF Starting Stack Auto-Claimed in /r/close1!', 'success');
-        updateClaimBankrollUI();
-      } catch (e) {
-        console.warn('[Auto-Copy Sentinel] Auto-claim notice:', e.message);
-      }
-    }
-
-    // 1. Check if matching counterparty liquidity exists in orderbook to fill immediately
-    const oppositeSide = side === 'sell' ? 'buy' : 'sell';
-    let executedMatch = false;
-
-    try {
-      const openOffers = await fetchCloseCallOrders(_state.keypair.did);
-      const match = openOffers.find(o => 
-        !o.isOwn && 
-        o.terms && 
-        o.terms.side === oppositeSide && 
-        o.makerSig &&
-        (leaderboardState.limits ? (parseFloat(o.terms.px) >= leaderboardState.limits[0] && parseFloat(o.terms.px) <= leaderboardState.limits[1]) : true)
-      );
-
-      if (match) {
-        console.log(`[Auto-Copy Sentinel] Immediate counterparty fill found! Executing trade match with maker ${match.terms.maker}...`);
-        await acceptAndExecuteOffer(naclInst, _state.keypair, match);
-        executedMatch = true;
-        _toast(`⚡ Auto-Copy Instantly Filled with counterparty on Sweep #${currentSweep}! Mirrored ${side.toUpperCase()} @ $${match.terms.px}`, 'success');
-      }
-    } catch (matchErr) {
-      console.warn('[Auto-Copy Sentinel] Match check notice:', matchErr.message);
-    }
-
-    // 2. If no direct counterparty fill was available, broadcast resting maker offer to orderbook
-    if (!executedMatch) {
-      console.log(`[Auto-Copy Sentinel] Auto-broadcasting mirror trade offer for Sweep #${currentSweep}: ${side} ${qty} @ $${px}`);
-      await createAndBroadcastOffer(naclInst, _state.keypair, {
-        side,
-        px: px.toFixed(2),
-        qty: qty.toFixed(2),
-        untilSweeps: 24
-      });
-      _toast(`🤖 Auto-Copy Sweep #${currentSweep} Broadcasted! Mirrored ${side.toUpperCase()} ${qty.toFixed(2)} @ $${px.toFixed(2)} on orderbook`, 'success');
-    }
-
-    autoCopyState.lastCopiedSweep = currentSweep;
-    autoCopyState.autoCopyCount++;
-    try {
-      localStorage.setItem('technocore_autocopy_target', JSON.stringify({
-        did: autoCopyState.targetDid,
-        label: autoCopyState.targetLabel,
-        side: autoCopyState.targetSide,
-        qty: autoCopyState.targetQty,
-        enabled: true,
-        count: autoCopyState.autoCopyCount
-      }));
-    } catch (e) {}
-
-    updateAutoCopySentinelUI();
-  } catch (err) {
-    console.warn('[Auto-Copy Sentinel] Auto trade notice:', err.message);
-  }
+  // Concluded
 }
 
 // Global inspect and auto-copy trade helpers for inline HTML clicks
