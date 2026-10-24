@@ -8,8 +8,21 @@
   <meta name="description" content="Technocore Console &amp; FlopRadar Telegram Companion - Built by Asad Lee for cryptographic identity, Sonnet Challenge intelligence, and referee audits.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script>
+    // Studio starts light; the old Console preference must not override this redesign.
+    (() => {
+      let theme = 'light';
+      try {
+        const saved = localStorage.getItem('technocore_studio_theme_v1');
+        if (saved === 'light' || saved === 'dark') theme = saved;
+      } catch {}
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      document.documentElement.classList.toggle('light', theme === 'light');
+    })();
+  </script>
   <link rel="stylesheet" href="./style.css?v=4.2">
-  <link rel="stylesheet" href="./studio.css?v=2">
+  <link rel="stylesheet" href="./studio.css?v=3">
   
   <!-- Cryptography and 3D Libraries (Pinned Local with CDN Fallback) -->
   <script src="./vendor/nacl-fast.min.js"></script>
@@ -1709,7 +1722,7 @@
   </div>
 
   <!-- Application Logic Module -->
-  <script type="module" src="./app.js?v=4.3"></script>
+  <script type="module" src="./app.js?v=4.4"></script>
   <script src="./studio.js?v=1" defer></script>
 </body>
 </html>

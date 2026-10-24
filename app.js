@@ -561,7 +561,7 @@ function cacheElements() {
 function initTheme() {
   let savedTheme = 'light';
   try {
-    const pref = localStorage.getItem('technocore_theme');
+    const pref = localStorage.getItem('technocore_studio_theme_v1');
     if (pref === 'light' || pref === 'dark') savedTheme = pref;
   } catch {}
   document.documentElement.setAttribute('data-theme', savedTheme);
@@ -574,7 +574,7 @@ function initTheme() {
 function toggleTheme() {
   state.theme = state.theme === 'dark' ? 'light' : 'dark';
   try {
-    localStorage.setItem('technocore_theme', state.theme);
+    localStorage.setItem('technocore_studio_theme_v1', state.theme);
   } catch {}
   document.documentElement.setAttribute('data-theme', state.theme);
   document.documentElement.classList.toggle('dark', state.theme === 'dark');

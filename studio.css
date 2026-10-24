@@ -94,3 +94,11 @@ html[data-theme="light"] body { background-image:none; }
   .studio-navigation { gap:18px; }
   .studio-more summary { font-size:12px; }
 }
+/* Keep the complete sculpture within its mobile stage, including its float travel. */
+@media(max-width:760px) {
+  .studio-art { height:220px; padding:10px 0; }
+  .studio-art img,
+  [data-theme="dark"] .studio-art img { width:200px; height:200px; max-width:200px; flex-shrink:0; border-radius:0; }
+}
+/* This is a top bar now, not the previous 82vw mobile sidebar drawer. */
+#app-sidebar { max-width:none; }
