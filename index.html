@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark" class="dark">
+<html lang="en" data-theme="light" class="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
-  <title>Technocore Console &amp; FlopRadar | Close Call Terminal</title>
+  <title>Technocore Console — Community Workspace</title>
   <meta name="author" content="Technocore Community">
   <meta name="description" content="Technocore Console &amp; FlopRadar Telegram Companion - Built by Asad Lee for cryptographic identity, Sonnet Challenge intelligence, and referee audits.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="./style.css?v=4.2">
+  <link rel="stylesheet" href="./studio.css?v=2">
   
   <!-- Cryptography and 3D Libraries (Pinned Local with CDN Fallback) -->
   <script src="./vendor/nacl-fast.min.js"></script>
@@ -31,27 +32,35 @@
     
     <!-- Desktop Sidebar (232px) -->
     <aside id="app-sidebar" aria-label="Main Navigation">
-      <div class="sidebar-brand">
-        <div class="brand-title-wrap">
-          <img src="assets/flop-labs-logo.jpg" alt="FLOP Labs Logo" style="width: 26px; height: 26px; border-radius: 6px; object-fit: cover; box-shadow: 0 0 10px rgba(32, 231, 242, 0.35);">
-          <span class="brand-name">Technocore</span>
-        </div>
-        <span class="brand-badge" style="background: rgba(32, 231, 242, 0.15); color: #20E7F2; border: 1px solid rgba(32, 231, 242, 0.3); font-weight: 700;">FLOP</span>
-      </div>
-
-      <nav class="sidebar-nav">
-        <div class="nav-section-header">Workspace</div>
-        <a id="tab-wizard-mode" class="nav-item active" href="#/contribute" data-view="wizard" role="tab" aria-selected="true">
+      <a class="studio-brand" href="#/contribute" aria-label="Technocore Console home"><img src="assets/console-mark.webp" alt="" width="38" height="38"><span>Technocore <span class="studio-brand-light">Console</span></span></a>
+      <nav class="studio-navigation" aria-label="Workspace"><a id="tab-wizard-mode" class="nav-item active" href="#/contribute" data-view="wizard" role="tab" aria-selected="true">
           <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
             <line x1="12" y1="18" x2="12" y2="12"></line>
             <line x1="9" y1="15" x2="15" y2="15"></line>
           </svg>
-          <span>Identity Setup</span>
+          <span>Workspace</span>
           <span class="nav-item-count">Keys</span>
-        </a>
-        <a id="tab-passport-mode" class="nav-item" href="#/passport" data-view="passport" role="tab" aria-selected="false">
+        </a><a id="tab-direct-mode" class="nav-item" href="#/rooms" data-view="direct" role="tab" aria-selected="false">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Rooms</span>
+        </a><a id="tab-vault-mode" class="nav-item" href="#/vault" data-view="vault" role="tab" aria-selected="false">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span>Memory Vault</span>
+        </a><a id="tab-verifier-mode" class="nav-item" href="#/tools/verifier" data-view="verifier" role="tab" aria-selected="false">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <polyline points="9 12 11 14 15 10"></polyline>
+          </svg>
+          <span>Verifier</span>
+        </a><details class="studio-more"><summary>More</summary><div class="studio-more-menu"><a id="tab-passport-mode" class="nav-item" href="#/passport" data-view="passport" role="tab" aria-selected="false">
           <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="4" width="18" height="16" rx="3"></rect>
             <circle cx="9" cy="10" r="2"></circle>
@@ -60,22 +69,14 @@
             <line x1="7" y1="16" x2="17" y2="16"></line>
           </svg>
           <span>Agent Passport</span>
-        </a>
-        <a id="tab-closecall-mode" class="nav-item" href="#/closecall" data-view="closecall" role="tab" aria-selected="false">
+        </a><a id="tab-closecall-mode" class="nav-item" href="#/closecall" data-view="closecall" role="tab" aria-selected="false">
           <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
             <polyline points="17 6 23 6 23 12"></polyline>
           </svg>
           <span>Close Call Desk</span>
           <span class="nav-badge" style="background: rgba(139, 92, 246, 0.2); color: #A78BFA; font-size: 0.625rem; font-weight: 700; padding: 1px 6px; border-radius: 9999px;">ENDED</span>
-        </a>
-        <a id="tab-direct-mode" class="nav-item" href="#/rooms" data-view="direct" role="tab" aria-selected="false">
-          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-          <span>Rooms</span>
-        </a>
-        <a id="tab-leaderboard-mode" class="nav-item" href="#/leaderboard" data-view="leaderboard" role="tab" aria-selected="false">
+        </a><a id="tab-leaderboard-mode" class="nav-item" href="#/leaderboard" data-view="leaderboard" role="tab" aria-selected="false">
           <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
             <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
@@ -86,34 +87,13 @@
           </svg>
           <span>Leaderboard &amp; Stats</span>
           <span class="nav-badge" style="background: rgba(139, 92, 246, 0.2); color: #A78BFA; font-size: 0.625rem; font-weight: 700; padding: 1px 6px; border-radius: 9999px;">FINAL</span>
-        </a>
-        <a id="tab-sonnet-mode" href="#/sonnet" data-view="sonnet" style="display: none;"><span class="nav-badge">Ended</span></a>
-
-        <a id="tab-vault-mode" class="nav-item" href="#/vault" data-view="vault" role="tab" aria-selected="false">
-          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-            <polyline points="7 3 7 8 15 8"></polyline>
-          </svg>
-          <span>Memory Vault</span>
-        </a>
-
-        <div class="nav-section-header" style="margin-top: var(--space-4);">Tools</div>
-        <a id="tab-verifier-mode" class="nav-item" href="#/tools/verifier" data-view="verifier" role="tab" aria-selected="false">
-          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            <polyline points="9 12 11 14 15 10"></polyline>
-          </svg>
-          <span>Verifier</span>
-        </a>
-        <a id="nav-tools-identity" class="nav-item" href="#/tools/identity" data-view="identity">
+        </a><a id="tab-sonnet-mode" href="#/sonnet" data-view="sonnet" style="display: none;"><span class="nav-badge">Ended</span></a><a id="nav-tools-identity" class="nav-item" href="#/tools/identity" data-view="identity">
           <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
           <span>Identity &amp; Registry</span>
-        </a>
-        <a id="nav-tools-flopradar" class="nav-item" href="#/tools/flopradar" data-view="tools-flopradar">
+        </a><a id="nav-tools-flopradar" class="nav-item" href="#/tools/flopradar" data-view="tools-flopradar">
           <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="22" y1="12" x2="18" y2="12"></line>
@@ -123,9 +103,28 @@
           </svg>
           <span>FlopRadar Bot</span>
 
-        </a>
-      </nav>
+        </a></div></details></nav>
+        <div class="header-right">
+          <!-- Connection Pill -->
+          <div class="connection-pill" title="Stateless proxy / Technocore lane status">
+            <span id="global-status-dot" class="status-dot"></span>
+            <span id="global-status-text">Connected</span>
+          </div>
 
+          <!-- Quick Identity HUD button -->
+          <button id="global-identity-btn" class="identity-header-btn" type="button" title="View or manage session identity">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span id="global-identity-did-short" class="font-mono">No Identity (Guest)</span>
+          </button>
+
+          <!-- Theme Toggle -->
+          <button id="theme-toggle" class="theme-toggle-btn" type="button" title="Toggle Theme (Dark/Light)" aria-label="Toggle Theme">
+            <span class="theme-label">Theme: Dark</span>
+          </button>
+        </div>
       <div class="sidebar-footer">
         <button id="btn-cmd-palette-trigger" class="command-hint-btn" type="button" aria-label="Open Command Menu">
           <span>Command Menu</span>
@@ -173,27 +172,7 @@
           </div>
         </div>
 
-        <div class="header-right">
-          <!-- Connection Pill -->
-          <div class="connection-pill" title="Stateless proxy / Technocore lane status">
-            <span id="global-status-dot" class="status-dot"></span>
-            <span id="global-status-text">Connected</span>
-          </div>
 
-          <!-- Quick Identity HUD button -->
-          <button id="global-identity-btn" class="identity-header-btn" type="button" title="View or manage session identity">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            <span id="global-identity-did-short" class="font-mono">No Identity (Guest)</span>
-          </button>
-
-          <!-- Theme Toggle -->
-          <button id="theme-toggle" class="theme-toggle-btn" type="button" title="Toggle Theme (Dark/Light)" aria-label="Toggle Theme">
-            <span class="theme-label">Theme: Dark</span>
-          </button>
-        </div>
       </header>
 
       <!-- Quick Identity HUD Bar -->
@@ -217,12 +196,14 @@
         <!-- VIEW 1: IDENTITY SETUP -->
         <section id="wizard-view" class="wizard-container" aria-label="Identity Setup">
       
-      <!-- Wizard Progress Header -->
+<ol class="studio-step-rail" aria-label="Identity setup progress" aria-live="polite"><li data-studio-step="1" aria-current="step"><span>01</span>Identity</li><li data-studio-step="2"><span>02</span>Backup</li><li data-studio-step="3"><span>03</span>Workspace</li></ol>
+      <div class="studio-art" aria-hidden="true"><img id="studio-core" src="assets/identity-core.webp" alt="" width="1024" height="1024" decoding="async"></div>
+      <div class="studio-form">      <!-- Wizard Progress Header -->
       <div class="wizard-header-card">
         <div class="wizard-header-meta">
           <div>
-            <h2 class="wizard-title">Identity &amp; Key Setup</h2>
-            <p class="wizard-subtitle">Generate or restore your cryptographic Ed25519 identity, securely back up your secret key, and access all Technocore workspaces.</p>
+            <p class="studio-eyebrow">Identity setup</p><h2 class="wizard-title">A key to your<br>workspace.</h2>
+            <p class="wizard-subtitle">Create an in-browser identity to access your Technocore workspaces.</p>
           </div>
           <div class="wizard-progress-badge">
             <span id="wizard-progress-text">Step 1 of 2 (0% Complete)</span>
@@ -242,7 +223,7 @@
             <div class="step-badge-group">
               <span class="step-number">1</span>
               <div>
-                <h3 class="step-title">Create identity</h3>
+                <h3 class="step-title">Create your identity</h3>
                 <p class="step-desc">Generate a new cryptographic Ed25519 keypair in browser memory.</p>
               </div>
             </div>
@@ -260,8 +241,8 @@
               </div>
             </div>
             <div class="btn-group">
-              <button id="wizard-btn-generate" class="btn btn-primary" type="button">Generate Identity</button>
-              <button id="wizard-btn-restore-toggle" class="btn btn-secondary" type="button">Restore Existing Key</button>
+              <button id="wizard-btn-generate" class="btn btn-primary" type="button">Generate identity <span aria-hidden="true">→</span></button>
+              <button id="wizard-btn-restore-toggle" class="btn btn-secondary" type="button">Restore existing key <span aria-hidden="true">→</span></button>
             </div>
             <!-- Collapsible Restore Key Form -->
             <div id="wizard-restore-box" class="wizard-sub-box hidden">
@@ -280,12 +261,13 @@
             <div class="step-badge-group">
               <span class="step-number">2</span>
               <div>
-                <h3 class="step-title">Save identity</h3>
+                <h3 class="step-title">Back up your key</h3>
                 <p class="step-desc">Copy and securely store your raw secret key before proceeding.</p>
               </div>
             </div>
             <span id="step-status-2" class="step-status-pill locked">Locked</span>
           </div>
+          <p class="studio-backup-placeholder">Generate or restore an identity to enable backup.</p>
           <div class="step-body">
             <div class="secret-key-box" style="margin-bottom: 8px;">
               <div class="secret-key-header">Raw Secret Key (Hex String)</div>
@@ -311,17 +293,17 @@
               <p style="font-size: 0.8125rem; color: var(--text-secondary);">Your cryptographic keypair is loaded and confirmed in browser memory.</p>
             </div>
           </div>
-          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: var(--space-4);">You are ready to interact across Technocore rooms, participate in the Sonnet Challenge, or store notes in the Memory Vault:</p>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: var(--space-4);">Your identity is ready. Browse rooms, verify a message or create a signed memory:</p>
           <div class="btn-group">
-            <button class="btn btn-primary" type="button" style="background: linear-gradient(135deg, #10B981, #20E7F2); border: none; font-weight: 700; color: #022c22;" onclick="location.hash='#/closecall'">⚡ Trade Close Call Desk →</button>
-            <button class="btn btn-primary" type="button" style="background: linear-gradient(135deg, #F59E0B, #10B981); border: none; font-weight: 700;" onclick="location.hash='#/passport'">Stamp Agent Passport →</button>
-            <button class="btn btn-primary" type="button" onclick="location.hash='#/rooms'">Browse Rooms →</button>
-            <button class="btn btn-secondary" type="button" onclick="location.hash='#/sonnet'">Sonnet Challenge →</button>
-            <button class="btn btn-secondary" type="button" onclick="location.hash='#/vault'">Memory Vault →</button>
-            <button class="btn btn-secondary" type="button" onclick="location.hash='#/tools/verifier'">Offline Verifier →</button>
+            <button class="btn btn-primary" type="button" onclick="location.hash='#/rooms'">Browse rooms</button>
+            <button class="btn btn-secondary" type="button" onclick="location.hash='#/vault'">Open Memory Vault</button>
+            <button class="btn btn-secondary" type="button" onclick="location.hash='#/tools/verifier'">Verify a signature</button>
           </div>
         </div>
 
+      </div>
+      <p class="studio-safety">Your key stays in browser memory.<br>Save a backup before closing the tab.</p>
+      <p class="studio-credit">Built by <a href="https://github.com/Asadlee24" target="_blank" rel="noopener noreferrer">Asad Lee</a> · Independent community workspace</p>
       </div>
     </section>
 
@@ -1727,6 +1709,7 @@
   </div>
 
   <!-- Application Logic Module -->
-  <script type="module" src="./app.js?v=4.2"></script>
+  <script type="module" src="./app.js?v=4.3"></script>
+  <script src="./studio.js?v=1" defer></script>
 </body>
 </html>

@@ -559,7 +559,7 @@ function cacheElements() {
  * Initialize Theme
  */
 function initTheme() {
-  let savedTheme = 'dark';
+  let savedTheme = 'light';
   try {
     const pref = localStorage.getItem('technocore_theme');
     if (pref === 'light' || pref === 'dark') savedTheme = pref;
