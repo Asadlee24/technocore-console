@@ -102,3 +102,55 @@ html[data-theme="light"] body { background-image:none; }
 }
 /* This is a top bar now, not the previous 82vw mobile sidebar drawer. */
 #app-sidebar { max-width:none; }
+/* Shared surfaces and intrinsic sizing across every workspace. */
+html[data-theme="dark"] { --bg-page:#111b1c; --surface-main:#172426; --surface-raised:#1d2e30; --surface-sunken:#0e1819; --surface-input:#122022; --surface-hover:#24383a; --border-subtle:#314749; --border-strong:#526b6d; --border-focus:#60c9c6; --text-primary:#eff4f2; --text-secondary:#b8c8c5; --text-muted:#9aafab; --brand-accent:#60c9c6; --brand-accent-hover:#8bdfd9; --text-on-accent:#102021; --surface-panel:#172426; --surface-panel-alt:#1d2e30; --surface-inset:#0e1819; --accent-cyan:#60c9c6; --accent-green:#83d6ad; }
+#app-main,.workspace-content,.view-container,#direct-view,.console-col,.panel,.panel-body,.card,.card-raised,.panel-title-group,.vault-col,.vault-grid > *, .main-grid > *, .closecall-grid > *, .passport-workspace-grid > *, .kibble-workspace-grid > *, .rooms-layout > * {min-width:0}
+#direct-view {width:100%;max-width:100%;padding:20px 4% 48px;grid-template-columns:repeat(2,minmax(0,1fr))}
+#vault-view {min-width:0;padding:20px 4% 48px}
+.visualizer-wrapper,.canvas-container {width:100%;max-width:100%;min-width:0;overflow:hidden}
+.canvas-container canvas {display:block;max-width:100%;width:100%!important;height:100%!important}
+.panel-header,.card-header,.field-label,.composer-row,.composer-actions,.vault-header-meta,.vault-session-summary {flex-wrap:wrap}
+.panel-header > *, .card-header > *, .field-label > *, .field-row > *, .readout-box > *, .vault-header-meta > * {min-width:0}
+.field-label {gap:6px 12px}
+.field-hint {white-space:normal;overflow-wrap:anywhere}
+.readout-text,.secret-key-value,.view-description,.result-body {overflow-wrap:anywhere}
+.readout-text {white-space:normal}
+.input-text,.input-textarea,.input-select,textarea,select {min-width:0;max-width:100%}
+pre {max-width:100%;overflow-x:auto}
+.readout-box .btn-icon-copy {flex-shrink:0;min-width:44px;white-space:nowrap;word-break:normal}
+.visualizer-wrapper {background:var(--surface-raised)!important}
+.visualizer-overlay {color:var(--text-secondary);gap:12px;flex-wrap:wrap}
+.canvas-container:empty {background:url('./assets/console-mark.webp') center/100px 100px no-repeat}
+.leaderboard-table-container {min-width:0;max-width:100%;overscroll-behavior-x:contain}
+.lb-filter-bar {flex-wrap:wrap;overflow:visible}
+@media(max-width:960px) {#direct-view {grid-template-columns:minmax(0,1fr)!important}}
+@media(max-width:760px) {
+ #direct-view,#vault-view {padding:16px}
+ .main-grid,.vault-grid,.sonnet-grid,.stats-grid,.squad-grid,.rooms-layout,.passport-workspace-grid,.closecall-grid,.kibble-workspace-grid {grid-template-columns:minmax(0,1fr)!important}
+ .panel-header,.card-header {align-items:flex-start;gap:10px}
+ .panel,.card,.card-raised {max-width:100%}
+ .status-badge {white-space:normal;flex-wrap:wrap;max-width:100%}
+ .field-label {align-items:flex-start}
+ .field-hint {max-width:100%}
+ .btn {white-space:normal;overflow-wrap:anywhere;min-height:44px}
+ .composer-actions .btn,.btn-group .btn {max-width:100%}
+ .vault-session-summary {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:8px}
+ .vault-stat {min-width:0;padding:10px 8px;overflow-wrap:anywhere}
+ .vault-stat-wide {grid-column:auto}
+ .studio-navigation {gap:clamp(10px,3.8vw,22px);justify-content:space-between}
+ .studio-navigation .nav-item,.studio-more summary {min-height:44px}
+ .studio-brand {font-size:16px;gap:8px}
+ #app-sidebar .header-right {gap:2px}
+ .studio-form {padding-bottom:calc(36px + env(safe-area-inset-bottom))}
+}
+/* The alpha artwork belongs on the page, with no baked-in white stage. */
+.studio-art img,[data-theme="dark"] .studio-art img {mix-blend-mode:normal;border-radius:0;filter:drop-shadow(0 18px 18px #00353a18)}
+#global-header .header-left,#global-header .header-title-wrap {min-width:0;flex:1}
+#global-header .header-title {max-width:none;white-space:normal;overflow:visible;text-overflow:clip}
+.btn-primary {background:var(--brand-accent);color:var(--text-on-accent);box-shadow:none}
+.card,.panel,.card-raised {background:var(--surface-main);border-color:var(--border-subtle)}
+input,textarea,select {color:var(--text-primary)}
+input::placeholder,textarea::placeholder {color:var(--text-muted);opacity:1}
+.header-view-title {max-width:none!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+@media(max-width:380px) {.studio-brand-light {font-size:14px}.studio-navigation .nav-item,.studio-more summary {font-size:11px}.studio-form {padding-left:20px;padding-right:20px}}
+.readout-text {word-break:normal}
