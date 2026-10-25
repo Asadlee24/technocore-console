@@ -154,3 +154,9 @@ input::placeholder,textarea::placeholder {color:var(--text-muted);opacity:1}
 .header-view-title {max-width:none!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
 @media(max-width:380px) {.studio-brand-light {font-size:14px}.studio-navigation .nav-item,.studio-more summary {font-size:11px}.studio-form {padding-left:20px;padding-right:20px}}
 .readout-text {word-break:normal}
+
+/* One shared credit follows every route and uses the active theme. */
+.studio-footer {margin:0 4%;padding:22px 0 calc(22px + env(safe-area-inset-bottom));border-top:1px solid var(--studio-line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;color:var(--studio-muted);font-size:12px;line-height:1.6}
+.studio-footer a {display:inline-block;min-height:24px;color:var(--studio-ink);font-weight:600;text-decoration:underline;text-underline-offset:4px}
+.studio-footer a:hover {color:var(--studio-teal)}
+@media(max-width:760px) {.studio-footer {margin:0 16px;flex-direction:column;gap:4px}.studio-footer a {min-height:44px;padding:10px 0}}
